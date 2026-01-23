@@ -8,6 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::dropIfExists('registrations');
+        
         Schema::create('registrations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('competition_id')->constrained()->onDelete('cascade');
@@ -20,7 +22,7 @@ return new class extends Migration
             $table->unsignedInteger('teacher_count')->default(0);
             $table->enum('status', ['pending', 'approved', 'rejected', 'cancelled'])->default('pending');
             $table->date('registration_date')->nullable();
-            $table->foreignId('approved_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->unsignedBigInteger('approved_by')->nullable();
             $table->dateTime('approved_at')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->text('notes')->nullable();
@@ -28,6 +30,8 @@ return new class extends Migration
             
             $table->index(['competition_id', 'school_id']);
             $table->index('status');
+            
+            $table->foreign('approved_by')->references('id')->on('users')->onDelete('set null');
         });
     }
 
