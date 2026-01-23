@@ -7,13 +7,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // DROP ตามลำดับที่ถูกต้อง (child tables ก่อน, parent tables ทีหลัง)
+        // DROP ALL dependent tables in correct order
+        // (child → parent, most dependent first)
         
-        // Level 1: Most dependent tables
+        // Level 1: Most dependent
         Schema::dropIfExists('registration_participants');
         
-        // Level 2: Tables with FK to 'results'
+        // Level 2: Tables with FK to 'results' or 'registrations'
         Schema::dropIfExists('certificates');
+        Schema::dropIfExists('scores');
         
         // Level 3: Tables with FK to 'registrations'
         Schema::dropIfExists('results');
