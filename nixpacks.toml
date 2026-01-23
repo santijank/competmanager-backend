@@ -7,7 +7,7 @@ cmds = [
 ]
 
 [phases.deploy]
-cmds = ['php artisan migrate --force']
+cmds = []
 
 [start]
 cmd = 'php artisan serve --host=0.0.0.0 --port=8000'
