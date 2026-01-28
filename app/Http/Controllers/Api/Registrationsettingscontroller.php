@@ -142,24 +142,46 @@ class RegistrationSettingsController extends Controller
         try {
             $user = auth()->user();
             
-            $schoolGroupId = $user->school_group_id;
+            // ✅ Get school_group_id based on user role
+            $schoolGroupId = null;
+            
+            if ($user->role === 'group_admin' || $user->role === 'district_admin') {
+                // Group admin และ district admin มี school_group_id โดยตรง
+                $schoolGroupId = $user->school_group_id;
+            } elseif ($user->school_id) {
+                // School admin, teacher ต้องดึงจาก school
+                $school = \App\Models\School::find($user->school_id);
+                if ($school) {
+                    $schoolGroupId = $school->school_group_id;
+                }
+            }
             
             if (!$schoolGroupId) {
                 return response()->json([
-                    'success' => false,
-                    'error' => 'Not found',
-                    'message' => 'โรงเรียนของคุณยังไม่ได้อยู่ในกลุ่มโรงเรียนใด'
-                ], 404);
+                    'success' => true,
+                    'data' => [
+                        'status' => 'not_set',
+                        'school_group' => null,
+                        'registration_start_date' => null,
+                        'registration_end_date' => null,
+                        'registration_announcement' => null,
+                    ]
+                ]);
             }
             
             $schoolGroup = SchoolGroup::find($schoolGroupId);
             
             if (!$schoolGroup) {
                 return response()->json([
-                    'success' => false,
-                    'error' => 'Not found',
-                    'message' => 'ไม่พบข้อมูลกลุ่มโรงเรียน'
-                ], 404);
+                    'success' => true,
+                    'data' => [
+                        'status' => 'not_set',
+                        'school_group' => null,
+                        'registration_start_date' => null,
+                        'registration_end_date' => null,
+                        'registration_announcement' => null,
+                    ]
+                ]);
             }
             
             $now = now();
@@ -193,7 +215,10 @@ class RegistrationSettingsController extends Controller
             ]);
             
         } catch (\Exception $e) {
-            Log::error('Get registration status error: ' . $e->getMessage());
+            Log::error('Get registration status error: ' . $e->getMessage(), [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'error' => 'Server error',
