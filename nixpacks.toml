@@ -1,11 +1,17 @@
-﻿[phases.setup]
-nixPkgs = ['php82', 'php82Extensions.mbstring', 'php82Extensions.pdo', 'php82Extensions.pdo_mysql', 'php82Extensions.xml', 'php82Extensions.zip', 'php82Extensions.curl', 'php82Extensions.gd', 'php82Extensions.bcmath', 'php82Extensions.intl']
+﻿@"
+[phases.setup]
+nixPkgs = ['php82', 'php82Extensions.bcmath', 'php82Extensions.gd', 'php82Extensions.pdo', 'php82Extensions.pdo_mysql', 'php82Extensions.sodium', 'php82Extensions.pcntl', 'php82Extensions.zip', 'php82Extensions.mbstring']
+
+[phases.install]
+cmds = ['composer install --optimize-autoloader --no-scripts --no-interaction']
 
 [phases.build]
-cmds = ['composer install --no-dev --optimize-autoloader --no-interaction']
-
-[phases.deploy]
-cmds = []
+cmds = [
+    'php artisan config:cache',
+    'php artisan route:cache',
+    'php artisan view:cache'
+]
 
 [start]
-cmd = 'php artisan serve --host=0.0.0.0 --port=8080'
+cmd = 'php artisan serve --host=0.0.0.0 --port=`$PORT'
+"@ | Out-File -FilePath nixpacks.toml -Encoding UTF8
