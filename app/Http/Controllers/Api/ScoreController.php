@@ -28,15 +28,15 @@ class ScoreController extends Controller
             ]);
 
             // ตรวจสอบสิทธิ์
-            if ($user->role !== 'group_admin') {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
                 return response()->json([
                     'error' => 'Unauthorized',
-                    'message' => 'เฉพาะ Group Admin เท่านั้นที่สามารถใส่คะแนนได้'
+                    'message' => 'เฉพาะ Admin, District Admin และ Group Admin เท่านั้นที่สามารถจัดการคะแนนได้'
                 ], 403);
             }
 
-            // ตรวจสอบว่ามี school_group_id หรือไม่
-            if (!$user->school_group_id) {
+            // ตรวจสอบว่ามี school_group_id หรือไม่ (สำหรับ Group Admin)
+            if ($user->role === 'group_admin' && !$user->school_group_id) {
                 return response()->json([
                     'error' => 'No group assigned',
                     'message' => 'กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดกลุ่มโรงเรียน'
@@ -44,7 +44,7 @@ class ScoreController extends Controller
             }
 
             // ดึงข้อมูลการแข่งขันพร้อมทีมที่ลงทะเบียน
-            $competitions = Competition::with([
+            $query = Competition::with([
                     'category',
                     'schoolGroup',
                     'registrations' => function ($query) {
@@ -53,10 +53,19 @@ class ScoreController extends Controller
                     },
                     'registrations.score'
                 ])
-                ->where('school_group_id', $user->school_group_id)
-                ->where('competition_level', 'group')
-                ->where('is_active', 1)
-                ->orderBy('category_id')
+                ->where('is_active', 1);
+
+            // กรองตาม role
+            if ($user->role === 'group_admin') {
+                // Group Admin เห็นเฉพาะการแข่งขันในกลุ่มของตนและระดับเขต
+                $query->where(function($q) use ($user) {
+                    $q->where('school_group_id', $user->school_group_id)
+                      ->orWhere('competition_level', 'district');
+                });
+            }
+            // Admin เห็นทั้งหมด - ไม่ต้อง filter
+
+            $competitions = $query->orderBy('category_id')
                 ->orderBy('order_number')
                 ->get();
 
@@ -144,9 +153,11 @@ class ScoreController extends Controller
 
             // ตรวจสอบสิทธิ์
             if ($user->role === 'group_admin' && 
-                $competition->school_group_id !== $user->school_group_id) {
+                $competition->school_group_id !== $user->school_group_id &&
+                $competition->competition_level !== 'district') {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
+            // Admin มีสิทธิ์เข้าถึงทั้งหมด
 
             return response()->json([
                 'competition' => [
@@ -195,9 +206,11 @@ class ScoreController extends Controller
 
             // ตรวจสอบสิทธิ์
             if ($user->role === 'group_admin' && 
-                $competition->school_group_id !== $user->school_group_id) {
+                $competition->school_group_id !== $user->school_group_id &&
+                $competition->competition_level !== 'district') {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
+            // Admin มีสิทธิ์เข้าถึงทั้งหมด
 
             $scores = Score::where('competition_id', $competitionId)
                 ->whereNotNull('score')
@@ -261,18 +274,22 @@ class ScoreController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
-            if ($user->role !== 'group_admin') {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $registration = Registration::with('competition')->findOrFail($request->registration_id);
 
-            if ($registration->competition->school_group_id !== $user->school_group_id) {
+            // ตรวจสอบสิทธิ์: อนุญาตถ้าเป็นการแข่งขันของกลุ่มตัวเอง หรือ district level (สำหรับ Group Admin)
+            if ($user->role === 'group_admin' && 
+                $registration->competition->school_group_id !== $user->school_group_id && 
+                $registration->competition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันนี้'
                 ], 403);
             }
+            // Admin มีสิทธิ์ทั้งหมด
 
             $score = floatval($request->score);
             
@@ -336,17 +353,22 @@ class ScoreController extends Controller
                 'scores.*.notes' => 'nullable|string',
             ]);
 
-            if ($user->role !== 'group_admin') {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $competition = Competition::findOrFail($competitionId);
-            if ($competition->school_group_id !== $user->school_group_id) {
+            
+            // ตรวจสอบสิทธิ์: อนุญาตถ้าเป็นการแข่งขันของกลุ่มตัวเอง หรือ district level (สำหรับ Group Admin)
+            if ($user->role === 'group_admin' && 
+                $competition->school_group_id !== $user->school_group_id && 
+                $competition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันนี้'
                 ], 403);
             }
+            // Admin มีสิทธิ์ทั้งหมด
 
             DB::beginTransaction();
 
@@ -500,18 +522,21 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
-            if ($user->role !== 'group_admin') {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $competition = Competition::findOrFail($competitionId);
 
-            if ($competition->school_group_id !== $user->school_group_id) {
+            if ($user->role === 'group_admin' && 
+                $competition->school_group_id !== $user->school_group_id && 
+                $competition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
                 ], 403);
             }
+            // Admin มีสิทธิ์ทั้งหมด
 
             $this->calculateRanks($competitionId);
 
@@ -530,6 +555,139 @@ class ScoreController extends Controller
         } catch (\Exception $e) {
             Log::error('ScoreController: Error finalizing scores', [
                 'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Server error',
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Promote top 2 ranked registrations to district level
+     * Route: POST /competitions/{id}/promote-to-district
+     */
+    public function promoteToDistrict(Request $request, $competitionId)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $groupCompetition = Competition::findOrFail($competitionId);
+
+            // ตรวจสอบสิทธิ์
+            if ($user->role === 'group_admin' && 
+                $groupCompetition->school_group_id !== $user->school_group_id && 
+                $groupCompetition->competition_level !== 'district') {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
+                ], 403);
+            }
+            // Admin มีสิทธิ์ทั้งหมด
+
+            // ต้องเป็นการแข่งขันระดับกลุ่ม
+            if ($groupCompetition->competition_level !== 'group') {
+                return response()->json([
+                    'error' => 'Invalid competition',
+                    'message' => 'สามารถส่งเข้ารอบเขตได้เฉพาะการแข่งขันระดับกลุ่มเท่านั้น'
+                ], 400);
+            }
+
+            // หา district competition ที่ตรงกัน (ชื่อเหมือนกัน, category เหมือนกัน, level เหมือนกัน)
+            $districtCompetition = Competition::where('competition_level', 'district')
+                ->where('category_id', $groupCompetition->category_id)
+                ->where('level', $groupCompetition->level)
+                ->where('name', 'LIKE', '%' . $groupCompetition->name . '%')
+                ->where('status', 'active')
+                ->first();
+
+            if (!$districtCompetition) {
+                return response()->json([
+                    'error' => 'District competition not found',
+                    'message' => 'ไม่พบการแข่งขันระดับเขตที่ตรงกัน'
+                ], 404);
+            }
+
+            // ดึง top 2 จาก scores
+            $topScores = Score::where('competition_id', $competitionId)
+                ->where('is_finalized', true)
+                ->whereNotNull('rank')
+                ->whereIn('rank', [1, 2])
+                ->with('registration')
+                ->orderBy('rank', 'asc')
+                ->get();
+
+            if ($topScores->isEmpty()) {
+                return response()->json([
+                    'error' => 'No qualified registrations',
+                    'message' => 'ไม่พบผู้เข้าแข่งขันที่ผ่านเกณฑ์ (ต้องเป็นอันดับ 1-2 และยืนยันคะแนนแล้ว)'
+                ], 400);
+            }
+
+            DB::beginTransaction();
+            
+            $promoted = [];
+            foreach ($topScores as $score) {
+                $groupRegistration = $score->registration;
+
+                // เช็คว่าส่งไปแล้วหรือยัง
+                $existing = Registration::where('competition_id', $districtCompetition->id)
+                    ->where('school_id', $groupRegistration->school_id)
+                    ->where('team_name', $groupRegistration->team_name)
+                    ->first();
+
+                if ($existing) {
+                    continue; // ข้ามถ้าส่งไปแล้ว
+                }
+
+                // สร้าง registration ใหม่สำหรับระดับเขต
+                $districtRegistration = Registration::create([
+                    'competition_id' => $districtCompetition->id,
+                    'school_id' => $groupRegistration->school_id,
+                    'teacher_id' => $groupRegistration->teacher_id,
+                    'team_name' => $groupRegistration->team_name,
+                    'student_names' => $groupRegistration->student_names,
+                    'student_count' => $groupRegistration->student_count,
+                    'teacher_names' => $groupRegistration->teacher_names,
+                    'teacher_count' => $groupRegistration->teacher_count,
+                    'status' => 'pending', // รอ District Admin อนุมัติ
+                    'notes' => 'ส่งเข้ารอบจากระดับกลุ่ม (อันดับที่ ' . $score->rank . ')',
+                    'registration_date' => now()->format('Y-m-d'),
+                ]);
+
+                $promoted[] = [
+                    'rank' => $score->rank,
+                    'team_name' => $groupRegistration->team_name,
+                    'school_name' => $groupRegistration->school->name ?? 'N/A',
+                    'score' => $score->score,
+                ];
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ส่งเข้ารอบเขตสำเร็จ ' . count($promoted) . ' ทีม',
+                'data' => [
+                    'promoted_count' => count($promoted),
+                    'promoted_teams' => $promoted,
+                    'district_competition' => [
+                        'id' => $districtCompetition->id,
+                        'name' => $districtCompetition->name,
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('ScoreController: Error promoting to district', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([

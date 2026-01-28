@@ -14,6 +14,7 @@ class Certificate extends Model
         'certificate_code',
         'result_id',
         'competition_id',
+        'template_id',
         'student_name',
         'school_name',
         'competition_name',
@@ -49,6 +50,14 @@ class Certificate extends Model
     public function competition(): BelongsTo
     {
         return $this->belongsTo(Competition::class);
+    }
+
+    /**
+     * Get the template
+     */
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(CertificateTemplate::class, 'template_id');
     }
 
     /**

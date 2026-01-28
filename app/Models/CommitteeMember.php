@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CommitteeMember extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'position',
+        'organization',
+        'member_type',
+        'note',
+        'school_group_id',
+        'competition_id',
+        'is_active',
+        'created_by',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
+    /**
+     * Relationships
+     */
+    public function schoolGroup()
+    {
+        return $this->belongsTo(SchoolGroup::class);
+    }
+
+    public function competition()
+    {
+        return $this->belongsTo(Competition::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Scopes
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeByType($query, $type)
+    {
+        return $query->where('member_type', $type);
+    }
+
+    public function scopeByGroup($query, $groupId)
+    {
+        return $query->where('school_group_id', $groupId);
+    }
+
+    /**
+     * Accessor - ชื่อเต็มพร้อมตำแหน่ง
+     */
+    public function getFullTitleAttribute()
+    {
+        if ($this->position) {
+            return "{$this->name} ({$this->position})";
+        }
+        return $this->name;
+    }
+
+    /**
+     * Helper Methods
+     */
+    public function getMemberTypeLabel()
+    {
+        $labels = [
+            'committee' => 'คณะกรรมการ',
+            'staff' => 'เจ้าหน้าที่',
+            'volunteer' => 'อาสาสมัคร',
+        ];
+
+        return $labels[$this->member_type] ?? $this->member_type;
+    }
+}

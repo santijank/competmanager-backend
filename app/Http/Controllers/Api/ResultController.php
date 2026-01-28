@@ -43,7 +43,7 @@ class ResultController extends Controller
 
         // Filter by level
         if ($request->has('level')) {
-            $query->where('competition_level', $request->level);
+            $query->where('level', $request->level);
         }
 
         // Filter by medal

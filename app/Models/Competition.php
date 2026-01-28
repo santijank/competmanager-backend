@@ -83,6 +83,11 @@ class Competition extends Model
         return $this->hasMany(Result::class);
     }
 
+    public function scores()
+    {
+        return $this->hasMany(Score::class, 'competition_id');
+    }
+
     public function parentCompetition()
     {
         return $this->belongsTo(Competition::class, 'parent_competition_id');

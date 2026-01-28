@@ -241,6 +241,7 @@ class DashboardController extends Controller
         $schoolId = $user->school_id;
         
         if (!$schoolId) {
+            // ส่งข้อมูลเปล่าแทนที่จะ error
             return response()->json([
                 'registrations' => [
                     'total' => 0,
@@ -312,7 +313,6 @@ class DashboardController extends Controller
 
     /**
      * Public API - System Overview (ไม่ต้อง auth)
-     * ✅ แก้ไข: ส่ง structure ที่ตรงกับ frontend
      */
     public function publicOverview()
     {
@@ -326,39 +326,15 @@ class DashboardController extends Controller
             $q->where('is_finalized', true);
         })->count();
         
-        // นับจำนวนกลุ่มโรงเรียน
-        $totalGroups = DB::table('school_groups')->count();
-        
-        // นับเหรียญทั้งระบบ (ทั้ง group และ district level)
-        $medals = DB::table('scores')
-            ->where('is_finalized', true)
-            ->whereNotNull('medal')
-            ->select('medal', DB::raw('count(*) as count'))
-            ->groupBy('medal')
-            ->get();
-        
-        $medalCounts = [
-            'gold' => 0,
-            'silver' => 0,
-            'bronze' => 0,
-            'participant' => 0,
-        ];
-        
-        foreach ($medals as $medal) {
-            if (isset($medalCounts[$medal->medal])) {
-                $medalCounts[$medal->medal] = $medal->count;
-            }
-        }
-        
         return response()->json([
-            'total_competitions' => $totalDistrict + $totalGroup,
-            'total_registrations' => $totalRegistrations,
-            'completed_competitions' => $completedCompetitions,
-            'total_groups' => $totalGroups,
-            'total_gold' => $medalCounts['gold'],
-            'total_silver' => $medalCounts['silver'],
-            'total_bronze' => $medalCounts['bronze'],
-            'total_participant' => $medalCounts['participant'],
+            'competitions' => [
+                'district' => $totalDistrict,
+                'group' => $totalGroup,
+                'total' => $totalDistrict + $totalGroup,
+            ],
+            'registrations' => $totalRegistrations,
+            'schools' => $totalSchools,
+            'completed' => $completedCompetitions,
         ]);
     }
 

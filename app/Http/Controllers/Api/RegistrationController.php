@@ -290,18 +290,20 @@ class RegistrationController extends Controller
             ], 422);
         }
 
-        // Check for duplicate registration
+        // ✅ ตรวจสอบการลงทะเบียนซ้ำ
+        // อนุญาตให้ลงทะเบียนใหม่เฉพาะเมื่อ status = 'rejected' หรือ 'cancelled'
         $existingRegistration = Registration::where('competition_id', $request->competition_id)
             ->where('school_id', $school_id)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['pending', 'approved'])
             ->first();
 
         if ($existingRegistration) {
+            $statusText = $existingRegistration->status === 'pending' ? 'รอการอนุมัติ' : 'อนุมัติแล้ว';
             return response()->json([
                 'success' => false,
-                'message' => 'โรงเรียนของคุณได้ลงทะเบียนการแข่งขันนี้แล้ว',
+                'message' => "โรงเรียนของคุณมีการลงทะเบียนการแข่งขันนี้อยู่แล้ว (สถานะ: {$statusText})",
                 'existing_registration' => $existingRegistration
-            ], 422);
+            ], 409);
         }
 
         // ✅ Phase 2: Create registration with teacher_names
@@ -341,7 +343,7 @@ class RegistrationController extends Controller
         $user = Auth::user();
         $registration = Registration::with('competition')->findOrFail($id);
 
-        // Permission check
+        // ✅ Permission check - ให้ admin, district_admin, group_admin แก้ไขได้
         if ($user->role === 'school_admin' && $registration->school_id !== $user->school_id) {
             return response()->json([
                 'success' => false,
@@ -349,8 +351,25 @@ class RegistrationController extends Controller
             ], 403);
         }
 
-        // Can only edit pending or rejected registrations
-        if (!in_array($registration->status, ['pending', 'rejected'])) {
+        // ✅ Group admin ต้องอยู่ในกลุ่มเดียวกัน
+        if ($user->role === 'group_admin') {
+            $schoolIds = DB::table('schools')
+                ->where('school_group_id', $user->school_group_id)
+                ->pluck('id');
+            
+            if (!$schoolIds->contains($registration->school_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access - different school group'
+                ], 403);
+            }
+        }
+
+        // ✅ Admin/District Admin/Group Admin สามารถแก้ไข approved ได้
+        // School Admin แก้ได้แค่ pending/rejected
+        $canEditApproved = in_array($user->role, ['admin', 'district_admin', 'group_admin']);
+        
+        if (!$canEditApproved && !in_array($registration->status, ['pending', 'rejected'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cannot edit registration with status: ' . $registration->status

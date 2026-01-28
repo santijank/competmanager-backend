@@ -806,7 +806,8 @@ class CompetitionController extends Controller
             
             // Check access permission
             if ($this->shouldFilterBySchoolGroup($user)) {
-                if ($competition->school_group_id != $user->school_group_id) {
+                if ($competition->school_group_id != $user->school_group_id && 
+                    $competition->competition_level !== 'district') {
                     return response()->json([
                         'success' => false,
                         'message' => 'คุณไม่มีสิทธิ์เข้าถึงการแข่งขันนี้'
@@ -854,6 +855,174 @@ class CompetitionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ประกาศผล (Publish Results)
+     * 
+     * เฉพาะ Admin, District Admin, Group Admin
+     */
+    public function publish($id)
+    {
+        try {
+            $competition = Competition::findOrFail($id);
+            $user = auth()->user();
+
+            // ตรวจสอบสิทธิ์
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ประกาศผล'
+                ], 403);
+            }
+
+            // ตรวจสอบว่าเป็น group_admin → ต้องเป็นกลุ่มตัวเอง
+            if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณสามารถประกาศผลได้เฉพาะกลุ่มของคุณเท่านั้น'
+                ], 403);
+            }
+
+            // 🔍 Log ก่อน update
+            Log::info('🔍 Before publish update', [
+                'competition_id' => $id,
+                'current_is_published' => $competition->is_published,
+                'current_published_at' => $competition->published_at,
+                'user_id' => $user->id
+            ]);
+
+            // ประกาศผล - ใช้ DB transaction
+            \DB::beginTransaction();
+            
+            $competition->is_published = true;
+            $competition->published_at = now();
+            $saved = $competition->save();
+            
+            \DB::commit();
+
+            // Force refresh จาก database
+            $competition->refresh();
+
+            // ✅ Log หลัง update
+            Log::info('✅ After publish update', [
+                'competition_id' => $id,
+                'new_is_published' => $competition->is_published,
+                'new_published_at' => $competition->published_at,
+                'save_result' => $saved,
+                'user_id' => $user->id
+            ]);
+
+            Log::info('Competition published', [
+                'competition_id' => $id,
+                'published_by' => $user->id,
+                'user_role' => $user->role
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ประกาศผลสำเร็จ',
+                'competition' => $competition
+            ]);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            
+            Log::error('Error publishing competition', [
+                'competition_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการประกาศผล',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ยกเลิกประกาศผล (Unpublish Results)
+     * 
+     * เฉพาะ Admin, District Admin, Group Admin
+     */
+    public function unpublish($id)
+    {
+        try {
+            $competition = Competition::findOrFail($id);
+            $user = auth()->user();
+
+            // ตรวจสอบสิทธิ์
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ยกเลิกประกาศผล'
+                ], 403);
+            }
+
+            // ตรวจสอบว่าเป็น group_admin → ต้องเป็นกลุ่มตัวเอง
+            if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณสามารถยกเลิกประกาศผลได้เฉพาะกลุ่มของคุณเท่านั้น'
+                ], 403);
+            }
+
+            // 🔍 Log ก่อน update
+            Log::info('🔍 Before unpublish update', [
+                'competition_id' => $id,
+                'current_is_published' => $competition->is_published,
+                'current_published_at' => $competition->published_at
+            ]);
+
+            // ยกเลิกประกาศผล - ใช้ DB transaction
+            \DB::beginTransaction();
+            
+            $competition->is_published = false;
+            $competition->published_at = null;
+            $saved = $competition->save();
+            
+            \DB::commit();
+
+            // Force refresh จาก database
+            $competition->refresh();
+
+            // ✅ Log หลัง update
+            Log::info('✅ After unpublish update', [
+                'competition_id' => $id,
+                'new_is_published' => $competition->is_published,
+                'new_published_at' => $competition->published_at,
+                'save_result' => $saved
+            ]);
+
+            Log::info('Competition unpublished', [
+                'competition_id' => $id,
+                'unpublished_by' => $user->id,
+                'user_role' => $user->role
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ยกเลิกประกาศผลสำเร็จ',
+                'competition' => $competition
+            ]);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            
+            Log::error('Error unpublishing competition', [
+                'competition_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการยกเลิกประกาศผล',
                 'error' => $e->getMessage()
             ], 500);
         }

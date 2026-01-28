@@ -175,7 +175,10 @@ class ScoreExportController extends Controller
     private function canManageScores($user, $competition)
     {
         if (in_array($user->role, ['admin', 'district_admin'])) return true;
-        if ($user->role === 'group_admin') return $user->school_group_id === $competition->school_group_id;
+        if ($user->role === 'group_admin') {
+            return $user->school_group_id === $competition->school_group_id || 
+                   $competition->competition_level === 'district';
+        }
         return false;
     }
 }

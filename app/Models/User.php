@@ -25,6 +25,8 @@ class User extends Authenticatable
         'role',
         'school_id',
         'school_group_id',
+        'is_active',
+        'committee_level',
     ];
 
     /**
@@ -45,6 +47,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -57,10 +60,19 @@ class User extends Authenticatable
 
     /**
      * Get the school group that owns the user
+     * NOTE: ใช้ school_group ใน with() แทน schoolGroup
+     */
+    public function school_group(): BelongsTo
+    {
+        return $this->belongsTo(SchoolGroup::class, 'school_group_id');
+    }
+
+    /**
+     * Alternative method name for backwards compatibility
      */
     public function schoolGroup(): BelongsTo
     {
-        return $this->belongsTo(SchoolGroup::class);
+        return $this->school_group();
     }
 
     /**
@@ -80,11 +92,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is district admin
+     */
+    public function isDistrictAdmin(): bool
+    {
+        return $this->role === 'district_admin';
+    }
+
+    /**
      * Check if user is group admin
      */
     public function isGroupAdmin(): bool
     {
         return $this->role === 'group_admin';
+    }
+
+    /**
+     * Check if user is school admin
+     */
+    public function isSchoolAdmin(): bool
+    {
+        return $this->role === 'school_admin';
     }
 
     /**
@@ -112,11 +140,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is active
+     */
+    public function isActive(): bool
+    {
+        return $this->is_active;
+    }
+
+    /**
      * Scope: Only admins
      */
     public function scopeAdmins($query)
     {
         return $query->where('role', 'admin');
+    }
+
+    /**
+     * Scope: Only district admins
+     */
+    public function scopeDistrictAdmins($query)
+    {
+        return $query->where('role', 'district_admin');
     }
 
     /**
@@ -128,11 +172,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope: Only school admins
+     */
+    public function scopeSchoolAdmins($query)
+    {
+        return $query->where('role', 'school_admin');
+    }
+
+    /**
      * Scope: Only teachers
      */
     public function scopeTeachers($query)
     {
         return $query->where('role', 'teacher');
+    }
+
+    /**
+     * Scope: Only active users
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 
     /**

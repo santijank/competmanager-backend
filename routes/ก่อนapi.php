@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -13,17 +12,13 @@ use App\Http\Controllers\Api\RegistrationExportController;
 use App\Http\Controllers\Api\ScoreExportController;
 use App\Http\Controllers\Api\ResultController;
 use App\Http\Controllers\Api\CertificateController;
-use App\Http\Controllers\Api\CertificateTemplateController; // ✅ เพิ่มใหม่
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TwoTierCompetitionController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\PublicApiController;
-use App\Http\Controllers\Admin\DocumentController;
-use App\Http\Controllers\Api\CommitteeMemberController;
-use App\Http\Controllers\Api\AnnouncementController;
-use App\Http\Controllers\Api\PublicResultController;
+use App\Http\Controllers\Admin\DocumentController; // ✅ เพิ่ม
 
 // ============================================
 // ✅ Public Routes (ไม่ต้อง Auth)
@@ -41,30 +36,13 @@ Route::prefix('public')->group(function () {
     Route::get('/groups', [PublicApiController::class, 'getGroups']);
     Route::get('/groups/{id}', [PublicApiController::class, 'getGroupDetail']);
     Route::get('/groups/{id}/results', [PublicApiController::class, 'getGroupResults']);
-    
-    // ✅ Public Dashboard (ไม่ต้อง login)
-    Route::get('/dashboard/overview', [DashboardController::class, 'publicOverview']);
-    Route::get('/dashboard/groups', [DashboardController::class, 'publicAllGroups']);
-    
-    // 📢 Public Results (ผลการแข่งขันสาธารณะ)
-    Route::get('/results', [PublicResultController::class, 'index']);
-    Route::get('/results/{id}', [PublicResultController::class, 'show'])->where('id', '[0-9]+');
-    Route::get('/results/statistics', [PublicResultController::class, 'statistics']);
 });
 
-// ============================================
-// 📢 Public Announcements (ไม่ต้อง Auth)
-// ============================================
-Route::get('/announcements', [AnnouncementController::class, 'index']);
-Route::get('/announcements/{id}', [AnnouncementController::class, 'show'])->where('id', '[0-9]+');
 
 // ⭐ วาง specific routes ก่อน generic routes
 Route::get('/competitions/statistics', [CompetitionController::class, 'statistics']);
 Route::get('/competitions', [CompetitionController::class, 'index']);
 Route::get('/competitions/{id}', [CompetitionController::class, 'show'])->where('id', '[0-9]+');
-
-// ✅ Public Certificate (สามารถดูเกียรติบัตรได้โดยไม่ต้อง login)
-Route::get('/certificates/{id}', [CertificateController::class, 'show'])->where('id', '[0-9]+');
 
 // ============================================
 // 🔒 Protected Routes (ต้อง Auth)
@@ -73,9 +51,6 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Auth
     Route::get('/auth/user', [AuthController::class, 'user']);
-    Route::get('/auth/me', function (Request $request) {
-        return response()->json($request->user()->load('schoolGroup'));
-    });
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     // ============================================
@@ -144,29 +119,59 @@ Route::middleware('auth:sanctum')->group(function () {
     // 📄 Registration Export Routes
     // ============================================
     Route::middleware('role:admin,district_admin,group_admin')->group(function () {
-        Route::get('/registrations/export/excel', [RegistrationExportController::class, 'exportExcel']);
-        Route::get('/registrations/export/pdf', [RegistrationExportController::class, 'exportPdf']);
-        Route::post('/registrations/import', [RegistrationExportController::class, 'import']);
-        Route::get('/registrations/export/template', [RegistrationExportController::class, 'downloadTemplate']);
-        
-        // ใบรายชื่อผู้เข้าแข่งขัน
         Route::get('/competitions/{competition}/registrations/export/pdf', 
-            [RegistrationExportController::class, 'exportCompetitionPdf']);
+            [RegistrationExportController::class, 'exportPdf']);
+        
         Route::get('/competitions/{competition}/registrations/export/excel', 
-            [RegistrationExportController::class, 'exportCompetitionExcel']);
+            [RegistrationExportController::class, 'exportExcel']);
+        
+        Route::get('/competitions/{competition}/registrations/export/summary', 
+            [RegistrationExportController::class, 'exportSummary']);
+        
+        Route::get('/competitions/{competition}/registrations/{registration}/export/certificate', 
+            [RegistrationExportController::class, 'exportCertificate']);
     });
 
     // ============================================
-    // 🎯 Scores Routes
+    // 📋 Document Generation Routes (ใหม่)
     // ============================================
-    Route::get('/scores', [ScoreController::class, 'index']);
-    Route::get('/scores/{id}', [ScoreController::class, 'show'])->where('id', '[0-9]+');
-    
     Route::middleware('role:admin,district_admin,group_admin')->group(function () {
-        Route::post('/scores', [ScoreController::class, 'store']);
-        Route::put('/scores/{id}', [ScoreController::class, 'update'])->where('id', '[0-9]+');
-        Route::delete('/scores/{id}', [ScoreController::class, 'destroy'])->where('id', '[0-9]+');
-        Route::post('/scores/competitions/{competitionId}/bulk-store', [ScoreController::class, 'bulkStore']);
+        Route::prefix('documents')->group(function () {
+            Route::get('/competitions/{competition}/student-checkin', 
+                [DocumentController::class, 'generateStudentCheckin'])
+                ->name('documents.student-checkin');
+            
+            Route::get('/competitions/{competition}/teacher-checkin', 
+                [DocumentController::class, 'generateTeacherCheckin'])
+                ->name('documents.teacher-checkin');
+            
+            Route::get('/competitions/{competition}/summary', 
+                [DocumentController::class, 'generateSummary'])
+                ->name('documents.summary');
+        });
+    });
+
+    // ============================================
+    // 🎯 Score Management (ระบบใส่คะแนน)
+    // ============================================
+    
+    // ดูรายการการแข่งขันที่สามารถใส่คะแนนได้
+    Route::get('/scores/competitions', [ScoreController::class, 'getCompetitionsForScoring']);
+    
+    // ดูคะแนนและสถิติ (ทุกคนที่ login)
+    Route::get('/competitions/{id}/scores', [ScoreController::class, 'getScores'])->where('id', '[0-9]+');
+    Route::get('/competitions/{id}/score-statistics', [ScoreController::class, 'getStatistics'])->where('id', '[0-9]+');
+    
+    // ใส่คะแนนและจัดการ (Group Admin, District Admin only)
+    Route::middleware('role:admin,district_admin,group_admin')->group(function () {
+        Route::get('/competitions/{id}/scorable', [CompetitionController::class, 'getScorableRegistrations'])->where('id', '[0-9]+');
+        Route::post('/competitions/{id}/scores', [ScoreController::class, 'saveScores'])->where('id', '[0-9]+');
+        Route::post('/competitions/{id}/finalize', [ScoreController::class, 'finalize'])->where('id', '[0-9]+');
+        
+        Route::post('/scores', [ScoreController::class, 'storeScore']);
+        Route::post('/scores/bulk', [ScoreController::class, 'bulkStoreScores']);
+        Route::post('/scores/competitions/{competition}/finalize', [ScoreController::class, 'finalizeScores']);
+        Route::get('/scores/competitions/{competition}/scores', [ScoreController::class, 'getCompetitionScores']);
     });
 
     // ============================================
@@ -223,7 +228,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ============================================
     // 🏫 Schools
     // ============================================
-    Route::middleware('role:admin,district_admin')->group(function () {
+    Route::middleware('role:admin')->group(function () {
         Route::post('/schools', [SchoolController::class, 'store']);
         Route::put('/schools/{id}', [SchoolController::class, 'update']);
         Route::delete('/schools/{id}', [SchoolController::class, 'destroy']);
@@ -259,43 +264,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ============================================
-    // 🎓 Certificates (✅ อัพเดตใหม่)
+    // 🎓 Certificates
     // ============================================
-    
-    // ดูรายการเกียรติบัตร (ทุกคนที่ login)
     Route::get('/certificates', [CertificateController::class, 'index']);
-    Route::get('/certificates/{id}/download', [CertificateController::class, 'download'])->where('id', '[0-9]+');
+    Route::get('/certificates/{id}/download', [CertificateController::class, 'download']);
+    Route::get('/certificates/{id}', [CertificateController::class, 'show']);
     
-    // จัดการเกียรติบัตร (Admin, Committee, District Admin)
     Route::middleware('role:admin,committee,district_admin')->group(function () {
-        // ✅ เพิ่มใหม่: ดูรายการนักเรียนที่มีสิทธิ์ได้เกียรติบัตร
-        Route::get('/certificates/eligible', [CertificateController::class, 'getEligibleStudents']);
-        
-        // ✅ เพิ่มใหม่: Preview เกียรติบัตร
-        Route::get('/certificates/results/{resultId}/preview', [CertificateController::class, 'previewCertificate'])->where('resultId', '[0-9]+');
-        
-        // สร้างเกียรติบัตร
-        Route::post('/certificates/results/{resultId}/generate', [CertificateController::class, 'generate'])->where('resultId', '[0-9]+');
-        Route::post('/certificates/{id}/generate-pdf', [CertificateController::class, 'generatePdf'])->where('id', '[0-9]+');
-        
-        // สร้างหลายใบพร้อมกัน
-        Route::post('/certificates/competitions/{competitionId}/bulk-generate', [CertificateController::class, 'bulkGenerate'])->where('competitionId', '[0-9]+');
-    });
-    
-    // ============================================
-    // 📄 Certificate Templates (✅ เพิ่มใหม่)
-    // ============================================
-    
-    // ดูเทมเพลต (ทุกคนที่ login)
-    Route::get('/certificate-templates', [CertificateTemplateController::class, 'index']);
-    Route::get('/certificate-templates/{id}', [CertificateTemplateController::class, 'show'])->where('id', '[0-9]+');
-    
-    // จัดการเทมเพลต (Admin only)
-    Route::middleware('role:admin')->group(function () {
-        Route::post('/certificate-templates', [CertificateTemplateController::class, 'store']);
-        Route::put('/certificate-templates/{id}', [CertificateTemplateController::class, 'update'])->where('id', '[0-9]+');
-        Route::delete('/certificate-templates/{id}', [CertificateTemplateController::class, 'destroy'])->where('id', '[0-9]+');
-        Route::post('/certificate-templates/upload-background', [CertificateTemplateController::class, 'uploadBackground']);
+        Route::post('/certificates/results/{resultId}/generate', [CertificateController::class, 'generate']);
+        Route::post('/certificates/competitions/{competitionId}/bulk-generate', [CertificateController::class, 'bulkGenerate']);
+        Route::post('/certificates/{id}/generate-pdf', [CertificateController::class, 'generatePdf']);
     });
 
     // ============================================
@@ -310,35 +288,5 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
         Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
     });
-
-    // ============================================
-    // 👥 Committee Members (Admin + District Admin + Group Admin)
-    // ============================================
-    Route::prefix('committee-members')->middleware('role:admin,district_admin,group_admin')->group(function () {
-        Route::get('/', [CommitteeMemberController::class, 'index']);
-        Route::get('/statistics', [CommitteeMemberController::class, 'statistics']);
-        Route::post('/', [CommitteeMemberController::class, 'store']);
-        Route::get('/{id}', [CommitteeMemberController::class, 'show'])->where('id', '[0-9]+');
-        Route::put('/{id}', [CommitteeMemberController::class, 'update'])->where('id', '[0-9]+');
-        Route::delete('/{id}', [CommitteeMemberController::class, 'destroy'])->where('id', '[0-9]+');
-    });
-
-    // ============================================
-    // 📢 Announcements Management (Protected)
-    // ============================================
-    Route::middleware('role:admin,district_admin,group_admin')->group(function () {
-        Route::post('/announcements', [AnnouncementController::class, 'store']);
-        Route::put('/announcements/{id}', [AnnouncementController::class, 'update'])->where('id', '[0-9]+');
-        Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy'])->where('id', '[0-9]+');
-        Route::post('/announcements/{id}/toggle-pin', [AnnouncementController::class, 'togglePin'])->where('id', '[0-9]+');
-        
-        // จัดการไฟล์แนบ
-        Route::delete('/announcements/{announcementId}/files/{fileId}', [AnnouncementController::class, 'deleteFile'])
-            ->where(['announcementId' => '[0-9]+', 'fileId' => '[0-9]+']);
-    });
-    
-    // ดาวน์โหลดไฟล์ (ทุกคนที่ login)
-    Route::get('/announcements/{announcementId}/files/{fileId}/download', [AnnouncementController::class, 'downloadFile'])
-        ->where(['announcementId' => '[0-9]+', 'fileId' => '[0-9]+']);
     
 });
