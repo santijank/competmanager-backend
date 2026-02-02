@@ -1,0 +1,150 @@
+import { create } from 'zustand';
+import { authService } from '@/lib/api';
+
+const useAuthStore = create((set, get) => ({
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+
+  // Initialize state from localStorage
+  initialize: () => {
+    const token = localStorage.getItem('auth_token');
+    const userStr = localStorage.getItem('user');
+    
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        set({
+          token,
+          user,
+          isAuthenticated: true,
+        });
+        console.log('✅ Auth initialized from localStorage:', { token, user });
+      } catch (error) {
+        console.error('❌ Failed to parse user from localStorage:', error);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+      }
+    } else {
+      console.log('⚠️ No auth data in localStorage');
+    }
+  },
+
+  login: async (credentials) => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log('🔐 Attempting login...', credentials);
+      const response = await authService.login(credentials);
+      console.log('📥 Login response:', response);
+      
+      // รองรับหลาย format
+      let token, user;
+      
+      // Format 1: response.data.data.token
+      if (response.data?.data?.token) {
+        token = response.data.data.token;
+        user = response.data.data.user;
+      }
+      // Format 2: response.data.token
+      else if (response.data?.token) {
+        token = response.data.token;
+        user = response.data.user;
+      }
+      // Format 3: response.token
+      else if (response.token) {
+        token = response.token;
+        user = response.user;
+      }
+      
+      if (!token) {
+        console.error('❌ No token in response:', response);
+        throw new Error('ไม่พบ token ในการตอบกลับ');
+      }
+      
+      console.log('✅ Token received:', token);
+      console.log('✅ User received:', user);
+      
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      set({ 
+        user, 
+        token, 
+        isAuthenticated: true, 
+        isLoading: false 
+      });
+      
+      console.log('✅ Login successful, state updated');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      const message = error.response?.data?.message || error.message || 'เข้าสู่ระบบไม่สำเร็จ';
+      set({ error: message, isLoading: false });
+      return { success: false, error: message };
+    }
+  },
+
+  logout: async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      set({ 
+        user: null, 
+        token: null, 
+        isAuthenticated: false 
+      });
+      console.log('✅ Logged out');
+    }
+  },
+
+  fetchUser: async () => {
+    if (!get().token) return;
+    
+    try {
+      const response = await authService.getUser();
+      const user = response.data.user || response.data;
+      
+      localStorage.setItem('user', JSON.stringify(user));
+      set({ user });
+    } catch (error) {
+      console.error('Fetch user error:', error);
+      get().logout();
+    }
+  },
+
+  hasRole: (roles) => {
+    const { user } = get();
+    if (!user) return false;
+    
+    if (Array.isArray(roles)) {
+      return roles.includes(user.role);
+    }
+    return user.role === roles;
+  },
+
+  // ✅ แก้ไข: เปลี่ยนชื่อและเพิ่ม role ใหม่
+  isDistrictAdmin: () => get().hasRole('district_admin'),
+  isCommittee: () => get().hasRole(['district_admin', 'committee']),
+  isGroupAdmin: () => get().hasRole('group_admin'),
+  isSchoolAdmin: () => get().hasRole('school_admin'), // ✅ เปลี่ยนจาก isTeacher
+  
+  // ✅ เพิ่ม isTeacher สำหรับ role teacher จริง
+  isTeacher: () => get().hasRole('teacher'),
+
+  // ✅ เช็คว่าเป็น School Role (school_admin หรือ teacher)
+  isSchoolRole: () => get().hasRole(['school_admin', 'teacher']),
+  
+  // ✅ เพิ่ม helper function ใหม่
+  isAdmin: () => get().hasRole(['district_admin', 'group_admin']),
+}));
+
+// ⚡ Initialize state from localStorage when store is created
+useAuthStore.getState().initialize();
+
+export default useAuthStore;

@@ -1,0 +1,86 @@
+{
+    "sans-serif": {
+        "normal": "Helvetica",
+        "bold": "Helvetica-Bold",
+        "italic": "Helvetica-Oblique",
+        "bold_italic": "Helvetica-BoldOblique"
+    },
+    "times": {
+        "normal": "Times-Roman",
+        "bold": "Times-Bold",
+        "italic": "Times-Italic",
+        "bold_italic": "Times-BoldItalic"
+    },
+    "times-roman": {
+        "normal": "Times-Roman",
+        "bold": "Times-Bold",
+        "italic": "Times-Italic",
+        "bold_italic": "Times-BoldItalic"
+    },
+    "courier": {
+        "normal": "Courier",
+        "bold": "Courier-Bold",
+        "italic": "Courier-Oblique",
+        "bold_italic": "Courier-BoldOblique"
+    },
+    "helvetica": {
+        "normal": "Helvetica",
+        "bold": "Helvetica-Bold",
+        "italic": "Helvetica-Oblique",
+        "bold_italic": "Helvetica-BoldOblique"
+    },
+    "zapfdingbats": {
+        "normal": "ZapfDingbats",
+        "bold": "ZapfDingbats",
+        "italic": "ZapfDingbats",
+        "bold_italic": "ZapfDingbats"
+    },
+    "symbol": {
+        "normal": "Symbol",
+        "bold": "Symbol",
+        "italic": "Symbol",
+        "bold_italic": "Symbol"
+    },
+    "serif": {
+        "normal": "Times-Roman",
+        "bold": "Times-Bold",
+        "italic": "Times-Italic",
+        "bold_italic": "Times-BoldItalic"
+    },
+    "monospace": {
+        "normal": "Courier",
+        "bold": "Courier-Bold",
+        "italic": "Courier-Oblique",
+        "bold_italic": "Courier-BoldOblique"
+    },
+    "fixed": {
+        "normal": "Courier",
+        "bold": "Courier-Bold",
+        "italic": "Courier-Oblique",
+        "bold_italic": "Courier-BoldOblique"
+    },
+    "dejavu sans": {
+        "bold": "DejaVuSans-Bold",
+        "bold_italic": "DejaVuSans-BoldOblique",
+        "italic": "DejaVuSans-Oblique",
+        "normal": "DejaVuSans"
+    },
+    "dejavu sans mono": {
+        "bold": "DejaVuSansMono-Bold",
+        "bold_italic": "DejaVuSansMono-BoldOblique",
+        "italic": "DejaVuSansMono-Oblique",
+        "normal": "DejaVuSansMono"
+    },
+    "dejavu serif": {
+        "bold": "DejaVuSerif-Bold",
+        "bold_italic": "DejaVuSerif-BoldItalic",
+        "italic": "DejaVuSerif-Italic",
+        "normal": "DejaVuSerif"
+    },
+    "thsarabunnew": {
+        "normal": "C:\\CompetManagerNew\\backend\\storage\\fonts\/thsarabunnew_normal_40bae42c8c5503d45422d469dae84ab4",
+        "bold": "thsarabunnew_bold_514287a78f798fd521eef7d166bf6468",
+        "italic": "C:\\CompetManagerNew\\backend\\storage\\fonts\/THSarabunNew",
+        "bold_italic": "C:\\CompetManagerNew\\backend\\storage\\fonts\/THSarabunNew-Bold"
+    }
+}
