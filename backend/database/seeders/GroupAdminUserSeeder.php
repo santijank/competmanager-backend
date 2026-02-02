@@ -12,7 +12,7 @@ class GroupAdminUserSeeder extends Seeder
     /**
      * Run the database seeds.
      * 
-     * สร้าง Group Admin Users สำหรับทุกกลุ่มโรงเรียน (กลุ่มละ 2 คน)
+     * สร้าง Group Admin Users สำหรับทุกกลุ่มโรงเรียน (กลุ่มละ 5 คน)
      */
     public function run(): void
     {
@@ -28,8 +28,8 @@ class GroupAdminUserSeeder extends Seeder
         $skippedCount = 0;
 
         foreach ($schoolGroups as $group) {
-            // สร้าง 2 Group Admin สำหรับแต่ละกลุ่ม
-            for ($i = 1; $i <= 2; $i++) {
+            // สร้าง 5 Group Admin สำหรับแต่ละกลุ่ม
+            for ($i = 1; $i <= 5; $i++) {
                 $email = "group{$group->id}_admin{$i}@competmanager.local";
                 
                 // ตรวจสอบว่ามี email นี้อยู่แล้วหรือไม่
@@ -65,7 +65,7 @@ class GroupAdminUserSeeder extends Seeder
         echo "   - กลุ่มทั้งหมด: {$schoolGroups->count()} กลุ่ม\n";
         echo "\n";
         echo "📝 รายละเอียดการเข้าสู่ระบบ:\n";
-        echo "   Email: group{X}_admin{1-2}@competmanager.local\n";
+        echo "   Email: group{X}_admin{1-5}@competmanager.local\n";
         echo "   Password: password123\n";
         echo "\n";
         echo "ตัวอย่าง:\n";
@@ -76,6 +76,9 @@ class GroupAdminUserSeeder extends Seeder
             echo "   - กลุ่ม {$group->name}:\n";
             echo "     • Email: group{$group->id}_admin1@competmanager.local | Password: password123\n";
             echo "     • Email: group{$group->id}_admin2@competmanager.local | Password: password123\n";
+            echo "     • Email: group{$group->id}_admin3@competmanager.local | Password: password123\n";
+            echo "     • Email: group{$group->id}_admin4@competmanager.local | Password: password123\n";
+            echo "     • Email: group{$group->id}_admin5@competmanager.local | Password: password123\n";
         }
         
         if ($schoolGroups->count() > 3) {
