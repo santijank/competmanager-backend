@@ -92,7 +92,7 @@
     <div class="{{ !$loop->last ? 'page-break' : '' }}">
         <div class="header">
             <h2>DOC.2</h2>
-            <p><strong>งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2568 ระดับเขตพื้นที่การศึกษา</strong></p>
+            <p><strong>งานศิลปหัตถกรรมนักเรียน ครั้งที่ 74 ปีการศึกษา 2568 ระดับเขตพื้นที่การศึกษา</strong></p>
             <p><strong>แบบลงทะเบียนครู</strong></p>
             <p>กิจกรรม: {{ $competition->name }}</p>
             <p style="font-size: 14pt;">หน้า {{ $pageIndex + 1 }}/{{ $pages->count() }} (ครูทั้งหมด {{ $totalTeachers }} คน)</p>

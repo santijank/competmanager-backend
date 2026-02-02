@@ -49,7 +49,14 @@ class UserController extends Controller
             }
 
             if ($request->has('school_group_id') && $request->school_group_id) {
-                $query->where('school_group_id', $request->school_group_id);
+                $schoolGroupId = $request->school_group_id;
+                $query->where(function($q) use ($schoolGroupId) {
+                    // ค้นหาจาก user.school_group_id โดยตรง หรือจาก school.school_group_id
+                    $q->where('school_group_id', $schoolGroupId)
+                      ->orWhereHas('school', function($sq) use ($schoolGroupId) {
+                          $sq->where('school_group_id', $schoolGroupId);
+                      });
+                });
                 Log::info('School Group ID filter applied: ' . $request->school_group_id);
             }
 

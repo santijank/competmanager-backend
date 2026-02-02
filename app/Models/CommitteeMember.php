@@ -14,6 +14,7 @@ class CommitteeMember extends Model
         'position',
         'organization',
         'member_type',
+        'level',           // group หรือ district
         'note',
         'school_group_id',
         'competition_id',
@@ -61,6 +62,21 @@ class CommitteeMember extends Model
         return $query->where('school_group_id', $groupId);
     }
 
+    public function scopeByLevel($query, $level)
+    {
+        return $query->where('level', $level);
+    }
+
+    public function scopeGroupLevel($query)
+    {
+        return $query->where('level', 'group');
+    }
+
+    public function scopeDistrictLevel($query)
+    {
+        return $query->where('level', 'district');
+    }
+
     /**
      * Accessor - ชื่อเต็มพร้อมตำแหน่ง
      */
@@ -84,5 +100,15 @@ class CommitteeMember extends Model
         ];
 
         return $labels[$this->member_type] ?? $this->member_type;
+    }
+
+    public function getLevelLabel()
+    {
+        $labels = [
+            'group' => 'ระดับกลุ่ม',
+            'district' => 'ระดับเขตพื้นที่',
+        ];
+
+        return $labels[$this->level] ?? $this->level;
     }
 }

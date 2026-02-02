@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -45,6 +46,9 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        // บันทึก Activity Log สำหรับการ Login
+        ActivityLog::logLogin($user);
+
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
@@ -68,7 +72,18 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        // ตรวจสอบว่ามี user หรือไม่
+        if ($user) {
+            // บันทึก Activity Log สำหรับการ Logout
+            ActivityLog::logLogout($user);
+
+            // ลบ token ปัจจุบัน
+            if ($user->currentAccessToken()) {
+                $user->currentAccessToken()->delete();
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -266,6 +281,65 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'เปลี่ยนรหัสผ่านสำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่'
+        ]);
+    }
+
+    /**
+     * Change password for authenticated user
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'รหัสผ่านปัจจุบันไม่ถูกต้อง'
+            ], 400);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'เปลี่ยนรหัสผ่านสำเร็จ'
+        ]);
+    }
+
+    /**
+     * Refresh token
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Delete current token
+        $user->currentAccessToken()->delete();
+
+        // Create new token
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Token refreshed',
+            'data' => [
+                'token' => $token,
+                'token_type' => 'Bearer'
+            ]
         ]);
     }
 }

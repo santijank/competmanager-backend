@@ -3,438 +3,450 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Announcement;
-use App\Models\AnnouncementFile;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AnnouncementController extends Controller
 {
     /**
-     * ดูรายการประกาศทั้งหมด (สำหรับ Admin และ Public)
+     * 🌐 แสดงรายการประกาศสาธารณะ (ไม่ต้อง login)
      */
-    public function index(Request $request)
+    public function publicIndex(Request $request): JsonResponse
     {
-        $user = $request->user();
-        
-        $query = Announcement::with(['schoolGroup', 'competition', 'creator', 'files'])
-            ->orderBy('is_pinned', 'desc')
-            ->orderBy('published_at', 'desc');
+        try {
+            $query = DB::table('announcements as a')
+                ->leftJoin('school_groups as sg', 'a.school_group_id', '=', 'sg.id')
+                ->leftJoin('competitions as c', 'a.competition_id', '=', 'c.id')
+                ->select([
+                    'a.id',
+                    'a.title',
+                    'a.content',
+                    'a.type',
+                    'a.scope',
+                    'a.school_group_id',
+                    'a.priority',
+                    'a.is_pinned',
+                    'a.published_at',
+                    'a.expired_at',
+                    'a.link_url',
+                    'a.link_title',
+                    'sg.name as school_group_name',
+                    'c.name as competition_name',
+                    'a.created_at'
+                ])
+                ->where('a.published_at', '<=', now())
+                ->where(function($q) {
+                    $q->whereNull('a.expired_at')
+                      ->orWhere('a.expired_at', '>', now());
+                });
 
-        // Group Admin เห็นเฉพาะประกาศระดับเขต + ประกาศของกลุ่มตัวเอง
-        if ($user && $user->role === 'group_admin' && $user->school_group_id) {
-            $query->where(function($q) use ($user) {
-                $q->where('scope', 'district')
-                  ->orWhere(function($q2) use ($user) {
-                      $q2->where('scope', 'group')
-                         ->where('school_group_id', $user->school_group_id);
-                  });
-            });
+            $limit = $request->get('limit', 50);
+
+            $announcements = $query
+                ->orderBy('a.is_pinned', 'desc')
+                ->orderBy('a.priority', 'desc')
+                ->orderBy('a.published_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $announcements
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Public announcement index error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
         }
-        // Filter by group (สำหรับ public หรือ admin อื่นๆ)
-        elseif ($request->has('school_group_id')) {
-            $query->where(function($q) use ($request) {
-                $q->where('school_group_id', $request->school_group_id)
-                  ->orWhere('scope', 'district');
-            });
-        }
-
-        // Filter by type
-        if ($request->has('type')) {
-            $query->where('type', $request->type);
-        }
-
-        // Filter active only
-        if ($request->boolean('active_only')) {
-            $query->active();
-        }
-
-        // Limit (for public display)
-        if ($request->has('limit')) {
-            $limit = min((int)$request->input('limit'), 50); // Max 50
-            $announcements = $query->limit($limit)->get();
-            return response()->json(['data' => $announcements]);
-        }
-
-        $perPage = $request->input('per_page', 20);
-        $announcements = $query->paginate($perPage);
-
-        return response()->json($announcements);
     }
 
     /**
-     * ดูประกาศเดียว
+     * 📋 แสดงรายการประกาศ (สำหรับ admin)
      */
-    public function show($id)
+    public function index(Request $request): JsonResponse
     {
-        $announcement = Announcement::with(['schoolGroup', 'competition', 'creator', 'files'])
-            ->findOrFail($id);
+        try {
+            $user = $request->user();
 
-        return response()->json($announcement);
-    }
+            $query = DB::table('announcements as a')
+                ->leftJoin('school_groups as sg', 'a.school_group_id', '=', 'sg.id')
+                ->leftJoin('competitions as c', 'a.competition_id', '=', 'c.id')
+                ->leftJoin('users as u', 'a.created_by', '=', 'u.id')
+                ->select([
+                    'a.id',
+                    'a.title',
+                    'a.content',
+                    'a.type',
+                    'a.scope',
+                    'a.school_group_id',
+                    'a.priority',
+                    'a.is_pinned',
+                    'a.published_at',
+                    'a.expired_at',
+                    'a.link_url',
+                    'a.link_title',
+                    'a.created_by',
+                    'sg.name as school_group_name',
+                    'c.name as competition_name',
+                    'u.name as created_by_name',
+                    'a.created_at'
+                ]);
 
-    /**
-     * สร้างประกาศใหม่
-     */
-    public function store(Request $request)
-    {
-        $user = $request->user();
-        
-        // แปลง empty string เป็น null
-        $data = $request->all();
-        if (isset($data['school_group_id']) && ($data['school_group_id'] === '' || $data['school_group_id'] === 'null')) {
-            $data['school_group_id'] = null;
-        }
-        if (isset($data['competition_id']) && ($data['competition_id'] === '' || $data['competition_id'] === 'null')) {
-            $data['competition_id'] = null;
-        }
-        
-        // ถ้าไม่มี scope ให้กำหนดตาม role
-        if (!isset($data['scope']) || empty($data['scope'])) {
+            // กรองตาม role
             if ($user->role === 'group_admin') {
-                $data['scope'] = 'group';
-            } else {
-                $data['scope'] = 'district'; // default สำหรับ district_admin
+                // Group admin เห็นเฉพาะประกาศของกลุ่มตัวเอง + ประกาศระดับเขต
+                $query->where(function($q) use ($user) {
+                    $q->where('a.scope', 'district')
+                      ->orWhere('a.school_group_id', $user->school_group_id);
+                });
+            } elseif ($user->role === 'school_admin') {
+                // School admin เห็นเฉพาะประกาศของกลุ่มตัวเอง + ประกาศระดับเขต
+                $query->where(function($q) use ($user) {
+                    $q->where('a.scope', 'district')
+                      ->orWhere('a.school_group_id', $user->school_group_id);
+                });
             }
-        }
-        
-        // ⭐ ถ้า scope เป็น district → school_group_id ต้องเป็น null เสมอ
-        if ($data['scope'] === 'district') {
-            $data['school_group_id'] = null;
-        }
-        
-        // Group Admin ไม่สามารถสร้างประกาศระดับเขตได้
-        if ($user->role === 'group_admin' && $data['scope'] === 'district') {
+            // district_admin และ admin เห็นทั้งหมด
+
+            $announcements = $query
+                ->orderBy('a.is_pinned', 'desc')
+                ->orderBy('a.priority', 'desc')
+                ->orderBy('a.published_at', 'desc')
+                ->get();
+
             return response()->json([
-                'message' => 'Unauthorized',
-                'errors' => ['scope' => ['Group Admin สามารถสร้างประกาศได้เฉพาะระดับกลุ่มเท่านั้น']]
-            ], 403);
+                'success' => true,
+                'data' => $announcements
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Announcement index error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถโหลดประกาศได้: ' . $e->getMessage()
+            ], 500);
         }
-        
-        // ถ้าเป็น Group Admin และสร้างประกาศระดับกลุ่ม → auto-fill school_group_id
-        if ($user->role === 'group_admin' && $data['scope'] === 'group') {
-            if (!$data['school_group_id']) {
+    }
+
+    /**
+     * 📝 สร้างประกาศใหม่
+     */
+    public function store(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            // ตรวจสอบสิทธิ์
+            if (!in_array($user->role, ['district_admin', 'admin', 'group_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์สร้างประกาศ'
+                ], 403);
+            }
+
+            $data = $request->validate([
+                'title' => 'required|string|max:255',
+                'content' => 'required|string',
+                'type' => 'required|in:general,competition,result,urgent',
+                'scope' => 'required|in:district,group',
+                'school_group_id' => 'nullable|exists:school_groups,id',
+                'competition_id' => 'nullable|exists:competitions,id',
+                'priority' => 'required|in:normal,high,urgent',
+                'is_pinned' => 'nullable',
+                'published_at' => 'nullable|date',
+                'expired_at' => 'nullable|date',
+                'link_url' => 'nullable|url|max:500',
+                'link_title' => 'nullable|string|max:255',
+            ]);
+
+            // Group Admin สามารถสร้างได้เฉพาะกลุ่มตนเอง
+            if ($user->role === 'group_admin') {
                 $data['school_group_id'] = $user->school_group_id;
+                $data['scope'] = 'group';
             }
-            
-            // Group Admin สร้างประกาศได้เฉพาะกลุ่มของตัวเอง
-            if ($data['school_group_id'] != $user->school_group_id) {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'errors' => ['school_group_id' => ['คุณสามารถสร้างประกาศได้เฉพาะกลุ่มของคุณเท่านั้น']]
-                ], 403);
-            }
-        }
-        
-        // District Admin: ถ้าสร้างประกาศระดับกลุ่ม ต้องระบุ school_group_id
-        if (($user->role === 'district_admin' || $user->role === 'admin') && $data['scope'] === 'group') {
-            if (!$data['school_group_id']) {
-                return response()->json([
-                    'message' => 'Validation failed',
-                    'errors' => ['school_group_id' => ['กรุณาระบุกลุ่มโรงเรียนสำหรับประกาศระดับกลุ่ม']]
-                ], 422);
-            }
-        }
-        
-        $validator = Validator::make($data, [
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-            'type' => 'required|in:general,competition,result,urgent',
-            'scope' => 'required|in:district,group',
-            'school_group_id' => 'nullable|exists:school_groups,id',
-            'competition_id' => 'nullable|exists:competitions,id',
-            'priority' => 'required|in:normal,high,urgent',
-            'is_pinned' => 'boolean',
-            'published_at' => 'nullable|date',
-            'expired_at' => 'nullable|date|after:published_at',
-            'files.*' => 'nullable|file|max:10240', // Max 10MB per file
-        ]);
 
-        if ($validator->fails()) {
+            // ถ้าเป็น district scope ให้ล้าง school_group_id
+            if ($data['scope'] === 'district') {
+                $data['school_group_id'] = null;
+            }
+
+            $data['created_by'] = $user->id;
+            $data['published_at'] = $data['published_at'] ?? now();
+            $data['is_pinned'] = filter_var($data['is_pinned'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+            $data['created_at'] = now();
+            $data['updated_at'] = now();
+
+            $announcementId = DB::table('announcements')->insertGetId($data);
+
             return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $announcement = Announcement::create([
-            'title' => $data['title'],
-            'content' => $data['content'],
-            'type' => $data['type'],
-            'scope' => $data['scope'],
-            'school_group_id' => $data['school_group_id'],
-            'competition_id' => $data['competition_id'] ?? null,
-            'priority' => $data['priority'],
-            'is_pinned' => $request->boolean('is_pinned', false),
-            'published_at' => $data['published_at'] ?? now(),
-            'expired_at' => $data['expired_at'] ?? null,
-            'created_by' => $user->id,
-        ]);
-
-        // อัปโหลดไฟล์ (ถ้ามี)
-        if ($request->hasFile('files')) {
-            foreach ($request->file('files') as $file) {
-                $this->uploadFile($announcement, $file);
-            }
-        }
-
-        return response()->json([
-            'message' => 'สร้างประกาศสำเร็จ',
-            'announcement' => $announcement->load(['schoolGroup', 'competition', 'creator', 'files'])
-        ], 201);
-    }
-
-    /**
-     * แก้ไขประกาศ
-     */
-    public function update(Request $request, $id)
-    {
-        $user = $request->user();
-        $announcement = Announcement::findOrFail($id);
-
-        // ตรวจสอบสิทธิ์: Group Admin แก้ไขได้เฉพาะประกาศของกลุ่มตัวเอง
-        if ($user->role === 'group_admin') {
-            if ($announcement->scope === 'district') {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'Group Admin ไม่สามารถแก้ไขประกาศระดับเขตได้'
-                ], 403);
-            }
-            
-            if ($announcement->school_group_id != $user->school_group_id) {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'คุณสามารถแก้ไขได้เฉพาะประกาศของกลุ่มคุณเท่านั้น'
-                ], 403);
-            }
-        }
-
-        // แปลง empty string เป็น null
-        $data = $request->all();
-        if (isset($data['school_group_id']) && ($data['school_group_id'] === '' || $data['school_group_id'] === 'null')) {
-            $data['school_group_id'] = null;
-        }
-        if (isset($data['competition_id']) && ($data['competition_id'] === '' || $data['competition_id'] === 'null')) {
-            $data['competition_id'] = null;
-        }
-
-        // ⭐ ถ้า scope เป็น district → school_group_id ต้องเป็น null เสมอ
-        if (isset($data['scope']) && $data['scope'] === 'district') {
-            $data['school_group_id'] = null;
-        }
-
-        // Group Admin พยายามเปลี่ยน scope หรือ group
-        if ($user->role === 'group_admin') {
-            if (isset($data['scope']) && $data['scope'] === 'district') {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'errors' => ['scope' => ['Group Admin ไม่สามารถสร้างประกาศระดับเขตได้']]
-                ], 403);
-            }
-            
-            if (isset($data['school_group_id']) && $data['school_group_id'] != $user->school_group_id) {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'errors' => ['school_group_id' => ['คุณสามารถแก้ไขได้เฉพาะกลุ่มของคุณเท่านั้น']]
-                ], 403);
-            }
-        }
-
-        $validator = Validator::make($data, [
-            'title' => 'sometimes|required|string|max:255',
-            'content' => 'sometimes|required|string',
-            'type' => 'sometimes|required|in:general,competition,result,urgent',
-            'scope' => 'sometimes|required|in:district,group',
-            'school_group_id' => 'nullable|exists:school_groups,id',
-            'competition_id' => 'nullable|exists:competitions,id',
-            'priority' => 'sometimes|required|in:normal,high,urgent',
-            'is_pinned' => 'boolean',
-            'published_at' => 'nullable|date',
-            'expired_at' => 'nullable|date',
-            'files.*' => 'nullable|file|max:10240', // Max 10MB per file
-        ]);
-
-        if ($validator->fails()) {
+                'success' => true,
+                'message' => 'สร้างประกาศสำเร็จ',
+                'data' => ['id' => $announcementId]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'success' => false,
+                'message' => 'ข้อมูลไม่ถูกต้อง',
+                'errors' => $e->errors()
             ], 422);
+        } catch (\Exception $e) {
+            Log::error('Announcement store error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถสร้างประกาศได้: ' . $e->getMessage()
+            ], 500);
         }
-
-        // เตรียมข้อมูลสำหรับ update
-        $updateData = [];
-        $fields = ['title', 'content', 'type', 'scope', 'school_group_id', 'competition_id', 'priority', 'is_pinned', 'published_at', 'expired_at'];
-        
-        foreach ($fields as $field) {
-            if (array_key_exists($field, $data)) {
-                $updateData[$field] = $data[$field];
-            }
-        }
-
-        $announcement->update($updateData);
-
-        // อัปโหลดไฟล์เพิ่มเติม (ถ้ามี)
-        if ($request->hasFile('files')) {
-            foreach ($request->file('files') as $file) {
-                $this->uploadFile($announcement, $file);
-            }
-        }
-
-        return response()->json([
-            'message' => 'แก้ไขประกาศสำเร็จ',
-            'announcement' => $announcement->load(['schoolGroup', 'competition', 'creator', 'files'])
-        ]);
     }
 
     /**
-     * ลบประกาศ
+     * 👁️ แสดงประกาศ
      */
-    public function destroy(Request $request, $id)
+    public function show(Request $request, $id): JsonResponse
     {
-        $user = $request->user();
-        $announcement = Announcement::findOrFail($id);
+        try {
+            $user = $request->user();
 
-        // ตรวจสอบสิทธิ์: Group Admin ลบได้เฉพาะประกาศของกลุ่มตัวเอง
-        if ($user->role === 'group_admin') {
-            if ($announcement->scope === 'district') {
+            $announcement = DB::table('announcements as a')
+                ->leftJoin('school_groups as sg', 'a.school_group_id', '=', 'sg.id')
+                ->leftJoin('competitions as c', 'a.competition_id', '=', 'c.id')
+                ->leftJoin('users as u', 'a.created_by', '=', 'u.id')
+                ->select([
+                    'a.*',
+                    'sg.name as school_group_name',
+                    'c.name as competition_name',
+                    'u.name as created_by_name'
+                ])
+                ->where('a.id', $id)
+                ->first();
+
+            if (!$announcement) {
                 return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'Group Admin ไม่สามารถลบประกาศระดับเขตได้'
-                ], 403);
+                    'success' => false,
+                    'message' => 'ไม่พบประกาศ'
+                ], 404);
             }
-            
-            if ($announcement->school_group_id != $user->school_group_id) {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'คุณสามารถลบได้เฉพาะประกาศของกลุ่มคุณเท่านั้น'
-                ], 403);
+
+            // ตรวจสอบสิทธิ์ในการเข้าถึง
+            if (!in_array($user->role, ['district_admin', 'admin'])) {
+                if ($announcement->school_group_id && $announcement->school_group_id !== $user->school_group_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์เข้าถึงประกาศนี้'
+                    ], 403);
+                }
             }
+
+            return response()->json($announcement);
+        } catch (\Exception $e) {
+            Log::error('Announcement show error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถโหลดประกาศได้'
+            ], 500);
         }
-
-        // ลบไฟล์ทั้งหมดที่เกี่ยวข้อง
-        foreach ($announcement->files as $file) {
-            Storage::disk('public')->delete($file->file_path);
-        }
-
-        $announcement->delete();
-
-        return response()->json([
-            'message' => 'ลบประกาศสำเร็จ'
-        ]);
     }
 
     /**
-     * ปักหมุด/ยกเลิกปักหมุด
+     * ✏️ อัปเดตประกาศ
      */
-    public function togglePin(Request $request, $id)
+    public function update(Request $request, $id): JsonResponse
     {
-        $user = $request->user();
-        $announcement = Announcement::findOrFail($id);
+        try {
+            $user = $request->user();
 
-        // ตรวจสอบสิทธิ์: Group Admin แก้ไขได้เฉพาะประกาศของกลุ่มตัวเอง
-        if ($user->role === 'group_admin') {
-            if ($announcement->scope === 'district') {
+            // ตรวจสอบว่าประกาศมีอยู่
+            $announcement = DB::table('announcements')->where('id', $id)->first();
+            if (!$announcement) {
                 return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'Group Admin ไม่สามารถปักหมุดประกาศระดับเขตได้'
-                ], 403);
+                    'success' => false,
+                    'message' => 'ไม่พบประกาศ'
+                ], 404);
             }
-            
-            if ($announcement->school_group_id != $user->school_group_id) {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'คุณสามารถแก้ไขได้เฉพาะประกาศของกลุ่มคุณเท่านั้น'
-                ], 403);
+
+            // ตรวจสอบสิทธิ์
+            if (!in_array($user->role, ['district_admin', 'admin'])) {
+                if ($user->role === 'group_admin') {
+                    // Group admin แก้ไขได้เฉพาะประกาศของกลุ่มตัวเอง
+                    if ($announcement->school_group_id !== $user->school_group_id) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'คุณไม่มีสิทธิ์แก้ไขประกาศนี้'
+                        ], 403);
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์แก้ไขประกาศ'
+                    ], 403);
+                }
             }
+
+            $data = $request->validate([
+                'title' => 'nullable|string|max:255',
+                'content' => 'nullable|string',
+                'type' => 'nullable|in:general,competition,result,urgent',
+                'scope' => 'nullable|in:district,group',
+                'school_group_id' => 'nullable|exists:school_groups,id',
+                'priority' => 'nullable|in:normal,high,urgent',
+                'is_pinned' => 'nullable',
+                'published_at' => 'nullable|date',
+                'expired_at' => 'nullable|date',
+                'link_url' => 'nullable|url|max:500',
+                'link_title' => 'nullable|string|max:255',
+            ]);
+
+            // กรองเฉพาะข้อมูลที่ส่งมา
+            $updateData = array_filter($data, fn($v) => $v !== null);
+
+            // แปลง is_pinned
+            if (isset($updateData['is_pinned'])) {
+                $updateData['is_pinned'] = filter_var($updateData['is_pinned'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+            }
+
+            // ถ้าเป็น district scope ให้ล้าง school_group_id
+            if (isset($updateData['scope']) && $updateData['scope'] === 'district') {
+                $updateData['school_group_id'] = null;
+            }
+
+            $updateData['updated_at'] = now();
+
+            DB::table('announcements')
+                ->where('id', $id)
+                ->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'อัปเดตประกาศสำเร็จ'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ข้อมูลไม่ถูกต้อง',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Announcement update error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถอัปเดตประกาศได้: ' . $e->getMessage()
+            ], 500);
         }
-
-        $announcement->is_pinned = !$announcement->is_pinned;
-        $announcement->save();
-
-        return response()->json([
-            'message' => $announcement->is_pinned ? 'ปักหมุดประกาศแล้ว' : 'ยกเลิกปักหมุดแล้ว',
-            'announcement' => $announcement
-        ]);
     }
 
     /**
-     * ดาวน์โหลดไฟล์
+     * 🗑️ ลบประกาศ
      */
-    public function downloadFile($announcementId, $fileId)
+    public function destroy(Request $request, $id): JsonResponse
     {
-        $file = AnnouncementFile::where('announcement_id', $announcementId)
-            ->where('id', $fileId)
-            ->firstOrFail();
+        try {
+            $user = $request->user();
 
-        // เพิ่มจำนวนการดาวน์โหลด
-        $file->incrementDownloadCount();
-
-        // ดาวน์โหลดไฟล์
-        return Storage::disk('public')->download($file->file_path, $file->original_name);
-    }
-
-    /**
-     * ลบไฟล์
-     */
-    public function deleteFile(Request $request, $announcementId, $fileId)
-    {
-        $user = $request->user();
-        $announcement = Announcement::findOrFail($announcementId);
-
-        // ตรวจสอบสิทธิ์
-        if ($user->role === 'group_admin') {
-            if ($announcement->scope === 'district') {
+            // ตรวจสอบว่าประกาศมีอยู่
+            $announcement = DB::table('announcements')->where('id', $id)->first();
+            if (!$announcement) {
                 return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'Group Admin ไม่สามารถลบไฟล์ของประกาศระดับเขตได้'
-                ], 403);
+                    'success' => false,
+                    'message' => 'ไม่พบประกาศ'
+                ], 404);
             }
-            
-            if ($announcement->school_group_id != $user->school_group_id) {
-                return response()->json([
-                    'message' => 'Unauthorized',
-                    'error' => 'คุณสามารถลบได้เฉพาะไฟล์ของกลุ่มคุณเท่านั้น'
-                ], 403);
+
+            // ตรวจสอบสิทธิ์
+            if (!in_array($user->role, ['district_admin', 'admin'])) {
+                if ($user->role === 'group_admin') {
+                    // Group admin ลบได้เฉพาะประกาศของกลุ่มตัวเอง
+                    if ($announcement->school_group_id !== $user->school_group_id) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'คุณไม่มีสิทธิ์ลบประกาศนี้'
+                        ], 403);
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์ลบประกาศ'
+                    ], 403);
+                }
             }
+
+            DB::table('announcements')->where('id', $id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ลบประกาศสำเร็จ'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Announcement destroy error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถลบประกาศได้'
+            ], 500);
         }
-
-        $file = AnnouncementFile::where('announcement_id', $announcementId)
-            ->where('id', $fileId)
-            ->firstOrFail();
-
-        // ลบไฟล์จาก storage
-        Storage::disk('public')->delete($file->file_path);
-
-        // ลบ record จาก database
-        $file->delete();
-
-        return response()->json([
-            'message' => 'ลบไฟล์สำเร็จ'
-        ]);
     }
 
     /**
-     * Helper: อัปโหลดไฟล์
+     * 📌 Toggle pin status
      */
-    private function uploadFile(Announcement $announcement, $file)
+    public function togglePin(Request $request, $id): JsonResponse
     {
-        $originalName = $file->getClientOriginalName();
-        $extension = $file->getClientOriginalExtension();
-        $storedName = Str::random(40) . '.' . $extension;
-        
-        // เก็บไฟล์ใน storage/app/public/announcements
-        $path = $file->storeAs('announcements', $storedName, 'public');
+        try {
+            $user = $request->user();
 
-        // บันทึกข้อมูลไฟล์
-        AnnouncementFile::create([
-            'announcement_id' => $announcement->id,
-            'original_name' => $originalName,
-            'stored_name' => $storedName,
-            'file_path' => $path,
-            'file_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-        ]);
+            // ตรวจสอบว่าประกาศมีอยู่
+            $announcement = DB::table('announcements')->where('id', $id)->first();
+            if (!$announcement) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ไม่พบประกาศ'
+                ], 404);
+            }
+
+            // ตรวจสอบสิทธิ์
+            if (!in_array($user->role, ['district_admin', 'admin'])) {
+                if ($user->role === 'group_admin') {
+                    if ($announcement->school_group_id !== $user->school_group_id) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'คุณไม่มีสิทธิ์แก้ไขประกาศนี้'
+                        ], 403);
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์แก้ไขประกาศ'
+                    ], 403);
+                }
+            }
+
+            $newPinStatus = !$announcement->is_pinned;
+
+            DB::table('announcements')
+                ->where('id', $id)
+                ->update([
+                    'is_pinned' => $newPinStatus,
+                    'updated_at' => now()
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $newPinStatus ? 'ปักหมุดประกาศสำเร็จ' : 'ยกเลิกปักหมุดสำเร็จ',
+                'is_pinned' => $newPinStatus
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Announcement togglePin error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถเปลี่ยนสถานะปักหมุดได้'
+            ], 500);
+        }
     }
 }

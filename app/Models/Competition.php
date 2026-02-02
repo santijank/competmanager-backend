@@ -17,14 +17,16 @@ class Competition extends Model
         'category_id',
         'level',  // ระดับชั้น (u.1-3, u.4-6, etc.)
         'competition_level',  // ระดับการแข่งขัน (group, district)
-        
+
         // ✅ Multi-Participant Support
         'min_students',      // ✅ เพิ่ม - จำนวนนักเรียนขั้นต่ำ
         'max_students',
         'min_teachers',      // ✅ เพิ่ม - จำนวนครูขั้นต่ำ
         'max_teachers',
-        
+
         'school_group_id',
+        'excluded_school_groups',  // ✅ กลุ่มที่ไม่อนุญาตให้ลงทะเบียน
+        'exclusion_reason',        // ✅ เหตุผลที่ยกเว้น
         'start_date',
         'end_date',
         'status',
@@ -46,6 +48,7 @@ class Competition extends Model
 
     protected $casts = [
         'metadata' => 'array',
+        'excluded_school_groups' => 'array',  // ✅ Cast เป็น array
         'start_date' => 'date',
         'end_date' => 'date',
         'registration_start_date' => 'date',
@@ -54,7 +57,7 @@ class Competition extends Model
         'is_active' => 'boolean',
         'auto_close_registration' => 'boolean',
         'auto_generated' => 'boolean',
-        
+
         // ✅ Cast participant limits เป็น integer
         'min_students' => 'integer',
         'max_students' => 'integer',
@@ -241,11 +244,79 @@ class Competition extends Model
         $studentText = $this->min_students === $this->max_students
             ? "{$this->min_students} คน"
             : "{$this->min_students}-{$this->max_students} คน";
-            
+
         $teacherText = $this->min_teachers === $this->max_teachers
             ? "{$this->min_teachers} คน"
             : "{$this->min_teachers}-{$this->max_teachers} คน";
-        
+
         return "นักเรียน: {$studentText} | ครู: {$teacherText}";
+    }
+
+    // ✅ NEW: School Group Exclusion Methods
+
+    /**
+     * ตรวจสอบว่ากลุ่มโรงเรียนถูกยกเว้นจากการลงทะเบียนหรือไม่
+     */
+    public function isSchoolGroupExcluded(int $schoolGroupId): bool
+    {
+        $excludedGroups = $this->excluded_school_groups ?? [];
+        return in_array($schoolGroupId, $excludedGroups);
+    }
+
+    /**
+     * ตรวจสอบว่าโรงเรียนสามารถลงทะเบียนกิจกรรมนี้ได้หรือไม่
+     */
+    public function canSchoolRegister(int $schoolGroupId): bool
+    {
+        // ถ้ากลุ่มถูก exclude ให้ return false
+        if ($this->isSchoolGroupExcluded($schoolGroupId)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * เพิ่มกลุ่มโรงเรียนที่ยกเว้น
+     */
+    public function addExcludedSchoolGroup(int $schoolGroupId): void
+    {
+        $excludedGroups = $this->excluded_school_groups ?? [];
+        if (!in_array($schoolGroupId, $excludedGroups)) {
+            $excludedGroups[] = $schoolGroupId;
+            $this->excluded_school_groups = $excludedGroups;
+            $this->save();
+        }
+    }
+
+    /**
+     * ลบกลุ่มโรงเรียนออกจากรายการยกเว้น
+     */
+    public function removeExcludedSchoolGroup(int $schoolGroupId): void
+    {
+        $excludedGroups = $this->excluded_school_groups ?? [];
+        $excludedGroups = array_values(array_filter($excludedGroups, fn($id) => $id !== $schoolGroupId));
+        $this->excluded_school_groups = $excludedGroups;
+        $this->save();
+    }
+
+    /**
+     * ตั้งค่ากลุ่มโรงเรียนที่ยกเว้นทั้งหมด
+     */
+    public function setExcludedSchoolGroups(array $schoolGroupIds): void
+    {
+        $this->excluded_school_groups = array_values(array_unique($schoolGroupIds));
+        $this->save();
+    }
+
+    /**
+     * Scope: กรองเฉพาะกิจกรรมที่กลุ่มโรงเรียนสามารถลงทะเบียนได้
+     */
+    public function scopeAvailableForSchoolGroup($query, int $schoolGroupId)
+    {
+        return $query->where(function ($q) use ($schoolGroupId) {
+            $q->whereNull('excluded_school_groups')
+              ->orWhereJsonDoesntContain('excluded_school_groups', $schoolGroupId);
+        });
     }
 }

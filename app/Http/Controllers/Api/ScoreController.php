@@ -134,6 +134,108 @@ class ScoreController extends Controller
     }
 
     /**
+     * Get scorable data for a competition (for ScoreEntry page)
+     * Route: GET /competitions/{id}/scorable
+     */
+    public function getScorable(Request $request, $competitionId)
+    {
+        try {
+            $user = auth()->user();
+
+            $competition = Competition::with([
+                'category',
+                'schoolGroup',
+                'registrations' => function ($query) {
+                    $query->where('status', 'approved')
+                          ->with(['school', 'score']);
+                }
+            ])->findOrFail($competitionId);
+
+            // ตรวจสอบสิทธิ์
+            if ($user->role === 'group_admin' &&
+                $competition->school_group_id !== $user->school_group_id &&
+                $competition->competition_level !== 'district') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันนี้'
+                ], 403);
+            }
+
+            // คำนวณสถิติ
+            $registrations = $competition->registrations;
+            $scoredCount = $registrations->filter(fn($r) => $r->score && $r->score->score !== null)->count();
+            $finalizedCount = $registrations->filter(fn($r) => $r->score && $r->score->is_finalized)->count();
+
+            $statistics = [
+                'total_teams' => $registrations->count(),
+                'scored_teams' => $scoredCount,
+                'finalized_teams' => $finalizedCount,
+                'pending_teams' => $registrations->count() - $scoredCount,
+            ];
+
+            // Map registrations for frontend
+            $regData = $registrations->map(function ($reg) {
+                return [
+                    'id' => $reg->id,
+                    'team_name' => $reg->team_name,
+                    'student_names' => $reg->student_names,
+                    'student_count' => $reg->student_count,
+                    'school' => $reg->school ? [
+                        'id' => $reg->school->id,
+                        'name' => $reg->school->name,
+                        'code' => $reg->school->code,
+                    ] : null,
+                    'score' => $reg->score ? [
+                        'id' => $reg->score->id,
+                        'score' => $reg->score->score,
+                        'medal' => $reg->score->medal,
+                        'rank' => $reg->score->rank,
+                        'is_finalized' => $reg->score->is_finalized,
+                        'notes' => $reg->score->notes,
+                    ] : null,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'competition' => [
+                        'id' => $competition->id,
+                        'name' => $competition->name,
+                        'code' => $competition->code,
+                        'level' => $competition->level,
+                        'competition_level' => $competition->competition_level,
+                        'is_published' => $competition->is_published ?? false,
+                        'category' => $competition->category ? [
+                            'id' => $competition->category->id,
+                            'name' => $competition->category->name,
+                        ] : null,
+                        'school_group' => $competition->schoolGroup ? [
+                            'id' => $competition->schoolGroup->id,
+                            'name' => $competition->schoolGroup->name,
+                        ] : null,
+                    ],
+                    'registrations' => $regData,
+                    'statistics' => $statistics,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('ScoreController: Error getting scorable data', [
+                'error' => $e->getMessage(),
+                'competition_id' => $competitionId
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Server error',
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get scores for a competition
      * Route: GET /competitions/{id}/scores
      */
@@ -723,6 +825,210 @@ class ScoreController extends Controller
             $score->save();
 
             $previousScore = $score->score;
+        }
+    }
+
+    /**
+     * Publish results for a competition (เผยแพร่ผลการแข่งขัน)
+     * Route: POST /competitions/{id}/publish
+     */
+    public function publishResults(Request $request, $competitionId)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $competition = Competition::findOrFail($competitionId);
+
+            // ตรวจสอบสิทธิ์
+            if ($user->role === 'group_admin' &&
+                $competition->school_group_id !== $user->school_group_id &&
+                $competition->competition_level !== 'district') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
+                ], 403);
+            }
+
+            // ตรวจสอบว่ามีคะแนนที่ finalize แล้วหรือยัง
+            $finalizedScores = Score::where('competition_id', $competitionId)
+                ->where('is_finalized', true)
+                ->count();
+
+            if ($finalizedScores === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณายืนยันคะแนนก่อนเผยแพร่ผล'
+                ], 400);
+            }
+
+            // อัปเดต competition ให้เป็น published
+            $competition->is_published = true;
+            $competition->published_at = now();
+            $competition->published_by = $user->id;
+            $competition->save();
+
+            Log::info('Results published', [
+                'competition_id' => $competitionId,
+                'user_id' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'เผยแพร่ผลการแข่งขันสำเร็จ'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('ScoreController: Error publishing results', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Server error',
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Unpublish results for a competition (ยกเลิกเผยแพร่ผล)
+     * Route: POST /competitions/{id}/unpublish
+     */
+    public function unpublishResults(Request $request, $competitionId)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $competition = Competition::findOrFail($competitionId);
+
+            // ตรวจสอบสิทธิ์
+            if ($user->role === 'group_admin' &&
+                $competition->school_group_id !== $user->school_group_id &&
+                $competition->competition_level !== 'district') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
+                ], 403);
+            }
+
+            // อัปเดต competition ให้ unpublish
+            $competition->is_published = false;
+            $competition->published_at = null;
+            $competition->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ยกเลิกเผยแพร่ผลการแข่งขันสำเร็จ'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('ScoreController: Error unpublishing results', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Server error',
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get published results for public display
+     * Route: GET /public/results
+     */
+    public function getPublishedResults(Request $request)
+    {
+        try {
+            $groupId = $request->query('school_group_id');
+
+            $query = Competition::where('is_published', true)
+                ->with([
+                    'category',
+                    'schoolGroup',
+                    'registrations' => function ($q) {
+                        $q->where('status', 'approved')
+                          ->with(['school', 'score' => function ($sq) {
+                              $sq->where('is_finalized', true)
+                                 ->orderBy('rank', 'asc');
+                          }]);
+                    }
+                ])
+                ->orderBy('category_id')
+                ->orderBy('name');
+
+            if ($groupId) {
+                $query->where(function ($q) use ($groupId) {
+                    $q->where('school_group_id', $groupId)
+                      ->orWhere('competition_level', 'district');
+                });
+            }
+
+            $competitions = $query->get();
+
+            // จัดกลุ่มตาม category
+            $grouped = $competitions->groupBy(function ($comp) {
+                return $comp->category->name ?? 'อื่นๆ';
+            });
+
+            $result = [];
+            foreach ($grouped as $categoryName => $comps) {
+                $result[] = [
+                    'category' => $categoryName,
+                    'competitions' => $comps->map(function ($comp) {
+                        return [
+                            'id' => $comp->id,
+                            'name' => $comp->name,
+                            'code' => $comp->code,
+                            'level' => $comp->level,
+                            'competition_level' => $comp->competition_level,
+                            'school_group' => $comp->schoolGroup ? [
+                                'id' => $comp->schoolGroup->id,
+                                'name' => $comp->schoolGroup->name,
+                            ] : null,
+                            'results' => $comp->registrations
+                                ->filter(fn($r) => $r->score && $r->score->is_finalized)
+                                ->sortBy(fn($r) => $r->score->rank ?? 999)
+                                ->values()
+                                ->map(function ($reg) {
+                                    return [
+                                        'rank' => $reg->score->rank,
+                                        'team_name' => $reg->team_name,
+                                        'school_name' => $reg->school->name ?? '-',
+                                        'score' => $reg->score->score,
+                                        'medal' => $reg->score->medal,
+                                    ];
+                                }),
+                        ];
+                    }),
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('ScoreController: Error getting published results', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
         }
     }
 }

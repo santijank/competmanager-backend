@@ -13,6 +13,7 @@ class DocumentController extends Controller
 {
     /**
      * สร้างเอกสารรายชื่อนักเรียนลงทะเบียน (Student Check-in)
+     * แบบรวมทุกโรงเรียนในตารางเดียว
      */
     public function generateStudentCheckin(Request $request, $competition)
     {
@@ -25,7 +26,7 @@ class DocumentController extends Controller
                 'schoolGroup'
             ])->findOrFail($competition);
 
-            // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว เรียงตามเวลาที่สมัคร
+            // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว เรียงตามชื่อโรงเรียน
             $registrations = Registration::where('competition_id', $competition)
                 ->where('status', 'approved')
                 ->with(['school'])
@@ -34,60 +35,27 @@ class DocumentController extends Controller
 
             Log::info("Found {$registrations->count()} approved registrations");
 
-            // จัดข้อมูลแบบ 1 หน้า = 1 โรงเรียน
+            // จัดข้อมูลแบบรวมทุกโรงเรียน
             $schools = [];
-            $schoolsProcessed = [];
 
             foreach ($registrations as $registration) {
                 $schoolId = $registration->school_id;
                 $schoolName = $registration->school->name ?? '-';
 
-                // ถ้ายังไม่มีโรงเรียนนี้ ให้สร้างใหม่
-                if (!isset($schoolsProcessed[$schoolId])) {
-                    $schoolsProcessed[$schoolId] = true;
-                    $schools[] = [
-                        'school_id' => $schoolId,
-                        'school_name' => $schoolName,
-                        'students' => []
-                    ];
-                }
+                // ดึงรายชื่อนักเรียน
+                $studentNames = $registration->getStudentNamesList();
 
-                // หา index ของโรงเรียนนี้
-                $schoolIndex = null;
-                foreach ($schools as $index => $school) {
-                    if ($school['school_id'] == $schoolId) {
-                        $schoolIndex = $index;
-                        break;
-                    }
-                }
+                // เพิ่มโรงเรียนเข้า array
+                $schools[] = [
+                    'school_id' => $schoolId,
+                    'school_name' => $schoolName,
+                    'students' => $studentNames
+                ];
 
-                // เพิ่มนักเรียนเข้าไปในโรงเรียน
-                $studentData = $registration->students;
-                
-                // Force convert to associative array
-                if (is_object($studentData)) {
-                    $studentData = json_decode(json_encode($studentData), true);
-                } elseif (is_string($studentData)) {
-                    $studentData = json_decode($studentData, true);
-                }
-
-                Log::info("Registration {$registration->id}: students type = " . gettype($registration->students));
-                Log::info("Registration {$registration->id}: converted = " . json_encode($studentData));
-
-                if (is_array($studentData) && count($studentData) > 0) {
-                    foreach ($studentData as $index => $student) {
-                        $studentName = is_array($student) ? ($student['name'] ?? '-') : '-';
-                        $numberedName = ($index + 1) . '.' . $studentName;
-                        $schools[$schoolIndex]['students'][] = $numberedName;
-                        Log::info("Added: {$numberedName}");
-                    }
-                } else {
-                    Log::warning("No students for reg {$registration->id}");
-                }
+                Log::info("School: {$schoolName}, Students: " . count($studentNames));
             }
 
             Log::info("Total schools: " . count($schools));
-            Log::info("Schools data for PDF: " . json_encode($schools));
 
             // ข้อมูลสำหรับ PDF
             $data = [
@@ -101,7 +69,7 @@ class DocumentController extends Controller
                 ->setPaper('a4', 'portrait')
                 ->setOption('defaultFont', 'THSarabunNew');
 
-            $filename = 'DOC1-แบบลงทะเบียนนักเรียน-' . $competitionData->code . '-' . now()->format('YmdHis') . '.pdf';
+            $filename = 'DOC1-แบบลงทะเบียนนักเรียน-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
 
             Log::info("DocumentController: Student check-in PDF generated successfully");
 
@@ -110,7 +78,7 @@ class DocumentController extends Controller
         } catch (\Exception $e) {
             Log::error("DocumentController Error (Student Check-in): " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
-            
+
             return response()->json([
                 'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารรายชื่อนักเรียน',
                 'error' => $e->getMessage()
@@ -120,6 +88,7 @@ class DocumentController extends Controller
 
     /**
      * สร้างเอกสารรายชื่อครูผู้ควบคุม (Teacher Check-in)
+     * แบบรวมทุกโรงเรียนในตารางเดียว
      */
     public function generateTeacherCheckin(Request $request, $competition)
     {
@@ -132,7 +101,7 @@ class DocumentController extends Controller
                 'schoolGroup'
             ])->findOrFail($competition);
 
-            // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว เรียงตามเวลาที่สมัคร
+            // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว เรียงตามชื่อโรงเรียน
             $registrations = Registration::where('competition_id', $competition)
                 ->where('status', 'approved')
                 ->with(['school'])
@@ -141,60 +110,27 @@ class DocumentController extends Controller
 
             Log::info("Found {$registrations->count()} approved registrations");
 
-            // จัดข้อมูลแบบ 1 หน้า = 1 โรงเรียน
+            // จัดข้อมูลแบบรวมทุกโรงเรียน
             $schools = [];
-            $schoolsProcessed = [];
 
             foreach ($registrations as $registration) {
                 $schoolId = $registration->school_id;
                 $schoolName = $registration->school->name ?? '-';
 
-                // ถ้ายังไม่มีโรงเรียนนี้ ให้สร้างใหม่
-                if (!isset($schoolsProcessed[$schoolId])) {
-                    $schoolsProcessed[$schoolId] = true;
-                    $schools[] = [
-                        'school_id' => $schoolId,
-                        'school_name' => $schoolName,
-                        'teachers' => []
-                    ];
-                }
+                // ดึงรายชื่อครู
+                $teacherNames = $registration->getTeacherNamesList();
 
-                // หา index ของโรงเรียนนี้
-                $schoolIndex = null;
-                foreach ($schools as $index => $school) {
-                    if ($school['school_id'] == $schoolId) {
-                        $schoolIndex = $index;
-                        break;
-                    }
-                }
+                // เพิ่มโรงเรียนเข้า array
+                $schools[] = [
+                    'school_id' => $schoolId,
+                    'school_name' => $schoolName,
+                    'teachers' => $teacherNames
+                ];
 
-                // เพิ่มครูเข้าไปในโรงเรียน
-                $teacherData = $registration->teachers;
-                
-                // Force convert to associative array
-                if (is_object($teacherData)) {
-                    $teacherData = json_decode(json_encode($teacherData), true);
-                } elseif (is_string($teacherData)) {
-                    $teacherData = json_decode($teacherData, true);
-                }
-
-                Log::info("Registration {$registration->id}: teachers type = " . gettype($registration->teachers));
-                Log::info("Registration {$registration->id}: converted = " . json_encode($teacherData));
-
-                if (is_array($teacherData) && count($teacherData) > 0) {
-                    foreach ($teacherData as $index => $teacher) {
-                        $teacherName = is_array($teacher) ? ($teacher['name'] ?? '-') : '-';
-                        $numberedName = ($index + 1) . '.' . $teacherName;
-                        $schools[$schoolIndex]['teachers'][] = $numberedName;
-                        Log::info("Added: {$numberedName}");
-                    }
-                } else {
-                    Log::warning("No teachers for reg {$registration->id}");
-                }
+                Log::info("School: {$schoolName}, Teachers: " . count($teacherNames));
             }
 
             Log::info("Total schools: " . count($schools));
-            Log::info("Schools data for PDF: " . json_encode($schools));
 
             // ข้อมูลสำหรับ PDF
             $data = [
@@ -208,7 +144,7 @@ class DocumentController extends Controller
                 ->setPaper('a4', 'portrait')
                 ->setOption('defaultFont', 'THSarabunNew');
 
-            $filename = 'DOC2-แบบลงทะเบียนครู-' . $competitionData->code . '-' . now()->format('YmdHis') . '.pdf';
+            $filename = 'DOC2-แบบลงทะเบียนครู-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
 
             Log::info("DocumentController: Teacher check-in PDF generated successfully");
 
@@ -217,7 +153,7 @@ class DocumentController extends Controller
         } catch (\Exception $e) {
             Log::error("DocumentController Error (Teacher Check-in): " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
-            
+
             return response()->json([
                 'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารรายชื่อครู',
                 'error' => $e->getMessage()
@@ -256,17 +192,10 @@ class DocumentController extends Controller
             // นับนักเรียนและครูทั้งหมด
             $totalStudents = 0;
             $totalTeachers = 0;
-            
+
             foreach ($registrations->where('status', 'approved') as $registration) {
-                $students = is_string($registration->students) 
-                    ? json_decode($registration->students, true) 
-                    : $registration->students;
-                $teachers = is_string($registration->teachers) 
-                    ? json_decode($registration->teachers, true) 
-                    : $registration->teachers;
-                
-                $totalStudents += is_array($students) ? count($students) : 0;
-                $totalTeachers += is_array($teachers) ? count($teachers) : 0;
+                $totalStudents += $registration->student_count ?? 0;
+                $totalTeachers += $registration->teacher_count ?? 0;
             }
 
             $stats['total_students'] = $totalStudents;
@@ -295,9 +224,9 @@ class DocumentController extends Controller
             // สร้าง PDF
             $pdf = Pdf::loadView('exports.summary-pdf', $data)
                 ->setPaper('a4', 'portrait')
-                ->setOption('defaultFont', 'DejaVu Sans');
+                ->setOption('defaultFont', 'THSarabunNew');
 
-            $filename = 'summary-' . $competitionData->code . '-' . now()->format('YmdHis') . '.pdf';
+            $filename = 'summary-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
 
             Log::info("DocumentController: Summary PDF generated successfully");
 
@@ -306,7 +235,7 @@ class DocumentController extends Controller
         } catch (\Exception $e) {
             Log::error("DocumentController Error (Summary): " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
-            
+
             return response()->json([
                 'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารสรุป',
                 'error' => $e->getMessage()

@@ -4,256 +4,392 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
-use App\Models\Category;
-use App\Models\SchoolGroup;
-use App\Models\Registration;
-use App\Models\CompetitionAdvancement;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class CompetitionController extends Controller
 {
     /**
-     * ✅ Get all competitions with role-based filtering
+     * ✅ WORKING VERSION - Get competitions with STRICT role-based filtering
      */
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $query = Competition::with(['category']);
+        try {
+            $user = $request->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ',
+                    'data' => []
+                ], 401);
+            }
 
-        // ✅ ROLE-BASED ACCESS CONTROL
-        // ถ้าเป็น group_admin หรือ committee ระดับ group → แสดงเฉพาะกลุ่มตัวเอง
-        if ($this->shouldFilterBySchoolGroup($user)) {
-            $query->where('school_group_id', $user->school_group_id);
+            Log::info('🔍 Competition API Request', [
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+                'user_school_group_id' => $user->school_group_id,
+                'user_name' => $user->name,
+                'request_params' => $request->all()
+            ]);
+
+            // ✅ ใช้ Query Builder แทน Eloquent เพื่อหลีกเลี่ยง relationship issues
+            $query = DB::table('competitions')
+                ->leftJoin('categories', 'competitions.category_id', '=', 'categories.id')
+                ->leftJoin('school_groups', 'competitions.school_group_id', '=', 'school_groups.id')
+                ->select(
+                    'competitions.*',
+                    'categories.name as category_name',
+                    'school_groups.name as school_group_name'
+                );
+            $filterApplied = 'none';
+
+            // ✅ **STRICT FILTERING ตาม Role**
+            $userRole = strtolower($user->role);
+
+            switch ($userRole) {
+                case 'district_admin':
+                case 'admin':
+                    // District Admin เห็นทั้งหมด
+                    $filterApplied = 'District Admin - เห็นทั้งหมด';
+                    break;
+
+                case 'group_admin':
+                    // Group Admin เห็นเฉพาะกลุ่มตัวเอง
+                    if ($user->school_group_id) {
+                        $query->where('competitions.school_group_id', $user->school_group_id);
+                        $filterApplied = "Group Admin - เฉพาะกลุ่ม {$user->school_group_id}";
+                    } else {
+                        $query->whereNull('competitions.school_group_id');
+                        $filterApplied = 'Group Admin - เฉพาะสาธารณะ';
+                    }
+                    break;
+
+                case 'school_admin':
+                case 'teacher':
+                    // School Admin/Teacher เห็นเฉพาะกลุ่มของโรงเรียน
+                    $schoolGroupId = $user->school_group_id;
+                    // ถ้าไม่มี school_group_id ให้ค้นหาจาก school
+                    if (!$schoolGroupId && $user->school_id) {
+                        $school = \App\Models\School::find($user->school_id);
+                        $schoolGroupId = $school ? $school->school_group_id : null;
+                    }
+
+                    if ($schoolGroupId) {
+                        $query->where('competitions.school_group_id', $schoolGroupId);
+                        $filterApplied = "School Admin - เฉพาะกลุ่ม {$schoolGroupId}";
+                    } else {
+                        $query->whereNull('competitions.school_group_id');
+                        $filterApplied = 'School Admin - เฉพาะสาธารณะ';
+                    }
+                    break;
+
+                default:
+                    // Role อื่นๆ เห็นเฉพาะสาธารณะ
+                    $query->whereNull('competitions.school_group_id');
+                    $filterApplied = "Role {$userRole} - เฉพาะสาธารณะ";
+                    break;
+            }
+
+            // ✅ Additional filters
+            if ($request->filled('category_id') && $request->category_id !== 'all') {
+                $query->where('competitions.category_id', $request->category_id);
+            }
+
+            if ($request->filled('is_active')) {
+                $query->where('competitions.is_active', true);
+            }
+
+            if ($request->filled('registration_status') && $request->registration_status !== 'all') {
+                $query->where('competitions.registration_status', $request->registration_status);
+            }
+
+            // ✅ Admin manual group filter (เฉพาะ District Admin/Admin)
+            if ($request->filled('school_group_id') &&
+                $request->school_group_id !== 'all' &&
+                in_array($userRole, ['district_admin', 'admin'])) {
+
+                $query->where('competitions.school_group_id', $request->school_group_id);
+                $filterApplied .= " + Manual filter กลุ่ม {$request->school_group_id}";
+            }
+
+            // ✅ Execute query
+            $totalCount = DB::table('competitions')->count();
+
+            $competitions = $query
+                ->orderBy('competitions.created_at', 'desc')
+                ->limit(100)
+                ->get();
+
+            // ✅ Format data
+            $formattedData = $competitions->map(function ($comp) {
+                // Parse excluded_school_groups ถ้าเป็น JSON string
+                $excludedGroups = null;
+                if (!empty($comp->excluded_school_groups)) {
+                    $excludedGroups = is_string($comp->excluded_school_groups)
+                        ? json_decode($comp->excluded_school_groups, true)
+                        : $comp->excluded_school_groups;
+                }
+
+                return [
+                    'id' => (int) $comp->id,
+                    'name' => $comp->name,
+                    'code' => $comp->code,
+                    'level' => $comp->level,
+                    'competition_level' => $comp->competition_level ?? 'group',
+                    'max_students' => (int) ($comp->max_students ?? 1),
+                    'min_students' => (int) ($comp->min_students ?? 1),
+                    'max_teachers' => (int) ($comp->max_teachers ?? 1),
+                    'school_group_id' => $comp->school_group_id ? (int) $comp->school_group_id : null,
+                    'category' => [
+                        'id' => (int) $comp->category_id,
+                        'name' => $comp->category_name
+                    ],
+                    'school_group' => $comp->school_group_id ? [
+                        'id' => (int) $comp->school_group_id,
+                        'name' => $comp->school_group_name
+                    ] : null,
+                    'registration_status' => $comp->registration_status ?? 'upcoming',
+                    'is_active' => (bool) $comp->is_active,
+                    'excluded_school_groups' => $excludedGroups ?? [], // ✅ เพิ่ม excluded_school_groups
+                    'exclusion_reason' => $comp->exclusion_reason ?? null, // ✅ เพิ่ม exclusion_reason
+                    'created_at' => $comp->created_at,
+                ];
+            })->toArray();
+
+            Log::info('✅ Competition API Success', [
+                'user_role' => $user->role,
+                'filter_applied' => $filterApplied,
+                'total_in_db' => $totalCount,
+                'filtered_count' => count($formattedData),
+                'returned_items' => count($formattedData)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedData,
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 100,
+                    'total' => count($formattedData),
+                ],
+                'debug' => [
+                    'user_role' => $user->role,
+                    'user_school_group_id' => $user->school_group_id,
+                    'filter_applied' => $filterApplied,
+                    'total_in_db' => $totalCount,
+                    'filtered_count' => count($formattedData),
+                    'can_view_all_groups' => in_array($userRole, ['district_admin', 'admin']),
+                    'timestamp' => now()->toDateTimeString()
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('❌ Competition API Error', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'user_id' => $user->id ?? null,
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+                'error' => $e->getMessage(),
+                'data' => []
+            ], 500);
         }
-        // ถ้าเป็น admin หรือ committee ระดับ district → ดูได้ทุกกลุ่ม
-        // (ไม่ต้องเพิ่ม where เพราะจะดูทุกกลุ่ม)
-
-        // ✅ Additional filters (ถ้ามีการส่งมา)
-        if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->is_active === 'true' || $request->is_active === '1');
-        }
-
-        if ($request->has('registration_status')) {
-            $query->where('registration_status', $request->registration_status);
-        }
-
-        // ✅ Admin/Committee district level สามารถ filter ดูกลุ่มอื่นได้
-        if ($request->has('school_group_id') && $this->canViewAllGroups($user)) {
-            $query->where('school_group_id', $request->school_group_id);
-        }
-
-        // ✅ Pagination with custom per_page
-        $perPage = $request->input('per_page', 15);
-        $competitions = $query->orderBy('start_date', 'desc')->paginate($perPage);
-
-        return response()->json([
-            'success' => true,
-            'data' => $competitions->items(),
-            'meta' => [
-                'current_page' => $competitions->currentPage(),
-                'last_page' => $competitions->lastPage(),
-                'per_page' => $competitions->perPage(),
-                'total' => $competitions->total(),
-            ]
-        ]);
     }
 
     /**
-     * Get single competition (with access control)
+     * ✅ Get single competition
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $user = $request->user();
-        $competition = Competition::with(['category'])->findOrFail($id);
+        try {
+            $user = $request->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
 
-        // ✅ Check access permission
-        if ($this->shouldFilterBySchoolGroup($user)) {
-            if ($competition->school_group_id != $user->school_group_id) {
+            $competition = DB::table('competitions')
+                ->leftJoin('categories', 'competitions.category_id', '=', 'categories.id')
+                ->leftJoin('school_groups', 'competitions.school_group_id', '=', 'school_groups.id')
+                ->where('competitions.id', $id)
+                ->select(
+                    'competitions.*',
+                    'categories.name as category_name',
+                    'school_groups.name as school_group_name'
+                )
+                ->first();
+
+            if (!$competition) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ไม่พบการแข่งขันที่ต้องการ'
+                ], 404);
+            }
+
+            // ✅ Access control
+            $userRole = strtolower($user->role);
+            $canView = false;
+
+            switch ($userRole) {
+                case 'district_admin':
+                case 'admin':
+                    $canView = true;
+                    break;
+                case 'group_admin':
+                case 'school_admin':
+                case 'teacher':
+                    $canView = ($competition->school_group_id === null || 
+                              $competition->school_group_id === $user->school_group_id);
+                    break;
+                default:
+                    $canView = ($competition->school_group_id === null);
+            }
+
+            if (!$canView) {
                 return response()->json([
                     'success' => false,
                     'message' => 'คุณไม่มีสิทธิ์เข้าถึงการแข่งขันนี้'
                 ], 403);
             }
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $competition
-        ]);
-    }
-
-    /**
-     * Create single competition
-     */
-    public function store(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|unique:competitions,code',
-            'category_id' => 'required|exists:categories,id',
-            'competition_type' => 'required|string',
-            'level' => 'required|string',
-            'max_students' => 'required|integer|min:1',
-            'max_teachers' => 'required|integer|min:1',
-            'max_judges' => 'required|integer|min:1',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'registration_start_date' => 'required|date',
-            'registration_end_date' => 'required|date|after_or_equal:registration_start_date|before_or_equal:start_date',
-            'venue' => 'nullable|string',
-            'registration_status' => 'required|in:open,closed',
-            'is_active' => 'required|boolean',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $data = $request->all();
-
-        // ✅ Auto-assign school_group_id for group_admin
-        if ($this->shouldFilterBySchoolGroup($user)) {
-            $data['school_group_id'] = $user->school_group_id;
-        }
-
-        $competition = Competition::create($data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'สร้างการแข่งขันสำเร็จ',
-            'data' => $competition->load('category')
-        ], 201);
-    }
-
-    /**
-     * ⭐ Bulk Store Competitions (Original method - for UI bulk creation)
-     */
-    public function bulkStore(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        $validator = Validator::make($request->all(), [
-            'category_id' => 'required|exists:categories,id',
-            'competitions' => 'required|array|min:1',
-            'competitions.*.name' => 'required|string|max:255',
-            'competitions.*.code' => 'required|string|distinct',
-            'competitions.*.level' => 'required|string',
-            
-            // Common fields
-            'common.competition_type' => 'required|string',
-            'common.max_students' => 'required|integer|min:1',
-            'common.max_teachers' => 'required|integer|min:1',
-            'common.max_judges' => 'required|integer|min:1',
-            'common.start_date' => 'required|date',
-            'common.end_date' => 'required|date|after_or_equal:common.start_date',
-            'common.registration_start_date' => 'required|date',
-            'common.registration_end_date' => 'required|date|after_or_equal:common.registration_start_date',
-            'common.venue' => 'nullable|string',
-            'common.registration_status' => 'required|in:open,closed',
-            'common.is_active' => 'required|boolean',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $created = [];
-        $errors = [];
-
-        DB::beginTransaction();
-        
-        try {
-            $category_id = $request->category_id;
-            $common = $request->common;
-
-            // ✅ Determine school_group_id
-            $school_group_id = null;
-            if ($this->shouldFilterBySchoolGroup($user)) {
-                // Group admin: use their school_group_id
-                $school_group_id = $user->school_group_id;
-            } else {
-                // District admin: use from request or null
-                $school_group_id = $common['school_group_id'] ?? null;
-            }
-
-            foreach ($request->competitions as $index => $comp) {
-                // Check duplicate code
-                $exists = Competition::where('code', $comp['code'])->exists();
-                if ($exists) {
-                    $errors[] = [
-                        'index' => $index,
-                        'name' => $comp['name'],
-                        'code' => $comp['code'],
-                        'error' => 'รหัสการแข่งขันซ้ำ'
-                    ];
-                    continue;
-                }
-
-                // Create competition
-                $competition = Competition::create([
-                    'name' => $comp['name'],
-                    'code' => $comp['code'],
-                    'category_id' => $category_id,
-                    'competition_type' => $common['competition_type'],
-                    'level' => $comp['level'],
-                    'description' => $comp['description'] ?? null,
-                    'rules' => $comp['rules'] ?? null,
-                    'max_students' => $common['max_students'],
-                    'max_teachers' => $common['max_teachers'],
-                    'max_judges' => $common['max_judges'],
-                    'start_date' => $common['start_date'],
-                    'end_date' => $common['end_date'],
-                    'registration_start_date' => $common['registration_start_date'],
-                    'registration_end_date' => $common['registration_end_date'],
-                    'venue' => $common['venue'],
-                    'contact_person' => $common['contact_person'] ?? null,
-                    'contact_phone' => $common['contact_phone'] ?? null,
-                    'contact_email' => $common['contact_email'] ?? null,
-                    'school_group_id' => $school_group_id,
-                    'registration_status' => $common['registration_status'],
-                    'is_active' => $common['is_active'],
-                ]);
-
-                $created[] = $competition;
-            }
-
-            DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => "สร้างการแข่งขันสำเร็จ " . count($created) . " รายการ",
                 'data' => [
-                    'created' => $created,
-                    'errors' => $errors,
-                    'summary' => [
-                        'total' => count($request->competitions),
-                        'created' => count($created),
-                        'failed' => count($errors),
-                    ]
+                    'id' => (int) $competition->id,
+                    'name' => $competition->name,
+                    'code' => $competition->code,
+                    'level' => $competition->level,
+                    'competition_level' => $competition->competition_level ?? 'group', // ✅ เพิ่ม
+                    'max_students' => (int) ($competition->max_students ?? 1),
+                    'min_students' => (int) ($competition->min_students ?? 1),
+                    'max_teachers' => (int) ($competition->max_teachers ?? 1),
+                    'registration_status' => $competition->registration_status ?? 'upcoming',
+                    'is_active' => (bool) $competition->is_active,
+                    'school_group_id' => $competition->school_group_id ? (int) $competition->school_group_id : null,
+                    'category' => [
+                        'id' => (int) $competition->category_id,
+                        'name' => $competition->category_name
+                    ],
+                    'school_group' => $competition->school_group_id ? [
+                        'id' => (int) $competition->school_group_id,
+                        'name' => $competition->school_group_name
+                    ] : null,
                 ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Competition show error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Create new competition
+     * Permissions: Admin, District Admin, Group Admin (own group only)
+     */
+    public function store(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $userRole = strtolower($user->role);
+
+            // ✅ ตรวจสอบสิทธิ์การสร้าง
+            if (!in_array($userRole, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์สร้างการแข่งขัน'
+                ], 403);
+            }
+
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'code' => 'required|string|max:50|unique:competitions,code',
+                'category_id' => 'required|exists:categories,id',
+                'level' => 'nullable|string|max:50',
+                'competition_level' => 'nullable|in:group,district',
+                'min_students' => 'nullable|integer|min:1',
+                'max_students' => 'nullable|integer|min:1',
+                'min_teachers' => 'nullable|integer|min:0',
+                'max_teachers' => 'nullable|integer|min:0',
+                'school_group_id' => 'nullable|exists:school_groups,id',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date|after_or_equal:start_date',
+                'registration_status' => 'nullable|in:upcoming,open,closed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ข้อมูลไม่ถูกต้อง',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // ✅ Group Admin สามารถสร้างได้เฉพาะในกลุ่มตัวเอง
+            $schoolGroupId = $request->school_group_id;
+            if ($userRole === 'group_admin') {
+                $schoolGroupId = $user->school_group_id;
+            }
+
+            $competition = Competition::create([
+                'name' => $request->name,
+                'code' => $request->code,
+                'category_id' => $request->category_id,
+                'level' => $request->level ?? 'ทั่วไป',
+                'competition_level' => $request->competition_level ?? 'group',
+                'min_students' => $request->min_students ?? 1,
+                'max_students' => $request->max_students ?? 5,
+                'min_teachers' => $request->min_teachers ?? 1,
+                'max_teachers' => $request->max_teachers ?? 2,
+                'school_group_id' => $schoolGroupId,
+                'start_date' => $request->start_date,
+                'end_date' => $request->end_date,
+                'registration_status' => $request->registration_status ?? 'upcoming',
+                'status' => 'draft',
+                'is_active' => true,
+            ]);
+
+            Log::info('Competition created', [
+                'competition_id' => $competition->id,
+                'created_by' => $user->id,
+                'user_role' => $user->role
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'สร้างการแข่งขันสำเร็จ',
+                'data' => $competition->load(['category', 'schoolGroup'])
             ], 201);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            
+            Log::error('Competition store error: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาดในการสร้างการแข่งขัน',
@@ -263,766 +399,548 @@ class CompetitionController extends Controller
     }
 
     /**
-     * ⭐ NEW: Bulk create competitions by category (Master Competition)
-     * POST /api/competitions/bulk-create
-     */
-   /**
-     * ⭐ Bulk Create Competitions
-     * POST /api/competitions/bulk-create
-     * 
-     * Creates competitions for multiple school groups based on master templates
-     */
-    public function bulkCreate(Request $request)
-    {
-        $validated = $request->validate([
-            'method' => 'required|in:category,single',
-            'category_id' => 'required_if:method,category|exists:categories,id',
-            'name' => 'required_if:method,single|string|max:255',
-            'level' => 'required_if:method,single|string',
-            'max_student' => 'required_if:method,single|integer|min:1',
-            'max_teacher' => 'required_if:method,single|integer|min:1',
-            'registration_start_date' => 'required|date',
-            'registration_end_date' => 'required|date|after:registration_start_date',
-            'school_group_ids' => 'required|array|min:1',
-            'school_group_ids.*' => 'exists:school_groups,id',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $created = [];
-            $errors = [];
-            $schoolGroupIds = $validated['school_group_ids'];
-            
-            if ($validated['method'] === 'category') {
-                // Get master competitions in this category
-                $masterCompetitions = Competition::where('category_id', $validated['category_id'])
-                    ->where('is_master', 1)
-                    ->get();
-
-                if ($masterCompetitions->isEmpty()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'ไม่พบรายการแข่งขันในหมวดหมู่นี้',
-                    ], 404);
-                }
-
-                // สร้างรายการแข่งขันสำหรับแต่ละกลุ่ม
-                foreach ($masterCompetitions as $master) {
-                    foreach ($schoolGroupIds as $groupId) {
-                        try {
-                            $competition = Competition::create([
-                                'name' => $master->name,
-                                'code' => $master->code . '-G' . $groupId . '-' . time(),
-                                'description' => $master->description,
-                                'category_id' => $master->category_id,
-                                'competition_type' => $master->competition_type ?? 'regular',
-                                
-                                // ✅ ใช้ field ที่ถูกต้อง (ตาม schema จริง)
-                                'level' => $master->level,
-                                'max_student' => $master->max_student,
-                                'max_teacher' => $master->max_teacher,
-                                'max_judge' => $master->max_judge ?? 3,
-                                
-                                // วันที่
-                                'start_date' => $validated['registration_start_date'],
-                                'end_date' => $validated['registration_end_date'],
-                                'registration_start_date' => $validated['registration_start_date'],
-                                'registration_end_date' => $validated['registration_end_date'],
-                                'group_registration_start' => $validated['registration_start_date'],
-                                'group_registration_end' => $validated['registration_end_date'],
-
-                                
-                                // Group assignment
-                                'school_group_id' => $groupId,
-                                'competition_level' => 'group',
-                                'parent_competition_id' => $master->id,
-                                'is_master' => false,
-                                
-                                // Status
-                                'status' => 'draft',
-                                'is_active' => false,
-                                'registration_status' => 'upcoming',
-                                'auto_close_registration' => true,
-                                'advancement_count' => 2,
-                            ]);
-                            
-                            $created[] = $competition;
-                        } catch (\Exception $e) {
-                            $errors[] = [
-                                'master_id' => $master->id,
-                                'master_name' => $master->name,
-                                'group_id' => $groupId,
-                                'error' => $e->getMessage()
-                            ];
-                            Log::error('Failed to create competition', [
-                                'master' => $master->id,
-                                'group' => $groupId,
-                                'error' => $e->getMessage()
-                            ]);
-                        }
-                    }
-                }
-            } else {
-                // Single competition method
-                foreach ($schoolGroupIds as $groupId) {
-                    try {
-                        $competition = Competition::create([
-                            'name' => $validated['name'],
-                            'code' => 'COMP-' . time() . '-G' . $groupId,
-                            'category_id' => $validated['category_id'],
-                            'competition_type' => 'regular',
-                            
-                            // ✅ ใช้ field ที่ถูกต้อง
-                            'level' => $validated['level'],
-                            'max_student' => $validated['max_student'],
-                            'max_teacher' => $validated['max_teacher'],
-                            'max_judge' => 3,
-                            
-                            // วันที่
-                            'start_date' => $validated['registration_start_date'],
-                            'end_date' => $validated['registration_end_date'],
-                            'registration_start_date' => $validated['registration_start_date'],
-                            'registration_end_date' => $validated['registration_end_date'],
-                            
-                            // Group assignment
-                            'school_group_id' => $groupId,
-                            'competition_level' => 'group',
-                            'is_master' => false,
-                            
-                            // Status
-                            'status' => 'draft',
-                            'is_active' => false,
-                            'registration_status' => 'upcoming',
-                            'auto_close_registration' => true,
-                            'advancement_count' => 2,
-                        ]);
-                        
-                        $created[] = $competition;
-                    } catch (\Exception $e) {
-                        $errors[] = [
-                            'group_id' => $groupId,
-                            'error' => $e->getMessage()
-                        ];
-                    }
-                }
-            }
-
-            if (empty($created)) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'ไม่สามารถสร้างการแข่งขันได้',
-                    'errors' => $errors,
-                ], 500);
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'สร้างการแข่งขันสำเร็จ',
-                'data' => [
-                    'total_created' => count($created),
-                    'competitions_per_group' => count($masterCompetitions ?? [1]),
-                    'groups' => count($schoolGroupIds),
-                    'registration_period' => [
-                        'start' => $validated['registration_start_date'],
-                        'end' => $validated['registration_end_date'],
-                    ],
-                    'errors' => $errors,
-                ],
-            ], 200);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Bulk create competitions error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'เกิดข้อผิดพลาดในการสร้างการแข่งขัน',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * ⭐ NEW: Set competition schedule (Group Admin only)
-     * PUT /api/competitions/{id}/schedule
-     */
-    public function setSchedule(Request $request, $id)
-    {
-        $competition = Competition::findOrFail($id);
-
-        // Check authorization (Group Admin of this group)
-        $user = $request->user();
-        if ($user->role !== 'group_admin' || $user->school_group_id !== $competition->school_group_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'คุณไม่มีสิทธิ์กำหนดวันแข่งขันนี้',
-            ], 403);
-        }
-
-        // Check if registration is closed
-        if ($competition->registration_status !== 'closed') {
-            return response()->json([
-                'success' => false,
-                'message' => 'ต้องปิดรับสมัครก่อนจึงจะกำหนดวันแข่งขันได้',
-            ], 400);
-        }
-
-        $validated = $request->validate([
-            'competition_date' => 'required|date|after:registration_end_date',
-            'competition_start_time' => 'nullable|date_format:H:i',
-            'competition_end_time' => 'nullable|date_format:H:i|after:competition_start_time',
-            'venue' => 'required|string|max:500',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
-        $competition->update($validated);
-
-        // Update participants count
-        $competition->updateParticipantsCount();
-
-        // TODO: Send notifications to participants
-
-        return response()->json([
-            'success' => true,
-            'message' => 'กำหนดวันแข่งขันสำเร็จ',
-            'data' => [
-                'competition_id' => $competition->id,
-                'competition_date' => $competition->competition_date,
-                'participants_count' => $competition->participants_count,
-            ],
-        ]);
-    }
-
-    /**
-     * ⭐ NEW: Get participants summary (after registration closed)
-     * GET /api/competitions/{id}/participants-summary
-     */
-    public function participantsSummary($id)
-    {
-        $competition = Competition::with([
-            'registrations' => function($query) {
-                $query->with(['school', 'students', 'teachers']);
-            }
-        ])->findOrFail($id);
-
-        $summary = [
-            'total_registrations' => $competition->registrations->count(),
-            'approved' => $competition->registrations->where('status', 'approved')->count(),
-            'pending' => $competition->registrations->where('status', 'pending')->count(),
-            'rejected' => $competition->registrations->where('status', 'rejected')->count(),
-        ];
-
-        $participants = $competition->registrations()
-            ->where('status', 'approved')
-            ->with(['school', 'students', 'teachers'])
-            ->get()
-            ->map(function($reg) {
-                return [
-                    'id' => $reg->id,
-                    'student_name' => $reg->students[0]['name'] ?? '',
-                    'student_grade' => $reg->students[0]['grade'] ?? '',
-                    'student_class' => $reg->students[0]['class'] ?? '',
-                    'school_name' => $reg->school->name ?? '',
-                    'teacher_name' => $reg->teachers[0]['name'] ?? '',
-                    'contact_phone' => $reg->contact_phone,
-                ];
-            });
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'competition' => [
-                    'id' => $competition->id,
-                    'name' => $competition->name,
-                    'registration_closed' => $competition->registration_status === 'closed',
-                ],
-                'summary' => $summary,
-                'participants' => $participants,
-                'schedule_status' => $competition->competition_date ? 'scheduled' : 'pending',
-                'competition_date' => $competition->competition_date,
-                'venue' => $competition->venue,
-            ],
-        ]);
-    }
-
-    /**
-     * ⭐ NEW: Advance winners to district level
-     * POST /api/competitions/{id}/advance-winners
-     */
-    public function advanceWinners(Request $request, $id)
-    {
-        $competition = Competition::findOrFail($id);
-
-        // Check authorization
-        $user = $request->user();
-        if ($user->role !== 'group_admin' || $user->school_group_id !== $competition->school_group_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'คุณไม่มีสิทธิ์ส่งผู้ชนะจากการแข่งขันนี้',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'winners' => 'required|array|min:1|max:2',
-            'winners.*.result_id' => 'required|exists:results,id',
-            'winners.*.rank' => 'required|integer|min:1|max:2',
-            'winners.*.registration_id' => 'required|exists:registrations,id',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            // Find or create district competition
-            $districtCompetition = Competition::firstOrCreate([
-                'parent_competition_id' => $competition->parent_competition_id ?? $competition->id,
-                'level' => 'district',
-                'category_id' => $competition->category_id,
-            ], [
-                'name' => $competition->name . ' - ระดับเขต',
-                'code' => 'DIST-' . ($competition->parent_competition_id ?? $competition->id),
-                'level_type' => $competition->level_type,
-                'max_students' => $competition->max_students,
-                'max_teachers' => $competition->max_teachers,
-                'school_group_id' => null, // District level has no specific group
-                'status' => 'draft',
-                'is_active' => false,
-                'registration_status' => 'closed',
-            ]);
-
-            $advancedRegistrations = [];
-
-            foreach ($validated['winners'] as $winner) {
-                $sourceRegistration = Registration::find($winner['registration_id']);
-                
-                // Create district registration
-                $districtRegistration = Registration::create([
-                    'competition_id' => $districtCompetition->id,
-                    'school_id' => $sourceRegistration->school_id,
-                    'students' => $sourceRegistration->students,
-                    'teachers' => $sourceRegistration->teachers,
-                    'contact_phone' => $sourceRegistration->contact_phone,
-                    'notes' => $sourceRegistration->notes,
-                    'status' => 'approved', // Auto-approved
-                    'source_result_id' => $winner['result_id'],
-                    'auto_generated' => true,
-                    'advancement_rank' => $winner['rank'],
-                ]);
-
-                // Track advancement
-                CompetitionAdvancement::create([
-                    'source_competition_id' => $competition->id,
-                    'source_result_id' => $winner['result_id'],
-                    'source_rank' => $winner['rank'],
-                    'target_competition_id' => $districtCompetition->id,
-                    'target_registration_id' => $districtRegistration->id,
-                    'advanced_by' => $user->id,
-                    'advanced_at' => now(),
-                    'status' => 'confirmed',
-                ]);
-
-                $advancedRegistrations[] = $districtRegistration;
-            }
-
-            // Update district competition participants count
-            $districtCompetition->updateParticipantsCount();
-
-            DB::commit();
-
-            // TODO: Notify District Admin
-
-            return response()->json([
-                'success' => true,
-                'message' => 'ส่งผู้ชนะไปแข่งขันระดับเขตสำเร็จ',
-                'data' => [
-                    'district_competition_id' => $districtCompetition->id,
-                    'district_registrations' => collect($advancedRegistrations)->map(fn($r) => [
-                        'id' => $r->id,
-                        'student' => $r->students[0]['name'] ?? '',
-                        'rank' => $r->advancement_rank,
-                    ]),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Advance winners error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'เกิดข้อผิดพลาดในการส่งผู้ชนะ',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Update competition (with access control)
+     * ✅ Update competition
+     * Permissions: Admin, District Admin, Group Admin (own group only)
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        $user = $request->user();
-        $competition = Competition::findOrFail($id);
+        try {
+            $user = $request->user();
 
-        // ✅ Check access permission
-        if ($this->shouldFilterBySchoolGroup($user)) {
-            if ($competition->school_group_id != $user->school_group_id) {
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $competition = Competition::findOrFail($id);
+            $userRole = strtolower($user->role);
+
+            // ✅ ตรวจสอบสิทธิ์การแก้ไข
+            if (!in_array($userRole, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์แก้ไขการแข่งขัน'
+                ], 403);
+            }
+
+            // Group Admin สามารถแก้ไขได้เฉพาะในกลุ่มตัวเอง
+            if ($userRole === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'คุณไม่มีสิทธิ์แก้ไขการแข่งขันนี้'
                 ], 403);
             }
-        }
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|required|string|max:255',
-            'code' => 'sometimes|required|string|unique:competitions,code,' . $id,
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'competition_type' => 'sometimes|required|string',
-            'level' => 'sometimes|required|string',
-            'max_students' => 'sometimes|required|integer|min:1',
-            'max_teachers' => 'sometimes|required|integer|min:1',
-            'max_judges' => 'sometimes|required|integer|min:1',
-            'start_date' => 'sometimes|required|date',
-            'end_date' => 'sometimes|required|date|after_or_equal:start_date',
-            'registration_start_date' => 'sometimes|required|date',
-            'registration_end_date' => 'sometimes|required|date',
-            'venue' => 'nullable|string',
-            'registration_status' => 'sometimes|required|in:open,closed',
-            'is_active' => 'sometimes|required|boolean',
-        ]);
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'name' => 'sometimes|string|max:255',
+                'code' => 'sometimes|string|max:50|unique:competitions,code,' . $id,
+                'category_id' => 'sometimes|exists:categories,id',
+                'level' => 'nullable|string|max:50',
+                'competition_level' => 'nullable|in:group,district',
+                'min_students' => 'nullable|integer|min:1',
+                'max_students' => 'nullable|integer|min:1',
+                'min_teachers' => 'nullable|integer|min:0',
+                'max_teachers' => 'nullable|integer|min:0',
+                'school_group_id' => 'nullable|exists:school_groups,id',
+                'excluded_school_groups' => 'nullable|array', // ✅ เพิ่ม validation
+                'excluded_school_groups.*' => 'integer|exists:school_groups,id',
+                'exclusion_reason' => 'nullable|string|max:500',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date|after_or_equal:start_date',
+                'registration_status' => 'nullable|in:upcoming,open,closed',
+                'is_active' => 'nullable|boolean',
+            ]);
 
-        if ($validator->fails()) {
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ข้อมูลไม่ถูกต้อง',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // ✅ Group Admin ไม่สามารถเปลี่ยน school_group_id และ excluded_school_groups
+            $updateData = $request->only([
+                'name', 'code', 'category_id', 'level', 'competition_level',
+                'min_students', 'max_students', 'min_teachers', 'max_teachers',
+                'start_date', 'end_date', 'registration_status', 'is_active'
+            ]);
+
+            // ✅ เฉพาะ Admin/District Admin สามารถแก้ไข school_group_id และ excluded_school_groups
+            if (in_array($userRole, ['admin', 'district_admin'])) {
+                if ($request->has('school_group_id')) {
+                    $updateData['school_group_id'] = $request->school_group_id;
+                }
+                if ($request->has('excluded_school_groups')) {
+                    $updateData['excluded_school_groups'] = $request->excluded_school_groups;
+                }
+                if ($request->has('exclusion_reason')) {
+                    $updateData['exclusion_reason'] = $request->exclusion_reason;
+                }
+            }
+
+            $competition->update($updateData);
+
+            Log::info('Competition updated', [
+                'competition_id' => $competition->id,
+                'updated_by' => $user->id,
+                'user_role' => $user->role
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'อัพเดทการแข่งขันสำเร็จ',
+                'data' => $competition->fresh()->load(['category', 'schoolGroup'])
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Competition update error: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
+                'message' => 'เกิดข้อผิดพลาดในการอัพเดทการแข่งขัน',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $data = $request->all();
-
-        // ✅ Prevent group_admin from changing school_group_id
-        if ($this->shouldFilterBySchoolGroup($user)) {
-            unset($data['school_group_id']);
-        }
-
-        $competition->update($data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'อัปเดตการแข่งขันสำเร็จ',
-            'data' => $competition->load('category')
-        ]);
     }
 
     /**
-     * Delete competition (with access control)
+     * ✅ Delete competition
+     * Permissions: Admin, District Admin, Group Admin (own group only)
      */
     public function destroy(Request $request, int $id): JsonResponse
     {
-        $user = $request->user();
-        $competition = Competition::findOrFail($id);
+        try {
+            $user = $request->user();
 
-        // ✅ Check access permission
-        if ($this->shouldFilterBySchoolGroup($user)) {
-            if ($competition->school_group_id != $user->school_group_id) {
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $competition = Competition::findOrFail($id);
+            $userRole = strtolower($user->role);
+
+            // ✅ ตรวจสอบสิทธิ์การลบ
+            if (!in_array($userRole, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์ลบการแข่งขัน'
+                ], 403);
+            }
+
+            // Group Admin สามารถลบได้เฉพาะในกลุ่มตัวเอง
+            if ($userRole === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'คุณไม่มีสิทธิ์ลบการแข่งขันนี้'
                 ], 403);
             }
+
+            // ตรวจสอบว่ามีการลงทะเบียนอยู่หรือไม่
+            if ($competition->registrations()->count() > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ไม่สามารถลบได้ เนื่องจากมีการลงทะเบียนในการแข่งขันนี้แล้ว'
+                ], 422);
+            }
+
+            $competition->delete();
+
+            Log::info('Competition deleted', [
+                'competition_id' => $id,
+                'deleted_by' => $user->id,
+                'user_role' => $user->role
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ลบการแข่งขันสำเร็จ'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Competition destroy error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการลบการแข่งขัน',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        $competition->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'ลบการแข่งขันสำเร็จ'
-        ]);
     }
 
     /**
-     * ✅ Helper: Check if user should see only their school group
+     * ✅ Get registrations for a competition
      */
-    private function shouldFilterBySchoolGroup($user): bool
-    {
-        // Group admin always sees only their group
-        if ($user && $user->role === 'group_admin') {
-            return true;
-        }
-
-        // Committee at group level sees only their group
-        if ($user && $user->role === 'committee' && $user->committee_level === 'group') {
-            return true;
-        }
-
-        // Teacher sees only their group
-        if ($user && $user->role === 'teacher') {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * ✅ Helper: Check if user can view all groups
-     */
-    private function canViewAllGroups($user): bool
-    {
-        // District admin can view all
-        if ($user->role === 'admin') {
-            return true;
-        }
-
-        // Committee at district level can view all
-        if ($user->role === 'committee' && $user->committee_level === 'district') {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * ✅ Get scorable registrations for a competition
-     * 
-     * Returns approved registrations that can be scored
-     * Filters by school group for group_admin
-     * 
-     * @param Request $request
-     * @param int $id Competition ID
-     * @return JsonResponse
-     */
-    public function getScorableRegistrations(Request $request, int $id): JsonResponse
+    public function getRegistrations(Request $request, int $id): JsonResponse
     {
         try {
             $user = $request->user();
-            
-            // Get competition
-            $competition = Competition::with(['category'])->findOrFail($id);
-            
-            // Check access permission
-            if ($this->shouldFilterBySchoolGroup($user)) {
-                if ($competition->school_group_id != $user->school_group_id && 
-                    $competition->competition_level !== 'district') {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'คุณไม่มีสิทธิ์เข้าถึงการแข่งขันนี้'
-                    ], 403);
-                }
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
             }
-            
-            // Build query for approved registrations
-            $query = Registration::with(['school', 'teacher', 'score'])
-                ->where('competition_id', $id)
-                ->where('status', 'approved');
-            
-            // Filter by school group for group_admin
-            if ($user->role === 'group_admin') {
-                $schoolIds = DB::table('schools')
-                    ->where('school_group_id', $user->school_group_id)
-                    ->pluck('id');
-                $query->whereIn('school_id', $schoolIds);
+
+            $competition = Competition::findOrFail($id);
+            $userRole = strtolower($user->role);
+
+            // ตรวจสอบสิทธิ์การเข้าถึง
+            if ($userRole === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้'
+                ], 403);
             }
-            
-            $registrations = $query->orderBy('created_at', 'asc')->get();
-            
-            Log::info('Scorable registrations fetched', [
-                'competition_id' => $id,
-                'user_id' => $user->id,
-                'user_role' => $user->role,
-                'count' => $registrations->count()
+
+            $registrations = $competition->registrations()
+                ->with(['school.schoolGroup'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $registrations
             ]);
-            
+
+        } catch (\Exception $e) {
+            Log::error('Get competition registrations error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Get results for a competition
+     */
+    public function getResults(Request $request, int $id): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $competition = Competition::findOrFail($id);
+
+            $results = $competition->results()
+                ->with(['registration.school'])
+                ->orderBy('rank', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $results
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get competition results error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Advance winners to next level
+     */
+    public function advanceWinners(Request $request, int $id): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $userRole = strtolower($user->role);
+
+            if (!in_array($userRole, ['admin', 'district_admin', 'group_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์ดำเนินการนี้'
+                ], 403);
+            }
+
+            // TODO: Implement advance winners logic
+            return response()->json([
+                'success' => true,
+                'message' => 'ฟังก์ชันนี้กำลังพัฒนา'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Advance winners error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Bulk create competitions
+     */
+    public function bulkCreate(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $userRole = strtolower($user->role);
+
+            if (!in_array($userRole, ['admin', 'district_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์ดำเนินการนี้'
+                ], 403);
+            }
+
+            // TODO: Implement bulk create logic
+            return response()->json([
+                'success' => true,
+                'message' => 'ฟังก์ชันนี้กำลังพัฒนา'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk create competitions error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Get public statistics
+     */
+    public function getPublicStatistics(): JsonResponse
+    {
+        try {
+            $totalCompetitions = Competition::where('is_active', true)->count();
+            $openRegistrations = Competition::where('registration_status', 'open')
+                ->where('is_active', true)
+                ->count();
+            $totalRegistrations = \App\Models\Registration::count();
+            $approvedRegistrations = \App\Models\Registration::where('status', 'approved')->count();
+
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'competition' => $competition,
-                    'registrations' => $registrations
+                    'total_competitions' => $totalCompetitions,
+                    'open_registrations' => $openRegistrations,
+                    'total_registrations' => $totalRegistrations,
+                    'approved_registrations' => $approvedRegistrations,
                 ]
             ]);
-            
+
         } catch (\Exception $e) {
-            Log::error('Error fetching scorable registrations', [
-                'competition_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            Log::error('Get public statistics error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_competitions' => 0,
+                    'open_registrations' => 0,
+                    'total_registrations' => 0,
+                    'approved_registrations' => 0,
+                ]
             ]);
-            
+        }
+    }
+
+    /**
+     * ✅ Bulk update excluded school groups for multiple competitions
+     * สำหรับ District Admin จัดการกลุ่มที่ยกเว้นทีละหลายกิจกรรม
+     */
+    public function bulkUpdateExcludedGroups(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $userRole = strtolower($user->role);
+
+            // ✅ เฉพาะ Admin/District Admin เท่านั้น
+            if (!in_array($userRole, ['admin', 'district_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์ดำเนินการนี้'
+                ], 403);
+            }
+
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'competition_ids' => 'required|array|min:1',
+                'competition_ids.*' => 'integer|exists:competitions,id',
+                'action' => 'required|in:add,remove,set',
+                'school_group_ids' => 'required|array',
+                'school_group_ids.*' => 'integer|exists:school_groups,id',
+                'exclusion_reason' => 'nullable|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ข้อมูลไม่ถูกต้อง',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $action = $request->action;
+            $schoolGroupIds = $request->school_group_ids;
+            $exclusionReason = $request->exclusion_reason;
+            $updatedCount = 0;
+
+            foreach ($request->competition_ids as $competitionId) {
+                $competition = Competition::find($competitionId);
+                if (!$competition) continue;
+
+                $currentExcluded = $competition->excluded_school_groups ?? [];
+
+                switch ($action) {
+                    case 'add':
+                        // เพิ่มกลุ่มเข้าไปในรายการยกเว้น
+                        $newExcluded = array_values(array_unique(array_merge($currentExcluded, $schoolGroupIds)));
+                        break;
+
+                    case 'remove':
+                        // ลบกลุ่มออกจากรายการยกเว้น
+                        $newExcluded = array_values(array_diff($currentExcluded, $schoolGroupIds));
+                        break;
+
+                    case 'set':
+                        // ตั้งค่าใหม่ทั้งหมด
+                        $newExcluded = array_values(array_unique($schoolGroupIds));
+                        break;
+
+                    default:
+                        continue 2;
+                }
+
+                $competition->excluded_school_groups = $newExcluded;
+                if ($exclusionReason !== null) {
+                    $competition->exclusion_reason = $exclusionReason;
+                }
+                $competition->save();
+                $updatedCount++;
+            }
+
+            Log::info('Bulk update excluded groups', [
+                'action' => $action,
+                'school_group_ids' => $schoolGroupIds,
+                'updated_count' => $updatedCount,
+                'updated_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "อัพเดทสำเร็จ {$updatedCount} กิจกรรม",
+                'updated_count' => $updatedCount
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk update excluded groups error: ' . $e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+                'message' => 'เกิดข้อผิดพลาด',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * ประกาศผล (Publish Results)
-     * 
-     * เฉพาะ Admin, District Admin, Group Admin
+     * ✅ Get competitions with exclusion info for a specific school group
+     * ดึงรายการกิจกรรมพร้อมข้อมูลว่ากลุ่มนี้ถูกยกเว้นหรือไม่
      */
-    public function publish($id)
+    public function getCompetitionsForSchoolGroup(Request $request, int $schoolGroupId): JsonResponse
     {
         try {
-            $competition = Competition::findOrFail($id);
-            $user = auth()->user();
+            $user = $request->user();
 
-            // ตรวจสอบสิทธิ์
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!$user) {
                 return response()->json([
-                    'error' => 'Unauthorized',
-                    'message' => 'คุณไม่มีสิทธิ์ประกาศผล'
-                ], 403);
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
             }
 
-            // ตรวจสอบว่าเป็น group_admin → ต้องเป็นกลุ่มตัวเอง
-            if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
-                return response()->json([
-                    'error' => 'Unauthorized',
-                    'message' => 'คุณสามารถประกาศผลได้เฉพาะกลุ่มของคุณเท่านั้น'
-                ], 403);
-            }
+            $competitions = Competition::with(['category:id,name', 'schoolGroup:id,name'])
+                ->where('is_active', true)
+                ->get()
+                ->map(function ($comp) use ($schoolGroupId) {
+                    $isExcluded = $comp->isSchoolGroupExcluded($schoolGroupId);
 
-            // 🔍 Log ก่อน update
-            Log::info('🔍 Before publish update', [
-                'competition_id' => $id,
-                'current_is_published' => $competition->is_published,
-                'current_published_at' => $competition->published_at,
-                'user_id' => $user->id
-            ]);
+                    return [
+                        'id' => $comp->id,
+                        'code' => $comp->code,
+                        'name' => $comp->name,
+                        'level' => $comp->level,
+                        'competition_level' => $comp->competition_level,
+                        'category' => $comp->category,
+                        'school_group' => $comp->schoolGroup,
+                        'is_excluded' => $isExcluded,
+                        'exclusion_reason' => $isExcluded ? $comp->exclusion_reason : null,
+                        'excluded_school_groups' => $comp->excluded_school_groups ?? [],
+                    ];
+                });
 
-            // ประกาศผล - ใช้ DB transaction
-            \DB::beginTransaction();
-            
-            $competition->is_published = true;
-            $competition->published_at = now();
-            $saved = $competition->save();
-            
-            \DB::commit();
-
-            // Force refresh จาก database
-            $competition->refresh();
-
-            // ✅ Log หลัง update
-            Log::info('✅ After publish update', [
-                'competition_id' => $id,
-                'new_is_published' => $competition->is_published,
-                'new_published_at' => $competition->published_at,
-                'save_result' => $saved,
-                'user_id' => $user->id
-            ]);
-
-            Log::info('Competition published', [
-                'competition_id' => $id,
-                'published_by' => $user->id,
-                'user_role' => $user->role
-            ]);
+            // แยกเป็น 2 กลุ่ม: สามารถลงทะเบียนได้ และ ถูกยกเว้น
+            $available = $competitions->where('is_excluded', false)->values();
+            $excluded = $competitions->where('is_excluded', true)->values();
 
             return response()->json([
                 'success' => true,
-                'message' => 'ประกาศผลสำเร็จ',
-                'competition' => $competition
+                'data' => [
+                    'school_group_id' => $schoolGroupId,
+                    'available_count' => $available->count(),
+                    'excluded_count' => $excluded->count(),
+                    'available_competitions' => $available,
+                    'excluded_competitions' => $excluded,
+                ]
             ]);
 
         } catch (\Exception $e) {
-            \DB::rollBack();
-            
-            Log::error('Error publishing competition', [
-                'competition_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('Get competitions for school group error: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'เกิดข้อผิดพลาดในการประกาศผล',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * ยกเลิกประกาศผล (Unpublish Results)
-     * 
-     * เฉพาะ Admin, District Admin, Group Admin
-     */
-    public function unpublish($id)
-    {
-        try {
-            $competition = Competition::findOrFail($id);
-            $user = auth()->user();
-
-            // ตรวจสอบสิทธิ์
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
-                return response()->json([
-                    'error' => 'Unauthorized',
-                    'message' => 'คุณไม่มีสิทธิ์ยกเลิกประกาศผล'
-                ], 403);
-            }
-
-            // ตรวจสอบว่าเป็น group_admin → ต้องเป็นกลุ่มตัวเอง
-            if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
-                return response()->json([
-                    'error' => 'Unauthorized',
-                    'message' => 'คุณสามารถยกเลิกประกาศผลได้เฉพาะกลุ่มของคุณเท่านั้น'
-                ], 403);
-            }
-
-            // 🔍 Log ก่อน update
-            Log::info('🔍 Before unpublish update', [
-                'competition_id' => $id,
-                'current_is_published' => $competition->is_published,
-                'current_published_at' => $competition->published_at
-            ]);
-
-            // ยกเลิกประกาศผล - ใช้ DB transaction
-            \DB::beginTransaction();
-            
-            $competition->is_published = false;
-            $competition->published_at = null;
-            $saved = $competition->save();
-            
-            \DB::commit();
-
-            // Force refresh จาก database
-            $competition->refresh();
-
-            // ✅ Log หลัง update
-            Log::info('✅ After unpublish update', [
-                'competition_id' => $id,
-                'new_is_published' => $competition->is_published,
-                'new_published_at' => $competition->published_at,
-                'save_result' => $saved
-            ]);
-
-            Log::info('Competition unpublished', [
-                'competition_id' => $id,
-                'unpublished_by' => $user->id,
-                'user_role' => $user->role
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'ยกเลิกประกาศผลสำเร็จ',
-                'competition' => $competition
-            ]);
-
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            
-            Log::error('Error unpublishing competition', [
-                'competition_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'เกิดข้อผิดพลาดในการยกเลิกประกาศผล',
+                'message' => 'เกิดข้อผิดพลาด',
                 'error' => $e->getMessage()
             ], 500);
         }

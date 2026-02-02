@@ -21,6 +21,145 @@ use Illuminate\Support\Facades\Log;
 class PublicApiController extends Controller
 {
     /**
+     * ดึงภาพรวมทั้งเขตสำหรับ Public Dashboard
+     * GET /api/public/dashboard/overview
+     */
+    public function getDashboardOverview()
+    {
+        try {
+            $data = Cache::remember('public_dashboard_overview', 300, function () {
+                // นับการแข่งขันทั้งหมด
+                $totalCompetitions = Competition::count();
+
+                // นับการลงทะเบียนทั้งหมด
+                $totalRegistrations = Registration::count();
+
+                // นับการแข่งขันที่เสร็จสิ้น (มีคะแนนแล้ว)
+                $completedCompetitions = Competition::whereHas('scores')->distinct()->count();
+
+                // นับกลุ่มโรงเรียนทั้งหมด
+                $totalGroups = SchoolGroup::where('is_active', true)->count();
+
+                // นับเหรียญรางวัลทั้งหมด
+                $medals = $this->calculateTotalMedals();
+
+                return [
+                    'total_competitions' => $totalCompetitions,
+                    'total_registrations' => $totalRegistrations,
+                    'completed_competitions' => $completedCompetitions,
+                    'total_groups' => $totalGroups,
+                    'total_gold' => $medals['gold'],
+                    'total_silver' => $medals['silver'],
+                    'total_bronze' => $medals['bronze'],
+                    'total_participant' => $medals['participant'],
+                ];
+            });
+
+            return response()->json($data);
+        } catch (\Exception $e) {
+            Log::error('PublicApiController::getDashboardOverview Error: ' . $e->getMessage());
+
+            return response()->json([
+                'total_competitions' => 0,
+                'total_registrations' => 0,
+                'completed_competitions' => 0,
+                'total_groups' => 0,
+                'total_gold' => 0,
+                'total_silver' => 0,
+                'total_bronze' => 0,
+                'total_participant' => 0,
+            ]);
+        }
+    }
+
+    /**
+     * ดึงข้อมูลกลุ่มโรงเรียนสำหรับ Public Dashboard
+     * GET /api/public/dashboard/groups
+     */
+    public function getDashboardGroups()
+    {
+        try {
+            $groups = Cache::remember('public_dashboard_groups', 300, function () {
+                return SchoolGroup::where('is_active', true)
+                    ->orderBy('display_order')
+                    ->get()
+                    ->map(function ($group) {
+                        $stats = $this->calculateGroupStatsSafe($group->id);
+                        $medals = $this->calculateGroupMedals($group->id);
+
+                        return [
+                            'id' => $group->id,
+                            'code' => $group->code,
+                            'name' => $group->name,
+                            'color' => $group->color,
+                            'stats' => [
+                                'competitions' => $stats['open_competitions'] + $stats['completed_competitions'],
+                                'registrations' => $stats['registered_competitions'],
+                                'completed' => $stats['completed_competitions'],
+                                'schools' => $stats['total_schools'],
+                            ],
+                            'medals' => $medals,
+                        ];
+                    });
+            });
+
+            return response()->json($groups);
+        } catch (\Exception $e) {
+            Log::error('PublicApiController::getDashboardGroups Error: ' . $e->getMessage());
+
+            return response()->json([]);
+        }
+    }
+
+    /**
+     * คำนวณเหรียญรางวัลทั้งหมด (ใช้ medal field)
+     */
+    private function calculateTotalMedals()
+    {
+        try {
+            $gold = Score::where('medal', 'gold')->where('is_finalized', true)->count();
+            $silver = Score::where('medal', 'silver')->where('is_finalized', true)->count();
+            $bronze = Score::where('medal', 'bronze')->where('is_finalized', true)->count();
+            $participant = Score::where('medal', 'participant')->where('is_finalized', true)->count();
+
+            return [
+                'gold' => $gold,
+                'silver' => $silver,
+                'bronze' => $bronze,
+                'participant' => $participant,
+            ];
+        } catch (\Exception $e) {
+            return ['gold' => 0, 'silver' => 0, 'bronze' => 0, 'participant' => 0];
+        }
+    }
+
+    /**
+     * คำนวณเหรียญรางวัลของกลุ่ม (ใช้ medal field)
+     */
+    private function calculateGroupMedals($groupId)
+    {
+        try {
+            $query = Score::whereHas('registration.school', function ($q) use ($groupId) {
+                $q->where('school_group_id', $groupId);
+            })->where('is_finalized', true);
+
+            $gold = (clone $query)->where('medal', 'gold')->count();
+            $silver = (clone $query)->where('medal', 'silver')->count();
+            $bronze = (clone $query)->where('medal', 'bronze')->count();
+            $participant = (clone $query)->where('medal', 'participant')->count();
+
+            return [
+                'gold' => $gold,
+                'silver' => $silver,
+                'bronze' => $bronze,
+                'participant' => $participant,
+            ];
+        } catch (\Exception $e) {
+            return ['gold' => 0, 'silver' => 0, 'bronze' => 0, 'participant' => 0];
+        }
+    }
+
+    /**
      * ดึงข้อมูลกลุ่มโรงเรียนทั้งหมด
      * GET /api/public/groups
      */
@@ -266,6 +405,103 @@ class PublicApiController extends Controller
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage(),
                 'data' => []
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ ดึงรายการกิจกรรมสำหรับ Public Dashboard
+     * GET /api/public/competitions
+     */
+    public function getPublicCompetitions(Request $request)
+    {
+        try {
+            $level = $request->get('level'); // 'group' หรือ 'district'
+            $groupId = $request->get('school_group_id');
+            $categoryId = $request->get('category_id');
+
+            $cacheKey = "public_competitions_{$level}_{$groupId}_{$categoryId}";
+
+            $data = Cache::remember($cacheKey, 300, function () use ($level, $groupId, $categoryId) {
+                $query = Competition::with(['category:id,name', 'schoolGroup:id,name,code'])
+                    ->where('is_active', true)
+                    ->orderBy('category_id')
+                    ->orderBy('name');
+
+                // Filter by level
+                if ($level) {
+                    $query->where('competition_level', $level);
+                }
+
+                // Filter by school_group_id (for group level)
+                if ($groupId) {
+                    $query->where('school_group_id', $groupId);
+                }
+
+                // Filter by category
+                if ($categoryId) {
+                    $query->where('category_id', $categoryId);
+                }
+
+                $competitions = $query->get();
+
+                // จัดกลุ่มตามหมวดหมู่
+                $grouped = $competitions->groupBy(function ($comp) {
+                    return $comp->category->name ?? 'อื่นๆ';
+                })->map(function ($comps, $categoryName) {
+                    return [
+                        'category' => $categoryName,
+                        'count' => $comps->count(),
+                        'competitions' => $comps->map(function ($comp) {
+                            return [
+                                'id' => $comp->id,
+                                'code' => $comp->code,
+                                'name' => $comp->name,
+                                'level' => $comp->level,
+                                'competition_level' => $comp->competition_level,
+                                'min_students' => $comp->min_students ?? 1,
+                                'max_students' => $comp->max_students ?? 1,
+                                'min_teachers' => $comp->min_teachers ?? 1,
+                                'max_teachers' => $comp->max_teachers ?? 1,
+                                'school_group' => $comp->schoolGroup ? [
+                                    'id' => $comp->schoolGroup->id,
+                                    'name' => $comp->schoolGroup->name,
+                                    'code' => $comp->schoolGroup->code,
+                                ] : null,
+                                'registration_status' => $comp->registration_status,
+                            ];
+                        })->values()
+                    ];
+                })->values();
+
+                // Summary stats
+                $totalCompetitions = $competitions->count();
+                $totalCategories = $grouped->count();
+
+                return [
+                    'summary' => [
+                        'total_competitions' => $totalCompetitions,
+                        'total_categories' => $totalCategories,
+                    ],
+                    'categories' => $grouped,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('PublicApiController::getPublicCompetitions Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage(),
+                'data' => [
+                    'summary' => ['total_competitions' => 0, 'total_categories' => 0],
+                    'categories' => []
+                ]
             ], 500);
         }
     }
