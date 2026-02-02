@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
        $middleware->redirectGuestsTo('/api/auth/login');
+
         // Register middleware aliases
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
@@ -20,6 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Append LogActivity to api middleware group
+        $middleware->api(prepend: [
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
         $middleware->api(append: [
             \App\Http\Middleware\LogActivity::class,
         ]);
