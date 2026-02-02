@@ -131,7 +131,7 @@
 <body>
     <div class="header">
         <div class="doc-number">DOC.2</div>
-        <div class="title">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 74 ปีการศึกษา 2568 @if($competition->competition_level == 'district')ระดับเขตพื้นที่การศึกษา@else{{ $competition->schoolGroup->name ?? 'ระดับกลุ่มโรงเรียน' }}@endif</div>
+        <div class="title">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2568 @if($competition->competition_level == 'district')ระดับเขตพื้นที่การศึกษา@else{{ $competition->schoolGroup->name ?? 'ระดับกลุ่มโรงเรียน' }}@endif</div>
         <div class="subtitle">แบบลงทะเบียนครู</div>
     </div>
 
@@ -154,15 +154,29 @@
             @foreach($schools as $schoolData)
                 @php
                     $teachers = $schoolData['teachers'] ?? [];
-                    $teacherList = implode(', ', $teachers);
+                    $teacherCount = count($teachers);
                 @endphp
-                <tr>
-                    <td class="col-no">{{ $rowNumber++ }}</td>
-                    <td class="col-school">{{ $schoolData['school_name'] }}</td>
-                    <td class="col-affiliation">สพป.นฐ.เขต 1</td>
-                    <td class="col-teacher">{{ $teacherList ?: '-' }}</td>
-                    <td class="col-signature">&nbsp;</td>
-                </tr>
+                @if($teacherCount > 0)
+                    @foreach($teachers as $index => $teacherName)
+                        <tr>
+                            @if($index === 0)
+                                <td class="col-no" rowspan="{{ $teacherCount }}">{{ $rowNumber++ }}</td>
+                                <td class="col-school" rowspan="{{ $teacherCount }}">{{ $schoolData['school_name'] }}</td>
+                                <td class="col-affiliation" rowspan="{{ $teacherCount }}">สพป.นฐ.เขต 1</td>
+                            @endif
+                            <td class="col-teacher">{{ ($index + 1) }}) {{ $teacherName }}</td>
+                            <td class="col-signature">................................</td>
+                        </tr>
+                    @endforeach
+                @else
+                    <tr>
+                        <td class="col-no">{{ $rowNumber++ }}</td>
+                        <td class="col-school">{{ $schoolData['school_name'] }}</td>
+                        <td class="col-affiliation">สพป.นฐ.เขต 1</td>
+                        <td class="col-teacher">-</td>
+                        <td class="col-signature">................................</td>
+                    </tr>
+                @endif
             @endforeach
         </tbody>
     </table>
