@@ -202,6 +202,48 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('competitions/{id}/unpublish', [\App\Http\Controllers\Api\ScoreController::class, 'unpublishResults']);
     Route::post('competitions/{id}/promote-to-district', [\App\Http\Controllers\Api\ScoreController::class, 'promoteToDistrict']);
     
+    // Admin: Clear test data (results, scores, announcements)
+    Route::post('admin/clear-test-data', function(Request $request) {
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        $deleted = [];
+
+        // Clear certificates
+        $deleted['certificates'] = \Illuminate\Support\Facades\DB::table('certificates')->count();
+        \Illuminate\Support\Facades\DB::table('certificates')->truncate();
+
+        // Clear results
+        $deleted['results'] = \Illuminate\Support\Facades\DB::table('results')->count();
+        \Illuminate\Support\Facades\DB::table('results')->truncate();
+
+        // Clear scores
+        $deleted['scores'] = \Illuminate\Support\Facades\DB::table('scores')->count();
+        \Illuminate\Support\Facades\DB::table('scores')->truncate();
+
+        // Clear announcements
+        $deleted['announcements'] = \Illuminate\Support\Facades\DB::table('announcements')->count();
+        \Illuminate\Support\Facades\DB::table('announcements')->truncate();
+
+        // Reset is_published and is_finalized on competitions
+        \Illuminate\Support\Facades\DB::table('competitions')->update([
+            'is_published' => false,
+            'is_finalized' => false
+        ]);
+
+        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Test data cleared successfully',
+            'deleted' => $deleted
+        ]);
+    });
+
     // File uploads
     Route::post('upload', function(Request $request) {
         if ($request->hasFile('file')) {
