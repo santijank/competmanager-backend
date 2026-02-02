@@ -1,0 +1,520 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Trophy,
+  Users,
+  Calendar,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  School,
+  BarChart3
+} from 'lucide-react';
+import api from '@/lib/api';
+import useAuthStore from '@/stores/authStore';
+
+const DashboardHome = () => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStats();
+  }, [user?.role]);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+
+      // ✅ เรียก API endpoint เดียว - backend แยกตาม role
+      const endpoint = '/dashboard/stats';
+
+      const response = await api.get(endpoint);
+      // รองรับทั้งกรณีที่ backend ส่ง { data: {...} } หรือส่งตรงๆ
+      const data = response.data?.data || response.data;
+
+      console.log('Dashboard data:', data); // Debug
+
+      setStats(data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      setStats(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const StatCard = ({ icon: Icon, title, value, color, onClick, subtitle }) => (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow ${
+        onClick ? 'cursor-pointer' : ''
+      }`}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-3 rounded-lg ${color}`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+      </div>
+      <h3 className="text-gray-600 text-sm font-medium mb-1">{title}</h3>
+      <p className="text-3xl font-bold text-gray-900">
+        {loading ? '...' : (value ?? 0)}
+      </p>
+      {subtitle && (
+        <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+      )}
+    </div>
+  );
+
+  // ===============================================
+  // DISTRICT ADMIN DASHBOARD
+  // ===============================================
+  if (user?.role === 'district_admin') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ด</h1>
+            <p className="text-gray-600 mt-2">
+              ภาพรวมระบบจัดการการแข่งขัน - ระดับเขต
+            </p>
+          </div>
+
+          {/* Stats Grid - Row 1: Competitions */}
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-700 mb-3">การแข่งขัน</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard
+                icon={Trophy}
+                title="การแข่งขันทั้งหมด"
+                value={stats?.competitions?.total}
+                color="bg-blue-500"
+                onClick={() => navigate('/competitions')}
+              />
+              
+              <StatCard
+                icon={BarChart3}
+                title="ระดับเขต"
+                value={stats?.competitions?.district}
+                color="bg-indigo-500"
+              />
+              
+              <StatCard
+                icon={Users}
+                title="ระดับกลุ่ม"
+                value={stats?.competitions?.group}
+                color="bg-purple-500"
+              />
+              
+              <StatCard
+                icon={Calendar}
+                title="เปิดรับสมัคร"
+                value={stats?.competitions?.open}
+                color="bg-green-500"
+              />
+            </div>
+          </div>
+
+          {/* Stats Grid - Row 2: Registrations */}
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-700 mb-3">การลงทะเบียน</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard
+                icon={TrendingUp}
+                title="ลงทะเบียนทั้งหมด"
+                value={stats?.registrations?.total}
+                color="bg-blue-500"
+              />
+              
+              <StatCard
+                icon={Clock}
+                title="รอการอนุมัติ"
+                value={stats?.registrations?.pending}
+                color="bg-yellow-500"
+              />
+              
+              <StatCard
+                icon={CheckCircle}
+                title="อนุมัติแล้ว"
+                value={stats?.registrations?.approved}
+                color="bg-green-500"
+              />
+              
+              <StatCard
+                icon={School}
+                title="โรงเรียนที่มีการลงทะเบียน"
+                value={stats?.schools?.active}
+                color="bg-purple-500"
+              />
+            </div>
+          </div>
+
+          {/* Stats Grid - Row 3: System */}
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-700 mb-3">ระบบ</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard
+                icon={School}
+                title="โรงเรียนทั้งหมด"
+                value={stats?.schools?.total}
+                color="bg-blue-500"
+              />
+              
+              <StatCard
+                icon={Users}
+                title="กลุ่มโรงเรียน"
+                value={stats?.groups}
+                color="bg-indigo-500"
+              />
+              
+              <StatCard
+                icon={Users}
+                title="ผู้ดูแลโรงเรียน"
+                value={stats?.users?.school_admins}
+                color="bg-purple-500"
+              />
+              
+              <StatCard
+                icon={Users}
+                title="ผู้ดูแลกลุ่ม"
+                value={stats?.users?.group_admins}
+                color="bg-green-500"
+              />
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              เมนูด่วน
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate('/competitions')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Trophy className="w-5 h-5 text-blue-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">
+                    จัดการการแข่งขัน
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    สร้างและจัดการการแข่งขัน
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/schools')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <School className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">
+                    จัดการโรงเรียน
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    ดูข้อมูลโรงเรียน
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/results')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <TrendingUp className="w-5 h-5 text-purple-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">ผลการแข่งขัน</div>
+                  <div className="text-sm text-gray-600">ดูผลคะแนน</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===============================================
+  // GROUP ADMIN DASHBOARD
+  // ===============================================
+  if (user?.role === 'group_admin') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ด</h1>
+            <p className="text-gray-600 mt-2">
+              ภาพรวมระบบจัดการการแข่งขัน กลุ่มโรงเรียน คณที่ {user?.school_group_id || '-'}
+            </p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              icon={Trophy}
+              title="การแข่งขันทั้งหมด"
+              value={stats?.competitions?.total}
+              color="bg-blue-500"
+              onClick={() => navigate('/competitions/group/dashboard')}
+              subtitle={`เปิดรับสมัคร ${stats?.competitions?.open || 0} รายการ`}
+            />
+            
+            <StatCard
+              icon={TrendingUp}
+              title="การลงทะเบียน"
+              value={stats?.registrations?.total}
+              color="bg-indigo-500"
+              subtitle={`อนุมัติแล้ว ${stats?.registrations?.approved || 0}`}
+            />
+            
+            <StatCard
+              icon={Clock}
+              title="รอการอนุมัติ"
+              value={stats?.registrations?.pending}
+              color="bg-yellow-500"
+              onClick={() => navigate('/registrations/manage')}
+            />
+            
+            <StatCard
+              icon={Users}
+              title="นักเรียนที่ลงทะเบียน"
+              value={stats?.students}
+              color="bg-purple-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <StatCard
+              icon={School}
+              title="โรงเรียนในกลุ่ม"
+              value={stats?.schools}
+              color="bg-green-500"
+            />
+            
+            <StatCard
+              icon={Calendar}
+              title="กำลังดำเนินการ"
+              value={stats?.competitions?.ongoing}
+              color="bg-orange-500"
+            />
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              เมนูด่วน
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate('/registrations/manage')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">
+                    จัดการการลงทะเบียน
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    อนุมัติ/ปฏิเสธ
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/competitions/group/dashboard')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Trophy className="w-5 h-5 text-blue-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">
+                    การแข่งขันของกลุ่ม
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    จัดการการแข่งขัน
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/results')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <TrendingUp className="w-5 h-5 text-purple-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">ผลการแข่งขัน</div>
+                  <div className="text-sm text-gray-600">ดูผลคะแนน</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Alert for pending registrations */}
+          {stats?.registrations?.pending > 0 && (
+            <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-medium text-yellow-800">
+                    มีการลงทะเบียนรอการอนุมัติ
+                  </h3>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    มีการลงทะเบียน {stats.registrations.pending} รายการ
+                    รอการอนุมัติจากคุณ
+                  </p>
+                  <button
+                    onClick={() => navigate('/registrations/manage')}
+                    className="mt-3 text-sm font-medium text-yellow-800 hover:text-yellow-900"
+                  >
+                    ไปที่หน้าจัดการ →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===============================================
+  // SCHOOL ADMIN DASHBOARD
+  // ===============================================
+  if (user?.role === 'school_admin') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ด</h1>
+            <p className="text-gray-600 mt-2">
+              ภาพรวมระบบจัดการการแข่งขัน
+            </p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatCard
+              icon={TrendingUp}
+              title="การลงทะเบียนทั้งหมด"
+              value={stats?.registrations?.total}
+              color="bg-blue-500"
+              onClick={() => navigate('/registrations/my')}
+            />
+            
+            <StatCard
+              icon={Clock}
+              title="รอการอนุมัติ"
+              value={stats?.registrations?.pending}
+              color="bg-yellow-500"
+            />
+            
+            <StatCard
+              icon={CheckCircle}
+              title="อนุมัติแล้ว"
+              value={stats?.registrations?.approved}
+              color="bg-green-500"
+            />
+            
+            <StatCard
+              icon={Users}
+              title="นักเรียนที่เข้าแข่งขัน"
+              value={stats?.students}
+              color="bg-purple-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <StatCard
+              icon={Calendar}
+              title="การแข่งขันที่เปิดรับสมัคร"
+              value={stats?.competitions?.available}
+              color="bg-green-500"
+              onClick={() => navigate('/registrations/browse')}
+            />
+            
+            <StatCard
+              icon={Trophy}
+              title="การแข่งขันที่เข้าร่วม"
+              value={stats?.competitions?.participating}
+              color="bg-indigo-500"
+            />
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              เมนูด่วน
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate('/registrations/browse')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Trophy className="w-5 h-5 text-blue-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">
+                    เลือกการแข่งขัน
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    ลงทะเบียนการแข่งขัน
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/registrations/my')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Calendar className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">
+                    การลงทะเบียนของฉัน
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    ดูการลงทะเบียนทั้งหมด
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/results')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <TrendingUp className="w-5 h-5 text-purple-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">ผลการแข่งขัน</div>
+                  <div className="text-sm text-gray-600">ดูผลคะแนน</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===============================================
+  // DEFAULT (No specific role or loading)
+  // ===============================================
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">กำลังโหลด...</h1>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardHome;

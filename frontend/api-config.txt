@@ -1,0 +1,108 @@
+﻿import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+});
+
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      // Unauthorized - clear token and redirect to login
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+
+// API Services
+export const authService = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  logout: () => api.post('/auth/logout'),
+  getUser: () => api.get('/auth/user'),
+};
+
+export const categoryService = {
+  getAll: () => api.get('/categories'),
+  getById: (id) => api.get(`/categories/${id}`),
+  create: (data) => api.post('/categories', data),
+  update: (id, data) => api.put(`/categories/${id}`, data),
+  delete: (id) => api.delete(`/categories/${id}`),
+};
+
+export const schoolGroupService = {
+  getAll: () => api.get('/school-groups'),
+  getById: (id) => api.get(`/school-groups/${id}`),
+  create: (data) => api.post('/school-groups', data),
+  update: (id, data) => api.put(`/school-groups/${id}`, data),
+  delete: (id) => api.delete(`/school-groups/${id}`),
+};
+
+export const schoolService = {
+  getAll: (params) => api.get('/schools', { params }),
+  getById: (id) => api.get(`/schools/${id}`),
+  create: (data) => api.post('/schools', data),
+  update: (id, data) => api.put(`/schools/${id}`, data),
+  delete: (id) => api.delete(`/schools/${id}`),
+};
+
+export const competitionService = {
+  getAll: (params) => api.get('/competitions', { params }),
+  getById: (id) => api.get(`/competitions/${id}`),
+  create: (data) => api.post('/competitions', data),
+  update: (id, data) => api.put(`/competitions/${id}`, data),
+  delete: (id) => api.delete(`/competitions/${id}`),
+};
+
+export const registrationService = {
+  getAll: (params) => api.get('/registrations', { params }),
+  getById: (id) => api.get(`/registrations/${id}`),
+  create: (data) => api.post('/registrations', data),
+  approve: (id) => api.post(`/registrations/${id}/approve`),
+  reject: (id, data) => api.post(`/registrations/${id}/reject`, data),
+  bulkApprove: (data) => api.post('/registrations/bulk-approve', data),
+};
+
+export const resultService = {
+  getAll: (params) => api.get('/results', { params }),
+  getById: (id) => api.get(`/results/${id}`),
+  create: (data) => api.post('/results', data),
+  update: (id, data) => api.put(`/results/${id}`, data),
+  calculateRanks: (competitionId, data) => api.post(`/results/competitions/${competitionId}/calculate-ranks`, data),
+  assignMedals: (competitionId, data) => api.post(`/results/competitions/${competitionId}/assign-medals`, data),
+  getLeaderboard: (competitionId, params) => api.get(`/results/competitions/${competitionId}/leaderboard`, { params }),
+};
+
+export const certificateService = {
+  getAll: (params) => api.get('/certificates', { params }),
+  getById: (id) => api.get(`/certificates/${id}`),
+  generate: (resultId) => api.post(`/certificates/results/${resultId}/generate`),
+  bulkGenerate: (competitionId, data) => api.post(`/certificates/competitions/${competitionId}/bulk-generate`, data),
+  generatePdf: (id) => api.post(`/certificates/${id}/generate-pdf`),
+  download: (id) => api.get(`/certificates/${id}/download`, { responseType: 'blob' }),
+};

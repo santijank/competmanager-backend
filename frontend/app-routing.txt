@@ -1,0 +1,115 @@
+﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+// Layouts
+import AuthLayout from '@/components/layouts/AuthLayout';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
+
+import CompetitionBulkCreate from './pages/competitions/CompetitionBulkCreate';
+
+// Auth Pages
+import LoginPage from '@/pages/auth/LoginPage';
+
+// Dashboard Pages
+import DashboardHome from '@/pages/dashboard/DashboardHome';
+
+// Competition Pages
+import CompetitionList from '@/pages/competitions/CompetitionList';
+import CompetitionCreate from '@/pages/competitions/CompetitionCreate';
+import CompetitionEdit from '@/pages/competitions/CompetitionEdit';
+import CompetitionDetail from '@/pages/competitions/CompetitionDetail';
+
+// Registration Pages
+import RegistrationList from '@/pages/registrations/RegistrationList';
+import RegistrationCreate from '@/pages/registrations/RegistrationCreate';
+import RegistrationDetail from '@/pages/registrations/RegistrationDetail';
+
+// Result Pages
+import ResultList from '@/pages/results/ResultList';
+import ResultCreate from '@/pages/results/ResultCreate';
+import ResultLeaderboard from '@/pages/results/ResultLeaderboard';
+
+// Certificate Pages
+import CertificateList from '@/pages/certificates/CertificateList';
+
+// User Management Pages (⭐ Admin Only)
+import UserManagement from '@/pages/users/UserManagement';
+
+// Settings Pages
+import CategoryList from '@/pages/settings/CategoryList';
+import SchoolGroupList from '@/pages/settings/SchoolGroupList';
+import SchoolList from '@/pages/settings/SchoolList';
+
+// Components
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import NotFound from '@/pages/NotFound';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      
+      <Routes>
+        {/* Auth Routes */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+        </Route>
+
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            {/* Dashboard */}
+            <Route path="/" element={<DashboardHome />} />
+            <Route path="/dashboard" element={<DashboardHome />} />
+
+            {/* ⭐ User Management (Admin Only) */}
+            <Route path="/users" element={<UserManagement />} />
+
+            {/* Competitions */}
+            <Route path="/competitions" element={<CompetitionList />} />
+            <Route path="/competitions/bulk-create" element={<CompetitionBulkCreate />} />
+            <Route path="/competitions/create" element={<CompetitionCreate />} />
+            <Route path="/competitions/:id" element={<CompetitionDetail />} />
+            <Route path="/competitions/:id/edit" element={<CompetitionEdit />} />
+
+            {/* Registrations (⭐ Auto-filtered by school) */}
+            <Route path="/registrations" element={<RegistrationList />} />
+            <Route path="/registrations/create" element={<RegistrationCreate />} />
+            <Route path="/registrations/:id" element={<RegistrationDetail />} />
+
+            {/* Results (⭐ Auto-filtered by school) */}
+            <Route path="/results" element={<ResultList />} />
+            <Route path="/results/create" element={<ResultCreate />} />
+            <Route path="/results/leaderboard/:competitionId" element={<ResultLeaderboard />} />
+
+            {/* Certificates */}
+            <Route path="/certificates" element={<CertificateList />} />
+
+            {/* Settings */}
+            <Route path="/settings/categories" element={<CategoryList />} />
+            <Route path="/settings/school-groups" element={<SchoolGroupList />} />
+            <Route path="/settings/schools" element={<SchoolList />} />
+          </Route>
+        </Route>
+
+        {/* 404 */}
+        <Route path="/404" element={<NotFound />} />
+        <Route path="*" element={<Navigate to="/404" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
