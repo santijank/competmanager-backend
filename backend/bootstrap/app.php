@@ -14,8 +14,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
        $middleware->redirectGuestsTo('/api/auth/login');
 
-        // Add CORS as global middleware (runs first)
-        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        // Add custom CORS middleware as first middleware (handles preflight)
+        $middleware->prepend(\App\Http\Middleware\CorsMiddleware::class);
 
         // Register middleware aliases
         $middleware->alias([
