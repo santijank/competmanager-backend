@@ -46,10 +46,9 @@ RUN chown -R www-data:www-data /var/www \
 # Expose port
 EXPOSE 8080
 
-# Start command - run migrations and caching, then start server
+# Start command - clear cache and start server (no config:cache to allow runtime CORS)
 CMD php artisan config:clear && \
     php artisan cache:clear && \
-    php artisan config:cache || true && \
-    php artisan route:cache || true && \
-    php artisan view:cache || true && \
+    php artisan route:clear && \
+    php artisan view:clear && \
     php artisan serve --host=0.0.0.0 --port=8080
