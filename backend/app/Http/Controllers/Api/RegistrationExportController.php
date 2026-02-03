@@ -25,19 +25,31 @@ class RegistrationExportController extends Controller
             
             $status = $request->query('status', 'all');
             
-            $query = Registration::where('competition_id', $competitionId)
-                ->with(['school', 'students', 'teachers']);
-            
-            if ($status !== 'all') {
-                $query->where('status', $status);
-            }
-            
-            $registrations = $query->orderBy('created_at', 'asc')->get();
-            
+            // ดึงข้อมูลทั้งหมดก่อนเพื่อนับสถิติ
+            $allRegistrations = Registration::where('competition_id', $competitionId)
+                ->with(['school', 'students', 'teachers'])
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            // นับสถิติ
+            $totalRegistrations = $allRegistrations->count();
+            $approvedCount = $allRegistrations->where('status', 'approved')->count();
+            $pendingCount = $allRegistrations->where('status', 'pending')->count();
+            $rejectedCount = $allRegistrations->where('status', 'rejected')->count();
+
+            // กรองตาม status ที่ต้องการแสดง
+            $registrations = $status !== 'all'
+                ? $allRegistrations->where('status', $status)->values()
+                : $allRegistrations;
+
             $data = [
                 'competition' => $competition,
                 'registrations' => $registrations,
-                'status' => $status,
+                'filter_status' => $status,
+                'total_registrations' => $status !== 'all' ? $registrations->count() : $totalRegistrations,
+                'approved_count' => $approvedCount,
+                'pending_count' => $pendingCount,
+                'rejected_count' => $rejectedCount,
                 'generated_at' => now()->format('d/m/Y H:i:s'),
                 'generated_by' => $user->name,
             ];

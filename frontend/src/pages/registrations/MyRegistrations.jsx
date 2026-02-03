@@ -11,9 +11,11 @@ import {
   AlertCircle,
   Trash2,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Edit2
 } from 'lucide-react';
 import api from '@/lib/api';
+import EditRegistrationModal from '@/components/registrations/EditRegistrationModal';
 
 /**
  * 📋 My Registrations
@@ -25,6 +27,10 @@ const MyRegistrations = () => {
   const [registrations, setRegistrations] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ State สำหรับ Edit Modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -110,7 +116,7 @@ const MyRegistrations = () => {
 
     try {
       const response = await api.delete(`/registrations/${registration.id}`);
-      
+
       if (response.data.success) {
         toast.success('ยกเลิกการลงทะเบียนสำเร็จ');
         loadData();
@@ -119,6 +125,16 @@ const MyRegistrations = () => {
       console.error('Cancel registration error:', error);
       toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
     }
+  };
+
+  // ✅ Handle Edit
+  const handleEdit = (registration) => {
+    setSelectedRegistration(registration);
+    setShowEditModal(true);
+  };
+
+  const handleEditSuccess = () => {
+    loadData();
   };
 
   const getStatusBadge = (status) => {
@@ -328,15 +344,23 @@ const MyRegistrations = () => {
                         รายชื่อนักเรียน:
                       </h4>
                       <div className="space-y-1">
-                        {students.map((student, index) => (
-                          <div key={index} className="flex items-center text-sm text-gray-600">
-                            <Users className="w-4 h-4 mr-2 flex-shrink-0" />
-                            <span>
-                              {index + 1}. {student.name || '-'}
-                              {student.student_id && ` (${student.student_id})`}
-                            </span>
-                          </div>
-                        ))}
+                        {students.map((student, index) => {
+                          // รองรับทั้ง string และ object
+                          const studentName = typeof student === 'string'
+                            ? student
+                            : (student?.name || '-');
+                          const studentId = typeof student === 'object' ? student?.student_id : null;
+
+                          return (
+                            <div key={index} className="flex items-center text-sm text-gray-600">
+                              <Users className="w-4 h-4 mr-2 flex-shrink-0" />
+                              <span>
+                                {index + 1}. {studentName}
+                                {studentId && ` (${studentId})`}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -359,15 +383,29 @@ const MyRegistrations = () => {
                       </div>
 
                       {/* Actions */}
-                      {registration.status === 'pending' && (
-                        <button
-                          onClick={() => handleCancelRegistration(registration)}
-                          className="flex items-center space-x-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>ยกเลิก</span>
-                        </button>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {/* ✅ ปุ่มแก้ไข - เฉพาะสถานะ pending หรือ rejected เท่านั้น */}
+                        {(registration.status === 'pending' || registration.status === 'rejected') && (
+                          <button
+                            onClick={() => handleEdit(registration)}
+                            className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            <span>แก้ไข</span>
+                          </button>
+                        )}
+
+                        {/* ปุ่มยกเลิก - เฉพาะสถานะ pending */}
+                        {registration.status === 'pending' && (
+                          <button
+                            onClick={() => handleCancelRegistration(registration)}
+                            className="flex items-center space-x-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>ยกเลิก</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -390,6 +428,19 @@ const MyRegistrations = () => {
           </div>
         )}
       </div>
+
+      {/* ✅ Edit Registration Modal */}
+      {showEditModal && (
+        <EditRegistrationModal
+          isOpen={showEditModal}
+          registration={selectedRegistration}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedRegistration(null);
+          }}
+          onSuccess={handleEditSuccess}
+        />
+      )}
     </div>
   );
 };

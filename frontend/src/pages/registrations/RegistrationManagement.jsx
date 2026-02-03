@@ -17,7 +17,8 @@ import {
   Building2,
   Globe,
   Layers,
-  Trash2
+  Trash2,
+  CheckCheck
 } from 'lucide-react';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
@@ -57,6 +58,9 @@ const RegistrationManagement = () => {
     status: '',
     search: '',
   });
+
+  // ✅ State สำหรับอนุมัติทั้งหมด
+  const [bulkApproving, setBulkApproving] = useState(false);
 
   useEffect(() => {
     // โหลดรายชื่อกลุ่มสำหรับ District Admin
@@ -231,44 +235,115 @@ const RegistrationManagement = () => {
     }));
   };
 
-  // จัดกลุ่ม registrations ตาม category
-  const groupedByCategory = registrations.reduce((acc, reg) => {
+  // ✅ อนุมัติทั้งหมดที่รอการอนุมัติ
+  const handleBulkApprove = async () => {
+    // กรองเฉพาะ pending
+    const pendingRegistrations = registrations.filter(reg => reg.status === 'pending');
+
+    if (pendingRegistrations.length === 0) {
+      toast.info('ไม่มีรายการที่รอการอนุมัติ');
+      return;
+    }
+
+    const confirmMessage = `ต้องการอนุมัติทั้งหมด ${pendingRegistrations.length} รายการหรือไม่?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setBulkApproving(true);
+
+      const registrationIds = pendingRegistrations.map(reg => reg.id);
+
+      const response = await api.post('/registrations/bulk-approve', {
+        registration_ids: registrationIds
+      });
+
+      if (response.data.success) {
+        toast.success(response.data.message || `อนุมัติสำเร็จ ${response.data.approved_count} รายการ`);
+
+        // แสดง errors ถ้ามี
+        if (response.data.errors && response.data.errors.length > 0) {
+          response.data.errors.forEach(err => toast.warning(err));
+        }
+
+        loadData();
+        loadCompetitionsWithApprovedRegistrations();
+      } else {
+        toast.error(response.data.message || 'เกิดข้อผิดพลาด');
+      }
+    } catch (error) {
+      console.error('Bulk approve error:', error);
+      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการอนุมัติ');
+    } finally {
+      setBulkApproving(false);
+    }
+  };
+
+  // ✅ จัดกลุ่ม registrations ตาม category > competition
+  const groupedByCategoryAndCompetition = registrations.reduce((acc, reg) => {
     const categoryId = reg.competition?.category_id || 0;
     const categoryName = reg.competition?.category?.name || 'ไม่มีหมวดหมู่';
+    const competitionId = reg.competition?.id || 0;
+    const competitionName = reg.competition?.name || 'ไม่ระบุกิจกรรม';
 
     if (!acc[categoryId]) {
       acc[categoryId] = {
         id: categoryId,
         name: categoryName,
+        competitions: {},
+        totalRegistrations: 0
+      };
+    }
+
+    if (!acc[categoryId].competitions[competitionId]) {
+      acc[categoryId].competitions[competitionId] = {
+        id: competitionId,
+        name: competitionName,
+        competition: reg.competition,
         registrations: []
       };
     }
 
-    acc[categoryId].registrations.push(reg);
+    acc[categoryId].competitions[competitionId].registrations.push(reg);
+    acc[categoryId].totalRegistrations++;
     return acc;
   }, {});
 
-  // ✅ สำหรับ District Admin - จัดกลุ่มตาม school_group
-  const groupedBySchoolGroup = registrations.reduce((acc, reg) => {
+  // ✅ สำหรับ District Admin - จัดกลุ่มตาม school_group > competition
+  const groupedBySchoolGroupAndCompetition = registrations.reduce((acc, reg) => {
     const groupId = reg.competition?.school_group_id || 0;
     const groupName = reg.competition?.school_group?.name ||
                      schoolGroups.find(g => g.id === groupId)?.name ||
                      'ไม่ระบุกลุ่ม';
+    const competitionId = reg.competition?.id || 0;
+    const competitionName = reg.competition?.name || 'ไม่ระบุกิจกรรม';
 
     if (!acc[groupId]) {
       acc[groupId] = {
         id: groupId,
         name: groupName,
+        competitions: {},
+        totalRegistrations: 0
+      };
+    }
+
+    if (!acc[groupId].competitions[competitionId]) {
+      acc[groupId].competitions[competitionId] = {
+        id: competitionId,
+        name: competitionName,
+        competition: reg.competition,
         registrations: []
       };
     }
 
-    acc[groupId].registrations.push(reg);
+    acc[groupId].competitions[competitionId].registrations.push(reg);
+    acc[groupId].totalRegistrations++;
     return acc;
   }, {});
 
-  const categories = Object.values(groupedByCategory);
-  const schoolGroupCategories = Object.values(groupedBySchoolGroup);
+  const categories = Object.values(groupedByCategoryAndCompetition);
+  const schoolGroupCategories = Object.values(groupedBySchoolGroupAndCompetition);
 
   // Get competitions for selected category
   const competitionsForSelectedCategory = selectedCategory
@@ -331,6 +406,22 @@ const RegistrationManagement = () => {
                 <Download className="w-4 h-4" />
                 <span>ออกเอกสาร</span>
               </button>
+
+              {/* ✅ ปุ่มอนุมัติทั้งหมด - สำหรับ Group Admin และ District Admin */}
+              {(isGroupAdmin() || isDistrictAdmin()) && statistics?.pending > 0 && (
+                <button
+                  onClick={handleBulkApprove}
+                  disabled={bulkApproving}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkApproving ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCheck className="w-4 h-4" />
+                  )}
+                  <span>{bulkApproving ? 'กำลังอนุมัติ...' : `อนุมัติทั้งหมด (${statistics?.pending})`}</span>
+                </button>
+              )}
 
               {/* ปุ่มรีเซ็ต - เฉพาะ Group Admin และ District Admin */}
               {(isGroupAdmin() || isDistrictAdmin()) && (
@@ -671,100 +762,190 @@ const RegistrationManagement = () => {
           <div className="space-y-4">
             {/* ✅ สำหรับ District Admin ที่ดูระดับกลุ่ม - แสดงแยกตามกลุ่ม */}
             {isDistrictAdmin() && activeLevel === 'group' && selectedGroupId === 'all' ? (
-              // แสดงแยกตามกลุ่มโรงเรียน
-              schoolGroupCategories.map((group) => (
-                <div key={group.id} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
-                  {/* Group Header */}
-                  <button
-                    onClick={() => toggleCategory(`group_${group.id}`)}
-                    className="w-full px-6 py-4 flex items-center justify-between bg-blue-50 hover:bg-blue-100 transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {expandedCategories[`group_${group.id}`] ? (
-                        <ChevronDown className="w-5 h-5 text-blue-500" />
-                      ) : (
-                        <ChevronRight className="w-5 h-5 text-blue-500" />
-                      )}
-                      <Building2 className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold text-blue-900">
-                        {group.name}
-                      </h3>
-                      <span className="px-3 py-1 bg-blue-200 text-blue-800 rounded-full text-sm font-medium">
-                        {group.registrations.length} รายการ
-                      </span>
-                    </div>
-                  </button>
+              // ✅ แสดงแยกตามกลุ่มโรงเรียน > กิจกรรม (2 ระดับ)
+              schoolGroupCategories.map((group) => {
+                const competitionsList = Object.values(group.competitions);
 
-                  {/* Registrations List */}
-                  {expandedCategories[`group_${group.id}`] && (
-                    <div className="border-t border-blue-200">
-                      {group.registrations.map((registration) => (
-                        <RegistrationItem
-                          key={registration.id}
-                          registration={registration}
-                          getStatusBadge={getStatusBadge}
-                          getLevelBadge={getLevelBadge}
-                          handleEdit={handleEdit}
-                          handleApprove={handleApprove}
-                          handleReject={handleReject}
-                          showLevel={false}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
+                return (
+                  <div key={group.id} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                    {/* Group Header - ระดับที่ 1 */}
+                    <button
+                      onClick={() => toggleCategory(`group_${group.id}`)}
+                      className="w-full px-6 py-4 flex items-center justify-between bg-blue-50 hover:bg-blue-100 transition-colors"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {expandedCategories[`group_${group.id}`] ? (
+                          <ChevronDown className="w-5 h-5 text-blue-500" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-blue-500" />
+                        )}
+                        <Building2 className="w-5 h-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold text-blue-900">
+                          {group.name}
+                        </h3>
+                        <span className="px-3 py-1 bg-blue-200 text-blue-800 rounded-full text-sm font-medium">
+                          {competitionsList.length} กิจกรรม
+                        </span>
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-600">
+                          {group.totalRegistrations} รายการ
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Competitions List - ระดับที่ 2 */}
+                    {expandedCategories[`group_${group.id}`] && (
+                      <div className="border-t border-blue-200">
+                        {competitionsList.map((comp) => (
+                          <div key={comp.id} className="border-b border-blue-100 last:border-b-0">
+                            {/* Competition Header */}
+                            <button
+                              onClick={() => toggleCategory(`group_comp_${group.id}_${comp.id}`)}
+                              className="w-full px-6 py-3 flex items-center justify-between bg-white hover:bg-blue-50 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3 pl-6">
+                                {expandedCategories[`group_comp_${group.id}_${comp.id}`] ? (
+                                  <ChevronDown className="w-4 h-4 text-blue-400" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-blue-400" />
+                                )}
+                                <FileText className="w-4 h-4 text-blue-500" />
+                                <h4 className="text-base font-medium text-gray-800">
+                                  {comp.name}
+                                </h4>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                  {comp.registrations.length} ทีม
+                                </span>
+                                {comp.registrations.some(r => r.status === 'pending') && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                    {comp.registrations.filter(r => r.status === 'pending').length} รอ
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Registrations for this Competition */}
+                            {expandedCategories[`group_comp_${group.id}_${comp.id}`] && (
+                              <div className="bg-blue-50 border-t border-blue-100">
+                                {comp.registrations.map((registration) => (
+                                  <RegistrationItem
+                                    key={registration.id}
+                                    registration={registration}
+                                    getStatusBadge={getStatusBadge}
+                                    getLevelBadge={getLevelBadge}
+                                    handleEdit={handleEdit}
+                                    handleApprove={handleApprove}
+                                    handleReject={handleReject}
+                                    showLevel={false}
+                                    nested={true}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             ) : (
-              // แสดงแยกตามหมวดหมู่ (default)
-              categories.map((category) => (
-                <div key={category.id} className={`bg-white rounded-lg border overflow-hidden ${
-                  activeLevel === 'district' ? 'border-purple-200' : 'border-gray-200'
-                }`}>
-                  {/* Category Header */}
-                  <button
-                    onClick={() => toggleCategory(category.id)}
-                    className={`w-full px-6 py-4 flex items-center justify-between transition-colors ${
-                      activeLevel === 'district' ? 'hover:bg-purple-50' : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      {expandedCategories[category.id] ? (
-                        <ChevronDown className="w-5 h-5 text-gray-500" />
-                      ) : (
-                        <ChevronRight className="w-5 h-5 text-gray-500" />
-                      )}
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {category.name}
-                      </h3>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        activeLevel === 'district'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-primary-100 text-primary-700'
-                      }`}>
-                        {category.registrations.length} รายการ
-                      </span>
-                    </div>
-                  </button>
+              // ✅ แสดงแยกตามหมวดหมู่ > กิจกรรม (2 ระดับ)
+              categories.map((category) => {
+                const competitionsList = Object.values(category.competitions);
 
-                  {/* Registrations List */}
-                  {expandedCategories[category.id] && (
-                    <div className="border-t border-gray-200">
-                      {category.registrations.map((registration) => (
-                        <RegistrationItem
-                          key={registration.id}
-                          registration={registration}
-                          getStatusBadge={getStatusBadge}
-                          getLevelBadge={getLevelBadge}
-                          handleEdit={handleEdit}
-                          handleApprove={handleApprove}
-                          handleReject={handleReject}
-                          showLevel={activeLevel === 'district'}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))
+                return (
+                  <div key={category.id} className={`bg-white rounded-lg border overflow-hidden ${
+                    activeLevel === 'district' ? 'border-purple-200' : 'border-gray-200'
+                  }`}>
+                    {/* Category Header - ระดับที่ 1 */}
+                    <button
+                      onClick={() => toggleCategory(category.id)}
+                      className={`w-full px-6 py-4 flex items-center justify-between transition-colors ${
+                        activeLevel === 'district'
+                          ? 'bg-purple-50 hover:bg-purple-100'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        {expandedCategories[category.id] ? (
+                          <ChevronDown className="w-5 h-5 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-500" />
+                        )}
+                        <Layers className={`w-5 h-5 ${activeLevel === 'district' ? 'text-purple-600' : 'text-blue-600'}`} />
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {category.name}
+                        </h3>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          activeLevel === 'district'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {competitionsList.length} กิจกรรม
+                        </span>
+                        <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                          {category.totalRegistrations} รายการ
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Competitions List - ระดับที่ 2 */}
+                    {expandedCategories[category.id] && (
+                      <div className="border-t border-gray-200">
+                        {competitionsList.map((comp) => (
+                          <div key={comp.id} className="border-b border-gray-100 last:border-b-0">
+                            {/* Competition Header */}
+                            <button
+                              onClick={() => toggleCategory(`comp_${comp.id}`)}
+                              className="w-full px-6 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center space-x-3 pl-6">
+                                {expandedCategories[`comp_${comp.id}`] ? (
+                                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                                )}
+                                <FileText className="w-4 h-4 text-gray-500" />
+                                <h4 className="text-base font-medium text-gray-800">
+                                  {comp.name}
+                                </h4>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                  {comp.registrations.length} ทีม
+                                </span>
+                                {/* แสดงสถานะรวม */}
+                                {comp.registrations.some(r => r.status === 'pending') && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                    {comp.registrations.filter(r => r.status === 'pending').length} รอ
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Registrations for this Competition */}
+                            {expandedCategories[`comp_${comp.id}`] && (
+                              <div className="bg-gray-50 border-t border-gray-100">
+                                {comp.registrations.map((registration) => (
+                                  <RegistrationItem
+                                    key={registration.id}
+                                    registration={registration}
+                                    getStatusBadge={getStatusBadge}
+                                    getLevelBadge={getLevelBadge}
+                                    handleEdit={handleEdit}
+                                    handleApprove={handleApprove}
+                                    handleReject={handleReject}
+                                    showLevel={activeLevel === 'district'}
+                                    nested={true}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         )}
@@ -817,21 +998,25 @@ const RegistrationItem = ({
   handleEdit,
   handleApprove,
   handleReject,
-  showLevel = false
+  showLevel = false,
+  nested = false
 }) => {
   return (
-    <div className="px-6 py-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+    <div className={`${nested ? 'px-8 pl-16' : 'px-6'} py-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-100 bg-white`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center flex-wrap gap-2 mb-2">
-            <h4 className="text-lg font-semibold text-gray-900">
-              {registration.competition?.name || '-'}
-            </h4>
+            {/* แสดงชื่อกิจกรรมเฉพาะเมื่อไม่ใช่ nested */}
+            {!nested && (
+              <h4 className="text-lg font-semibold text-gray-900">
+                {registration.competition?.name || '-'}
+              </h4>
+            )}
             {getStatusBadge(registration.status)}
             {showLevel && getLevelBadge(registration.competition?.competition_level)}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
+          <div className={`grid ${nested ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'} gap-4 text-sm text-gray-600 ${nested ? '' : 'mb-3'}`}>
             <div>
               <span className="font-medium">ชื่อทีม:</span> {registration.team_name || '-'}
             </div>
@@ -844,17 +1029,28 @@ const RegistrationItem = ({
             <div>
               <span className="font-medium">จำนวน:</span> {registration.student_count || 0} นักเรียน, {registration.teacher_count || 0} ครู
             </div>
+            {nested && (
+              <div className="text-gray-500">
+                <span className="font-medium">ลงทะเบียน:</span> {new Date(registration.created_at).toLocaleDateString('th-TH', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="text-sm text-gray-500">
-            <span className="font-medium">ลงทะเบียนเมื่อ:</span> {new Date(registration.created_at).toLocaleDateString('th-TH', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </div>
+          {!nested && (
+            <div className="text-sm text-gray-500 mt-2">
+              <span className="font-medium">ลงทะเบียนเมื่อ:</span> {new Date(registration.created_at).toLocaleDateString('th-TH', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

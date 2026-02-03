@@ -17,60 +17,91 @@
             font-weight: bold;
             src: url('{{ storage_path("fonts/THSarabunNew Bold.ttf") }}') format('truetype');
         }
-        
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            margin: 15mm 10mm 20mm 10mm;
+        }
+
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
-            margin: 15px;
         }
-        
+
+        /* ===== PAGE BREAK CONTROLS ===== */
+        .page-break {
+            page-break-after: always;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
+        }
+
         .header {
             text-align: center;
             margin-bottom: 15px;
         }
-        
+
         .title {
             font-size: 22pt;
             font-weight: bold;
             margin-bottom: 8px;
         }
-        
+
         .subtitle {
             font-size: 18pt;
             margin-bottom: 5px;
         }
-        
+
         .info-box {
             border: 1px solid #000;
             padding: 10px;
             margin: 10px 0;
         }
-        
+
         .info-row {
             margin-bottom: 5px;
             font-size: 14pt;
         }
-        
+
         .label {
             font-weight: bold;
             display: inline-block;
             width: 130px;
         }
-        
+
         .stats-box {
             background-color: #f0f0f0;
             border: 2px solid #333;
             padding: 10px;
             margin: 10px 0;
         }
-        
+
+        /* ===== TABLE STYLES ===== */
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
             font-size: 14pt;
         }
-        
+
+        thead {
+            display: table-header-group;
+        }
+
+        tbody {
+            display: table-row-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+
         th {
             background-color: #4472C4;
             color: white;
@@ -80,59 +111,86 @@
             border: 1px solid #000;
             font-size: 15pt;
         }
-        
+
         td {
             padding: 6px 5px;
             border: 1px solid #000;
             vertical-align: middle;
+            background-color: #fff;
         }
-        
+
+        tr:nth-child(even) td {
+            background-color: #f8f9fa;
+        }
+
         .center {
             text-align: center;
         }
-        
+
         .score-large {
             font-weight: bold;
             font-size: 18pt;
         }
-        
+
+        /* ===== MEDAL STYLES ===== */
         .medal-gold {
-            background-color: #FFD700;
+            background-color: #FFD700 !important;
             color: #000;
             padding: 3px 8px;
             font-weight: bold;
         }
-        
+
         .medal-silver {
-            background-color: #C0C0C0;
+            background-color: #C0C0C0 !important;
             color: #000;
             padding: 3px 8px;
             font-weight: bold;
         }
-        
+
         .medal-bronze {
-            background-color: #CD7F32;
+            background-color: #CD7F32 !important;
             color: white;
             padding: 3px 8px;
             font-weight: bold;
         }
-        
+
         .medal-participant {
-            background-color: #90EE90;
+            background-color: #90EE90 !important;
             color: #000;
             padding: 3px 8px;
             font-weight: bold;
         }
-        
+
+        .students {
+            font-size: 13pt;
+            line-height: 1.3;
+        }
+
+        /* ===== FOOTER ===== */
         .footer {
             margin-top: 15px;
             font-size: 12pt;
             text-align: right;
         }
-        
-        .students {
-            font-size: 13pt;
-            line-height: 1.3;
+
+        /* ===== PAGE FOOTER ===== */
+        .page-footer {
+            position: fixed;
+            bottom: 5mm;
+            left: 10mm;
+            right: 10mm;
+            font-size: 10pt;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 3px;
+        }
+
+        .page-footer-left {
+            float: left;
+        }
+
+        .page-footer-right {
+            float: right;
         }
     </style>
 </head>
@@ -141,7 +199,7 @@
         <div class="title">คะแนนการแข่งขัน</div>
         <div class="subtitle">{{ $competition->name }}</div>
     </div>
-    
+
     <div class="info-box">
         <div class="info-row">
             <span class="label">รหัสการแข่งขัน:</span>
@@ -156,16 +214,16 @@
             <span>{{ $competition->schoolGroup->name ?? '-' }}</span>
         </div>
     </div>
-    
+
     <div class="stats-box">
         <strong>สถิติ:</strong>
-        ทีมทั้งหมด: {{ $stats['total'] }} | 
-        มีคะแนน: {{ $stats['with_scores'] }} | 
-        ทอง: {{ $stats['gold_count'] }} | 
-        เงิน: {{ $stats['silver_count'] }} | 
+        ทีมทั้งหมด: {{ $stats['total'] }} |
+        มีคะแนน: {{ $stats['with_scores'] }} |
+        ทอง: {{ $stats['gold_count'] }} |
+        เงิน: {{ $stats['silver_count'] }} |
         ทองแดง: {{ $stats['bronze_count'] }}
     </div>
-    
+
     <table>
         <thead>
             <tr>
@@ -179,7 +237,7 @@
         </thead>
         <tbody>
             @forelse($registrations as $index => $registration)
-                <tr>
+                <tr class="no-break">
                     <td class="center">
                         @if($registration->score)
                             {{ $registration->score->rank }}
@@ -192,7 +250,7 @@
                     <td class="students">
                         @if($registration->students && $registration->students->count() > 0)
                             @foreach($registration->students as $student)
-                                {{ $loop->iteration }}. {{ $student->name }}<br>
+                                {{ $loop->iteration }}. {{ $student->name }}@if(!$loop->last)<br>@endif
                             @endforeach
                         @else
                             -
@@ -228,10 +286,16 @@
             @endforelse
         </tbody>
     </table>
-    
+
     <div class="footer">
         <div>พิมพ์โดย: {{ $generated_by }}</div>
         <div>วันที่: {{ $generated_at }}</div>
+    </div>
+
+    <!-- Page Footer -->
+    <div class="page-footer">
+        <span class="page-footer-left">{{ $competition->name }} - {{ $competition->code }}</span>
+        <span class="page-footer-right">พิมพ์: {{ $generated_at }}</span>
     </div>
 </body>
 </html>

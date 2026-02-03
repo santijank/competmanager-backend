@@ -20,18 +20,28 @@
 
         * {
             font-family: 'THSarabunNew', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         @page {
-            margin: 20mm 15mm;
+            margin: 15mm 10mm 20mm 10mm;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
             line-height: 1.3;
-            margin: 0;
-            padding: 0;
+        }
+
+        /* ===== PAGE BREAK CONTROLS ===== */
+        .page-break {
+            page-break-after: always;
+        }
+
+        .no-break {
+            page-break-inside: avoid;
         }
 
         .header {
@@ -63,10 +73,23 @@
             text-align: left;
         }
 
+        /* ===== TABLE STYLES ===== */
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tbody {
+            display: table-row-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
         }
 
         th, td {
@@ -79,7 +102,7 @@
         th {
             font-size: 16pt;
             font-weight: bold;
-            background-color: #f0f0f0;
+            background-color: #e0e0e0;
         }
 
         td {
@@ -95,11 +118,11 @@
         }
 
         .col-affiliation {
-            width: 20%;
+            width: 18%;
         }
 
         .col-student {
-            width: 30%;
+            width: 32%;
             text-align: left;
             padding-left: 10px;
         }
@@ -108,6 +131,7 @@
             width: 20%;
         }
 
+        /* ===== FOOTER ===== */
         .footer {
             margin-top: 20px;
             font-size: 16pt;
@@ -125,6 +149,26 @@
         .note {
             margin-top: 10px;
             font-size: 14pt;
+        }
+
+        /* ===== PAGE FOOTER ===== */
+        .page-footer {
+            position: fixed;
+            bottom: 5mm;
+            left: 10mm;
+            right: 10mm;
+            font-size: 10pt;
+            color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 3px;
+        }
+
+        .page-footer-left {
+            float: left;
+        }
+
+        .page-footer-right {
+            float: right;
         }
     </style>
 </head>
@@ -158,7 +202,7 @@
                 @endphp
                 @if($studentCount > 0)
                     @foreach($students as $index => $studentName)
-                        <tr>
+                        <tr class="no-break">
                             @if($index === 0)
                                 <td class="col-no" rowspan="{{ $studentCount }}">{{ $rowNumber++ }}</td>
                                 <td class="col-school" rowspan="{{ $studentCount }}">{{ $schoolData['school_name'] }}</td>
@@ -169,7 +213,7 @@
                         </tr>
                     @endforeach
                 @else
-                    <tr>
+                    <tr class="no-break">
                         <td class="col-no">{{ $rowNumber++ }}</td>
                         <td class="col-school">{{ $schoolData['school_name'] }}</td>
                         <td class="col-affiliation">สพป.นฐ.เขต 1</td>
@@ -181,12 +225,18 @@
         </tbody>
     </table>
 
-    <div class="footer">
+    <div class="footer no-break">
         <div class="footer-title">รับรองข้อมูล</div>
         <div class="signature-line">ลงชื่อ ………………………………………………</div>
         <div class="signature-line">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
         <div class="signature-line">เบอร์โทร ………………………………………</div>
         <div class="note">หมายเหตุ ปรับใช้ได้ตามความเหมาะสม</div>
+    </div>
+
+    <!-- Page Footer -->
+    <div class="page-footer">
+        <span class="page-footer-left">DOC.1 - {{ $competition->name }}</span>
+        <span class="page-footer-right">{{ $competition->code }}</span>
     </div>
 </body>
 </html>
