@@ -59,7 +59,7 @@ const documentService = {
     try {
       const response = await api.get(
         `/documents/competitions/${competitionId}/summary`,
-        { 
+        {
           responseType: 'blob',
           headers: {
             'Accept': 'application/pdf'
@@ -70,6 +70,29 @@ const documentService = {
     } catch (error) {
       console.error('Error generating summary:', error);
       throw new Error('ไม่สามารถสร้างเอกสารสรุปผู้เข้าแข่งขันได้');
+    }
+  },
+
+  /**
+   * Generate Committee Sign-in Document (DOC.1)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async generateCommitteeSignin(competitionId) {
+    try {
+      const response = await api.get(
+        `/committee-members/signin-pdf/${competitionId}`,
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error generating committee signin:', error);
+      throw new Error('ไม่สามารถสร้างเอกสารลงทะเบียนกรรมการได้');
     }
   },
 
@@ -147,6 +170,17 @@ const documentService = {
   async downloadSummary(competitionId, competitionCode) {
     const blob = await this.generateSummary(competitionId);
     const filename = `สรุปผู้เข้าแข่งขัน_${competitionCode}.pdf`;
+    this.downloadPDF(blob, filename);
+  },
+
+  /**
+   * Generate and Download Committee Sign-in (ทางลัด)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @param {string} competitionCode - รหัสการแข่งขัน
+   */
+  async downloadCommitteeSignin(competitionId, competitionCode) {
+    const blob = await this.generateCommitteeSignin(competitionId);
+    const filename = `ลงทะเบียนกรรมการ_${competitionCode}.pdf`;
     this.downloadPDF(blob, filename);
   },
 };

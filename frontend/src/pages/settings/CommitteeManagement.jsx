@@ -17,7 +17,8 @@ import {
   Download,
   ChevronDown,
   ChevronRight,
-  Layers
+  Layers,
+  ClipboardList
 } from 'lucide-react';
 import api from '@/lib/api';
 import CommitteeMemberModal from '@/components/committee/CommitteeMemberModal';
@@ -41,8 +42,10 @@ const CommitteeManagement = () => {
     level: 'group',
   });
 
-  // Group admin เห็นเฉพาะ tab ระดับกลุ่ม
+  // Group admin และ School admin เห็นเฉพาะ tab ระดับกลุ่ม
   const canSeeDistrictLevel = user?.role === 'district_admin' || user?.role === 'admin';
+  const canAddMember = ['admin', 'district_admin', 'group_admin', 'school_admin'].includes(user?.role);
+  const canDeleteMember = ['admin', 'district_admin', 'group_admin'].includes(user?.role); // School admin ไม่มีสิทธิ์ลบ
 
   useEffect(() => {
     loadData();
@@ -298,13 +301,17 @@ const CommitteeManagement = () => {
           <h1 className="text-2xl font-bold text-gray-900">คณะทำงาน</h1>
           <p className="text-gray-600 mt-1">จัดการคณะทำงาน เจ้าหน้าที่ และอาสาสมัคร</p>
         </div>
-        <button
-          onClick={handleAdd}
-          className={`flex items-center gap-2 px-4 py-2 ${currentColors.bgDark} text-white rounded-lg hover:opacity-90 transition-colors`}
-        >
-          <Plus className="w-5 h-5" />
-          เพิ่มคณะทำงาน
-        </button>
+        <div className="flex items-center gap-2">
+          {canAddMember && (
+            <button
+              onClick={handleAdd}
+              className={`flex items-center gap-2 px-4 py-2 ${currentColors.bgDark} text-white rounded-lg hover:opacity-90 transition-colors`}
+            >
+              <Plus className="w-5 h-5" />
+              เพิ่มคณะทำงาน
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Level Tabs */}
@@ -623,13 +630,15 @@ const CommitteeManagement = () => {
                                       >
                                         <Edit2 className="w-4 h-4" />
                                       </button>
-                                      <button
-                                        onClick={() => handleDelete(member)}
-                                        className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                                        title="ลบ"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
+                                      {canDeleteMember && (
+                                        <button
+                                          onClick={() => handleDelete(member)}
+                                          className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                                          title="ลบ"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>

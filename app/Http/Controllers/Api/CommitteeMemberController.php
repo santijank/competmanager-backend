@@ -17,13 +17,13 @@ class CommitteeMemberController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         $query = CommitteeMember::with(['schoolGroup', 'competition.category', 'creator'])
             ->orderBy('created_at', 'desc');
 
         // Role-based filtering
-        if ($user->role === 'group_admin') {
-            // Group admin เห็นเฉพาะกลุ่มของตัวเอง
+        if ($user->role === 'group_admin' || $user->role === 'school_admin') {
+            // Group admin และ School admin เห็นเฉพาะกลุ่มของตัวเอง
             $query->where('school_group_id', $user->school_group_id);
         }
         // Admin และ District Admin เห็นทั้งหมด
@@ -99,10 +99,10 @@ class CommitteeMemberController extends Controller
             'competition_id.exists' => 'ไม่พบการแข่งขันที่เลือก',
         ]);
 
-        // ✅ Group admin สามารถเพิ่มได้เฉพาะในกลุ่มของตัวเอง และระดับกลุ่มเท่านั้น
-        if ($user->role === 'group_admin') {
+        // ✅ Group admin และ School admin สามารถเพิ่มได้เฉพาะในกลุ่มของตัวเอง และระดับกลุ่มเท่านั้น
+        if ($user->role === 'group_admin' || $user->role === 'school_admin') {
             $validated['school_group_id'] = $user->school_group_id;
-            $validated['level'] = 'group'; // Group admin เพิ่มได้เฉพาะระดับกลุ่ม
+            $validated['level'] = 'group'; // Group admin และ School admin เพิ่มได้เฉพาะระดับกลุ่ม
         }
 
         $validated['created_by'] = $user->id;
@@ -130,8 +130,8 @@ class CommitteeMemberController extends Controller
         
         $member = CommitteeMember::with(['schoolGroup', 'creator'])->findOrFail($id);
 
-        // Permission check for group_admin
-        if ($user->role === 'group_admin' && $member->school_group_id !== $user->school_group_id) {
+        // Permission check for group_admin และ school_admin
+        if (in_array($user->role, ['group_admin', 'school_admin']) && $member->school_group_id !== $user->school_group_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access'
@@ -153,8 +153,8 @@ class CommitteeMemberController extends Controller
         
         $member = CommitteeMember::findOrFail($id);
 
-        // Permission check for group_admin
-        if ($user->role === 'group_admin' && $member->school_group_id !== $user->school_group_id) {
+        // Permission check for group_admin และ school_admin
+        if (in_array($user->role, ['group_admin', 'school_admin']) && $member->school_group_id !== $user->school_group_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access'
@@ -180,10 +180,10 @@ class CommitteeMemberController extends Controller
             'competition_id.exists' => 'ไม่พบการแข่งขันที่เลือก',
         ]);
 
-        // ✅ Group admin ไม่สามารถเปลี่ยน school_group_id และ level
-        if ($user->role === 'group_admin') {
+        // ✅ Group admin และ School admin ไม่สามารถเปลี่ยน school_group_id และ level
+        if (in_array($user->role, ['group_admin', 'school_admin'])) {
             unset($validated['school_group_id']);
-            $validated['level'] = 'group'; // Group admin แก้ไขได้เฉพาะระดับกลุ่ม
+            $validated['level'] = 'group'; // Group admin และ School admin แก้ไขได้เฉพาะระดับกลุ่ม
         }
 
         $member->update($validated);
@@ -206,7 +206,15 @@ class CommitteeMemberController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        
+
+        // School admin ไม่มีสิทธิ์ลบ
+        if ($user->role === 'school_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'คุณไม่มีสิทธิ์ลบคณะทำงาน'
+            ], 403);
+        }
+
         $member = CommitteeMember::findOrFail($id);
 
         // Permission check for group_admin
@@ -260,8 +268,8 @@ class CommitteeMemberController extends Controller
             )
             ->distinct();
 
-        // Admin และ District Admin เห็นทั้งหมด, Group Admin เห็นเฉพาะกลุ่มตัวเอง
-        if ($user->role === 'group_admin') {
+        // Admin และ District Admin เห็นทั้งหมด, Group Admin และ School Admin เห็นเฉพาะกลุ่มตัวเอง
+        if (in_array($user->role, ['group_admin', 'school_admin'])) {
             $query->where('competitions.school_group_id', $user->school_group_id);
         }
 
@@ -302,7 +310,7 @@ class CommitteeMemberController extends Controller
         $user = Auth::user();
 
         // ตรวจสอบสิทธิ์
-        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'school_admin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'คุณไม่มีสิทธิ์ดาวน์โหลดเอกสารนี้'
@@ -327,8 +335,8 @@ class CommitteeMemberController extends Controller
             ], 404);
         }
 
-        // Group admin สามารถดูได้เฉพาะกลุ่มตัวเอง
-        if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
+        // Group admin และ School admin สามารถดูได้เฉพาะกลุ่มตัวเอง
+        if (in_array($user->role, ['group_admin', 'school_admin']) && $competition->school_group_id !== $user->school_group_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'คุณไม่มีสิทธิ์เข้าถึงการแข่งขันนี้'
@@ -371,7 +379,7 @@ class CommitteeMemberController extends Controller
             $query = CommitteeMember::query();
 
             // Role-based filtering
-            if ($user->role === 'group_admin') {
+            if (in_array($user->role, ['group_admin', 'school_admin'])) {
                 $query->where('school_group_id', $user->school_group_id);
             }
 
@@ -388,7 +396,7 @@ class CommitteeMemberController extends Controller
         $inactive = $baseQuery()->where('is_active', false)->count();
 
         $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
-            ->when($user->role === 'group_admin', function($q) use ($user) {
+            ->when(in_array($user->role, ['group_admin', 'school_admin']), function($q) use ($user) {
                 return $q->where('school_group_id', $user->school_group_id);
             })
             ->when($request->has('level') && $request->level !== '', function($q) use ($request) {
@@ -399,7 +407,7 @@ class CommitteeMemberController extends Controller
             ->pluck('count', 'member_type');
 
         $byLevel = CommitteeMember::select('level', DB::raw('count(*) as count'))
-            ->when($user->role === 'group_admin', function($q) use ($user) {
+            ->when(in_array($user->role, ['group_admin', 'school_admin']), function($q) use ($user) {
                 return $q->where('school_group_id', $user->school_group_id);
             })
             ->groupBy('level')
