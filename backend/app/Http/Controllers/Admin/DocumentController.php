@@ -274,12 +274,14 @@ class DocumentController extends Controller
 
             Log::info("Found " . count($schools) . " schools");
 
-            // ดึงข้อมูลกรรมการตัดสิน
-            $judges = CompetitionJudge::where('competition_id', $competition)
+            // ดึงข้อมูลกรรมการจาก CommitteeMember (member_type = committee)
+            $judges = CommitteeMember::where('competition_id', $competition)
+                ->where('is_active', true)
+                ->where('member_type', 'committee')
                 ->orderBy('id', 'asc')
                 ->get();
 
-            Log::info("Found {$judges->count()} judges");
+            Log::info("Found {$judges->count()} judges from CommitteeMember");
 
             // ข้อมูลสำหรับ PDF
             $data = [

@@ -328,7 +328,7 @@
                         <td>
                             <div class="signature-line">(..............................)</div>
                             <div class="signature-name">{{ $judge->name }}</div>
-                            <div class="signature-position">{{ $index === 0 ? 'ประธานกรรมการ' : 'กรรมการ' }}</div>
+                            <div class="signature-position">{{ $judge->position ?? 'กรรมการ' }}</div>
                         </td>
                     @endif
                 @endforeach
@@ -336,7 +336,7 @@
                     <td>
                         <div class="signature-line">(..............................)</div>
                         <div class="signature-name">................................................</div>
-                        <div class="signature-position">{{ $i === 0 ? 'ประธานกรรมการ' : 'กรรมการ' }}</div>
+                        <div class="signature-position">กรรมการ</div>
                     </td>
                 @endfor
             </tr>
