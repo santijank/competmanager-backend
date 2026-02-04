@@ -52,13 +52,13 @@
         }
 
         .logo-cell {
-            width: 110px;
+            width: 210px;
             text-align: left;
             vertical-align: top;
         }
 
         .logo-img {
-            width: 100px;
+            width: 200px;
             height: auto;
         }
 
