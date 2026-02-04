@@ -26,7 +26,7 @@
         }
 
         @page {
-            margin: 18mm 15mm 15mm 18mm;
+            margin: 12mm 12mm 12mm 15mm;
         }
 
         body {
@@ -38,10 +38,24 @@
         /* ===== HEADER - แสดงทุกหน้า ===== */
         .page-header {
             position: fixed;
-            top: -15mm;
+            top: -10mm;
             left: 0;
             right: 0;
-            text-align: center;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-table td {
+            vertical-align: middle;
+            padding: 0;
+        }
+
+        .logo-cell {
+            width: 70px;
+            text-align: left;
         }
 
         .logo-img {
@@ -49,17 +63,28 @@
             height: auto;
         }
 
+        .info-cell {
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .page-cell {
+            width: 80px;
+            text-align: right;
+            vertical-align: top;
+        }
+
         .header-text {
             font-size: 16pt;
             font-weight: bold;
-            line-height: 1.15;
+            line-height: 1.2;
             margin: 0;
             padding: 0;
         }
 
         .header-text-normal {
             font-size: 16pt;
-            line-height: 1.15;
+            line-height: 1.2;
             margin: 0;
             padding: 0;
         }
@@ -68,14 +93,18 @@
             font-size: 16pt;
             font-weight: bold;
             color: #006600;
-            line-height: 1.15;
+            line-height: 1.2;
             margin: 0;
             padding: 0;
         }
 
+        .page-number-text {
+            font-size: 14pt;
+        }
+
         /* ===== CONTENT AREA ===== */
         .content {
-            margin-top: 38mm;
+            margin-top: 32mm;
         }
 
         /* ===== DOCUMENT INFO ===== */
@@ -97,6 +126,12 @@
 
         .doc-info .right {
             text-align: right;
+        }
+
+        .doc-badge {
+            border: 1px solid #333;
+            padding: 3px 10px;
+            display: inline-block;
         }
 
         /* ===== TABLE STYLES ===== */
@@ -121,7 +156,7 @@
         table.data-table th,
         table.data-table td {
             border: 0.5pt solid #000;
-            padding: 3px 5px;
+            padding: 4px 6px;
             vertical-align: middle;
         }
 
@@ -139,39 +174,26 @@
 
         /* ความกว้างคอลัมน์ */
         .col-no {
-            width: 7%;
+            width: 8%;
             text-align: center;
         }
 
         .col-school {
-            width: 28%;
+            width: 27%;
             text-align: left;
             padding-left: 6px;
         }
 
         .col-student {
-            width: 35%;
+            width: 38%;
             text-align: left;
             padding-left: 6px;
         }
 
         .col-signature {
-            width: 30%;
+            width: 27%;
             text-align: left;
             padding-left: 8px;
-        }
-
-        /* ===== PAGE NUMBER ===== */
-        .page-number {
-            position: fixed;
-            bottom: -12mm;
-            right: 0;
-            font-size: 14pt;
-            color: #333;
-        }
-
-        .page-number:before {
-            content: "หน้า " counter(page);
         }
     </style>
 </head>
@@ -179,13 +201,6 @@
     @php
         // กำหนดค่าตัวแปร
         $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
-
-        // ระดับการแข่งขัน
-        if ($competition->competition_level == 'district') {
-            $levelText = 'ระดับเขตพื้นที่การศึกษา';
-        } else {
-            $levelText = "ระดับกลุ่มโรงเรียน ({$groupName})";
-        }
 
         // ดึงสถานที่จาก schedule
         $venueName = '';
@@ -215,49 +230,53 @@
             $day = $dateToUse->format('j');
             $month = $thaiMonths[(int)$dateToUse->format('n')];
             $year = $dateToUse->format('Y') + 543;
-            $competitionDateText = "วันที่ {$day} {$month} พ.ศ. {$year}";
+            $competitionDateText = "วันที่ {$day} {$month} พ.ศ.{$year}";
         }
 
-        // ชื่อกิจกรรม (ไม่มีระดับ)
+        // ชื่อกิจกรรม
         $activityName = $competition->name ?? '-';
 
         // รหัสกิจกรรม
         $activityCode = $competition->code ?? '-';
 
-        // รวมสถานที่และวันที่
-        $venueAndDate = '';
-        if ($venueName && $competitionDateText) {
-            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
-        } elseif ($venueName) {
-            $venueAndDate = "ณ {$venueName}";
-        } elseif ($competitionDateText) {
-            $venueAndDate = $competitionDateText;
+        // นับจำนวนหน้า (ประมาณ)
+        $totalRows = 0;
+        foreach ($schools as $s) {
+            $totalRows += max(1, count($s['students'] ?? []));
         }
+        $totalPages = max(1, ceil($totalRows / 20));
     @endphp
 
     <!-- HEADER - แสดงทุกหน้า -->
     <div class="page-header">
-        @if(file_exists(public_path('images/smart-sesao-logo.png')))
-            <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo"><br>
-        @endif
-        <span class="header-text">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567</span><br>
-        <span class="header-text">{{ $levelText }}</span><br>
-        <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
-        @if($venueAndDate)
-            <span class="header-text-green">{{ $venueAndDate }}</span>
-        @endif
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    @if(file_exists(public_path('images/smart-sesao-logo.png')))
+                        <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
+                    @endif
+                </td>
+                <td class="info-cell">
+                    <span class="header-text">{{ $groupName }}</span><br>
+                    <span class="header-text-normal">ณ {{ $venueName }}</span><br>
+                    @if($competitionDateText)
+                        <span class="header-text-green">{{ $competitionDateText }}</span>
+                    @endif
+                </td>
+                <td class="page-cell">
+                    <span class="page-number-text">หน้าที่ <span class="page-num"></span></span>
+                </td>
+            </tr>
+        </table>
     </div>
-
-    <!-- PAGE NUMBER -->
-    <div class="page-number"></div>
 
     <!-- CONTENT -->
     <div class="content">
         <!-- DOCUMENT INFO -->
         <table class="doc-info" border="0">
             <tr>
-                <td class="left"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-                <td class="right">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</td>
+                <td class="left" style="width: 70%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
+                <td class="right" style="width: 30%;"><span class="doc-badge">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</span></td>
             </tr>
             <tr>
                 <td class="left"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
@@ -277,7 +296,7 @@
             </thead>
             <tbody>
                 @php $rowNumber = 1; @endphp
-                @foreach($schools as $schoolData)
+                @forelse($schools as $schoolData)
                     @php
                         $students = $schoolData['students'] ?? [];
                         $studentCount = count($students);
@@ -301,9 +320,28 @@
                             <td class="col-signature">1)</td>
                         </tr>
                     @endif
-                @endforeach
+                @empty
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 20px;">ไม่มีข้อมูลผู้ลงทะเบียน</td>
+                    </tr>
+                @endforelse
             </tbody>
         </table>
     </div>
+
+    <script type="text/php">
+        if (isset($pdf)) {
+            $pdf->page_script('
+                $font = $fontMetrics->get_font("THSarabunNew", "normal");
+                $size = 14;
+                $pageNum = $PAGE_NUM;
+                $pageCount = $PAGE_COUNT;
+                $text = $pageNum . "/" . $pageCount;
+                $x = 520;
+                $y = 28;
+                $pdf->text($x, $y, $text, $font, $size);
+            ');
+        }
+    </script>
 </body>
 </html>
