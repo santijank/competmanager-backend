@@ -520,6 +520,14 @@ class RegistrationController extends Controller
 
             // ✅ ตรวจสอบสิทธิ์การลบ
             if (!$this->canDelete($user, $registration)) {
+                Log::warning('Registration delete permission denied', [
+                    'registration_id' => $id,
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
+                    'user_school_group_id' => $user->school_group_id,
+                    'registration_school_id' => $registration->school_id,
+                    'registration_school_group_id' => $registration->school->school_group_id ?? null,
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'คุณไม่มีสิทธิ์ลบการลงทะเบียนนี้'
@@ -653,7 +661,13 @@ class RegistrationController extends Controller
 
         // Group Admin สามารถลบได้เฉพาะกลุ่มตัวเอง
         if ($user->role === 'group_admin') {
-            return $registration->school->school_group_id === $user->school_group_id;
+            // ตรวจสอบว่า user มี school_group_id และ school มี school_group_id
+            if (!$user->school_group_id || !$registration->school) {
+                return false;
+            }
+
+            // เปรียบเทียบแบบ type-safe (แปลงเป็น int)
+            return (int)$registration->school->school_group_id === (int)$user->school_group_id;
         }
 
         return false;
