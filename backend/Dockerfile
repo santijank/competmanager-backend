@@ -1,5 +1,8 @@
 FROM php:8.2-cli
 
+# Force rebuild - 2024-02-04
+ARG CACHE_BUST=1
+
 # Set working directory
 WORKDIR /var/www
 
