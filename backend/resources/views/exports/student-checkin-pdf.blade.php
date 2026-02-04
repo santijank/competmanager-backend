@@ -38,29 +38,29 @@
         /* ===== HEADER - แสดงทุกหน้า ===== */
         .page-header {
             position: fixed;
-            top: -15mm;
+            top: -18mm;
             left: 0;
             right: 0;
             text-align: center;
         }
 
         .logo-img {
-            width: 80px;
+            width: 70px;
             height: auto;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
-        .header-line {
-            font-size: 16pt;
-            line-height: 1.5;
+        .header-title {
+            font-size: 20pt;
+            font-weight: bold;
+            line-height: 1.4;
             margin: 0;
             padding: 0;
         }
 
-        .header-line-bold {
-            font-size: 18pt;
-            font-weight: bold;
-            line-height: 1.5;
+        .header-line {
+            font-size: 16pt;
+            line-height: 1.4;
             margin: 0;
             padding: 0;
         }
@@ -69,14 +69,14 @@
             font-size: 16pt;
             font-weight: bold;
             color: #006600;
-            line-height: 1.5;
+            line-height: 1.4;
             margin: 0;
             padding: 0;
         }
 
         /* ===== CONTENT AREA ===== */
         .content {
-            margin-top: 75mm;
+            margin-top: 55mm;
         }
 
         /* ===== DOCUMENT INFO ===== */
@@ -248,7 +248,8 @@
         @if(file_exists(storage_path('app/public/logos/smart-sesao-logo.png')))
             <img src="{{ storage_path('app/public/logos/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
         @endif
-        <p class="header-line-bold">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567 {{ $levelText }}</p>
+        <p class="header-title">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567</p>
+        <p class="header-title">{{ $levelText }}</p>
         <p class="header-line">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</p>
         @if($venueName)
             <p class="header-line">ณ {{ $venueName }}</p>
