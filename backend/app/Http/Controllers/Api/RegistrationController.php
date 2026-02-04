@@ -70,6 +70,25 @@ class RegistrationController extends Controller
             });
         }
 
+        // ✅ รองรับ paginate=false เพื่อดึงข้อมูลทั้งหมด
+        $shouldPaginate = $request->input('paginate', 'true');
+
+        // แปลง string 'false' เป็น boolean
+        if ($shouldPaginate === 'false' || $shouldPaginate === false) {
+            // ดึงทั้งหมดโดยไม่ paginate
+            $registrations = $query->orderBy('created_at', 'desc')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $registrations,
+                'meta' => [
+                    'total' => $registrations->count(),
+                    'paginated' => false,
+                ]
+            ]);
+        }
+
+        // Paginate ตามปกติ
         $perPage = $request->input('per_page', 15);
         $registrations = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
@@ -81,6 +100,7 @@ class RegistrationController extends Controller
                 'last_page' => $registrations->lastPage(),
                 'per_page' => $registrations->perPage(),
                 'total' => $registrations->total(),
+                'paginated' => true,
             ]
         ]);
     }

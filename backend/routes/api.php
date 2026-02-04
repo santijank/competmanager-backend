@@ -23,6 +23,15 @@ use App\Http\Controllers\Api\ActivityLogController;
 |--------------------------------------------------------------------------
 */
 
+// ✅ Health Check Route (สำหรับ Railway Healthcheck)
+Route::get('health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toISOString(),
+        'service' => 'competmanager-backend'
+    ]);
+});
+
 // Public routes (no auth required)
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
