@@ -1,0 +1,135 @@
+SHOW TABLES;
+cache
+cache_locks
+categories
+competition_judges
+competitions
+migrations
+password_reset_tokens
+personal_access_tokens
+registration_participants
+registrations
+school_group_competitions
+school_groups
+schools
+sessions
+users
+DESCRIBE categories;
+id
+name
+code
+description
+order
+is_active
+created_at
+updated_at
+
+
+DESCRIBE competitions;
+id	bigint unsigned	NO	PRI		auto_increment
+category_id	bigint unsigned	NO	MUL		
+code	varchar(255)	NO	UNI		
+name	varchar(255)	NO			
+description	text	YES			
+min_students	int unsigned	NO		1	
+competition_type	enum('regular','special','special_needs')	NO		regular	
+level	varchar(255)	NO	MUL		
+max_students	int	NO		1	
+max_teachers	int	NO		1	
+min_teachers	int unsigned	NO		1	
+max_judges	int	NO		3	
+start_date	date	NO			
+end_date	date	NO			
+competition_date	date	YES			
+competition_start_time	time	YES			
+competition_end_time	time	YES			
+registration_start_date	date	YES	MUL		
+registration_end_date	date	YES			
+group_registration_start	date	YES			
+group_registration_end	date	YES			
+group_competition_date	date	YES			
+registration_status	enum('upcoming','open','closed')	NO	MUL	upcoming	
+allow_direct_registration	tinyint(1)	NO		0	
+criterion	varchar(255)	YES			
+rules	text	YES			
+venue	varchar(255)	YES			
+advancement_slots	int	YES			
+school_group_id	bigint unsigned	YES	MUL		
+competition_level	enum('district','group')	NO	MUL	district	
+parent_competition_id	bigint unsigned	YES	MUL		
+is_master	tinyint(1)	NO	MUL	0	
+status	enum('draft','active','closed')	NO	MUL	draft	
+is_active	tinyint(1)	NO		1	
+submitted_to_district	tinyint(1)	NO	MUL	0	
+submitted_at	timestamp	YES			
+total_registrations	int	NO		0	
+created_at	timestamp	YES			
+updated_at	timestamp	YES			
+notes	text	YES			
+auto_close_registration	tinyint(1)	NO		1	
+participants_count	int	NO		0	
+advancement_count	int	NO		2
+
+
+
+DESCRIBE school_groups;
+
+id	bigint unsigned	NO	PRI		auto_increment
+code	varchar(255)	NO	UNI		
+name	varchar(255)	NO			
+color	varchar(255)	NO		blue	
+icon	varchar(255)	NO		?	
+description	text	YES			
+total_schools	int	NO		0	
+total_students	int	NO		0	
+total_competitions	int	NO		0	
+passed_district	int	NO		0	
+gold_medals	int	NO		0	
+silver_medals	int	NO		0	
+bronze_medals	int	NO		0	
+display_order	int	NO		0	
+contact_person	varchar(255)	YES			
+contact_phone	varchar(255)	YES			
+contact_email	varchar(255)	YES			
+is_active	tinyint(1)	NO	MUL	1	
+deleted_at	timestamp	YES			
+created_at	timestamp	YES			
+updated_at	timestamp	YES			
+
+
+DESCRIBE schools;
+id	bigint unsigned	NO	PRI		auto_increment
+code	varchar(255)	NO	UNI		
+name	varchar(255)	NO			
+school_group_id	bigint unsigned	NO	MUL		
+school_type	enum('government','private','autonomous')	NO		government	
+address	text	YES			
+phone	varchar(255)	YES			
+email	varchar(255)	YES			
+director_name	varchar(255)	YES			
+is_active	tinyint(1)	NO	MUL	1	
+deleted_at	timestamp	YES			
+created_at	timestamp	YES			
+updated_at	timestamp	YES		
+
+
+DESCRIBE registrations;
+id	bigint unsigned	NO	PRI		auto_increment
+competition_id	bigint unsigned	NO	MUL		
+school_id	bigint unsigned	NO	MUL		
+teacher_id	bigint unsigned	NO	MUL		
+team_name	varchar(255)	NO			
+student_names	json	NO			
+student_count	int	NO		0	
+teacher_names	json	YES			
+teacher_count	int unsigned	NO		0	
+status	enum('pending','approved','rejected','cancelled')	NO	MUL	pending	
+registration_date	date	YES			
+approved_by	bigint unsigned	YES	MUL		
+approved_at	datetime	YES			
+rejection_reason	text	YES			
+notes	text	YES			
+created_at	timestamp	YES			
+updated_at	timestamp	YES			
+
+		

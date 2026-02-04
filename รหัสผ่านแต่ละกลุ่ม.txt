@@ -1,0 +1,53 @@
+
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนบูรพาศึกษา คนที่ 1 (email: group1_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนบูรพาศึกษา คนที่ 2 (email: group1_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนเมืองนครปฐม คนที่ 1 (email: group2_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนเมืองนครปฐม คนที่ 2 (email: group2_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนปฐมนคร คนที่ 1 (email: group3_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนปฐมนคร คนที่ 2 (email: group3_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนพระปฐมเจดีย์ คนที่ 1 (email: group4_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนพระปฐมเจดีย์ คนที่ 2 (email: group4_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 4 คนที่ 1 (email: group5_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 4 คนที่ 2 (email: group5_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 1 คนที่ 1 (email: group6_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 1 คนที่ 2 (email: group6_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 2 คนที่ 1 (email: group7_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 2 คนที่ 2 (email: group7_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 3 คนที่ 1 (email: group8_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนกำแพงแสน 3 คนที่ 2 (email: group8_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนบ้านหลวง คนที่ 1 (email: group9_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนบ้านหลวง คนที่ 2 (email: group9_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนดอนตูม คนที่ 1 (email: group10_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนดอนตูม คนที่ 2 (email: group10_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม โรงเรียนขยายโอกาส คนที่ 1 (email: group11_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม โรงเรียนขยายโอกาส คนที่ 2 (email: group11_admin2@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนเอกชน คนที่ 1 (email: group12_admin1@competmanager.local, password: password123)
+✅ สร้าง Group Admin: ผู้ดูแลกลุ่ม กลุ่มโรงเรียนเอกชนนที่ 2 (email: group12_admin2@competmanager.local, password: password123)
+
+============================================
+✅ สร้าง Group Admin Users เสร็จสิ้น!
+============================================
+📊 สรุป:
+   - สร้างใหม่: 24 users
+   - ข้ามแล้ว: 0 users
+   - กลุ่มทั้งหมด: 12 กลุ่ม
+
+📝 รายละเอียดการเข้าสู่ระบบ:
+   Email: group{X}_admin{1-2}@competmanager.local
+   Password: password123
+
+ตัวอย่าง:
+   - กลุ่ม กลุ่มโรงเรียนบูรพาศึกษา:
+     • Email: group1_admin1@competmanager.local | Password: password123
+     • Email: group1_admin2@competmanager.local | Password: password123
+   - กลุ่ม กลุ่มโรงเรียนเมืองนครปฐม:
+     • Email: group2_admin1@competmanager.local | Password: password123
+     • Email: group2_admin2@competmanager.local | Password: password123
+   - กลุ่ม กลุ่มโรงเรียนปฐมนคร:
+     • Email: group3_admin1@competmanager.local | Password: password123
+     • Email: group3_admin2@competmanager.local | Password: password123
+   ... และอื่นๆ อีก 9 กลุ่ม
+
+⚠️ หมายเหตุ: กรุณาเปลี่ยนรหัสผ่านหลังเข้าสู่ระบบครั้งแรก
+PS C:\competmanagernew\backend>
+
