@@ -26,90 +26,86 @@
         }
 
         @page {
-            margin: 20mm 15mm 20mm 20mm;
+            margin: 18mm 15mm 15mm 18mm;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
-            line-height: 1.15;
+            line-height: 1.0;
         }
 
         /* ===== HEADER - แสดงทุกหน้า ===== */
         .page-header {
             position: fixed;
-            top: -18mm;
+            top: -15mm;
             left: 0;
             right: 0;
             text-align: center;
         }
 
         .logo-img {
-            width: 70px;
+            width: 60px;
             height: auto;
-            margin-bottom: 3px;
         }
 
-        .header-title {
-            font-size: 20pt;
-            font-weight: bold;
-            line-height: 1.4;
-            margin: 0;
-            padding: 0;
-        }
-
-        .header-line {
+        .header-text {
             font-size: 16pt;
-            line-height: 1.4;
+            font-weight: bold;
+            line-height: 1.15;
             margin: 0;
             padding: 0;
         }
 
-        .header-line-green {
+        .header-text-normal {
+            font-size: 16pt;
+            line-height: 1.15;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-text-green {
             font-size: 16pt;
             font-weight: bold;
             color: #006600;
-            line-height: 1.4;
+            line-height: 1.15;
             margin: 0;
             padding: 0;
         }
 
         /* ===== CONTENT AREA ===== */
         .content {
-            margin-top: 55mm;
+            margin-top: 38mm;
         }
 
         /* ===== DOCUMENT INFO ===== */
         .doc-info {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             font-size: 16pt;
+            border-collapse: collapse;
         }
 
         .doc-info td {
-            padding: 2px 0;
+            padding: 1px 0;
             vertical-align: top;
         }
 
         .doc-info .left {
             text-align: left;
-            width: 60%;
         }
 
         .doc-info .right {
             text-align: right;
-            width: 40%;
         }
 
         /* ===== TABLE STYLES ===== */
         table.data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
             font-size: 16pt;
         }
 
-        /* ทำให้ thead แสดงทุกหน้า */
         table.data-table thead {
             display: table-header-group;
         }
@@ -118,7 +114,6 @@
             display: table-row-group;
         }
 
-        /* ป้องกันแถวถูกตัดกลาง */
         table.data-table tr {
             page-break-inside: avoid;
         }
@@ -126,7 +121,7 @@
         table.data-table th,
         table.data-table td {
             border: 0.5pt solid #000;
-            padding: 4px 6px;
+            padding: 3px 5px;
             vertical-align: middle;
         }
 
@@ -142,51 +137,34 @@
             font-size: 16pt;
         }
 
-        /* คำนวณความกว้างคอลัมน์ */
+        /* ความกว้างคอลัมน์ */
         .col-no {
-            width: 8%;
+            width: 7%;
             text-align: center;
         }
 
         .col-school {
-            width: 27%;
+            width: 28%;
             text-align: left;
-            padding-left: 8px;
+            padding-left: 6px;
         }
 
         .col-student {
-            width: 40%;
+            width: 35%;
             text-align: left;
-            padding-left: 8px;
+            padding-left: 6px;
         }
 
         .col-signature {
-            width: 25%;
-            text-align: center;
-        }
-
-        /* ===== FOOTER SIGNATURE ===== */
-        .footer-signature {
-            margin-top: 15px;
-            font-size: 16pt;
-            page-break-inside: avoid;
-        }
-
-        .footer-signature p {
-            margin: 3px 0;
-            line-height: 1.8;
-        }
-
-        .note-text {
-            margin-top: 10px;
-            font-size: 14pt;
-            color: #666;
+            width: 30%;
+            text-align: left;
+            padding-left: 8px;
         }
 
         /* ===== PAGE NUMBER ===== */
         .page-number {
             position: fixed;
-            bottom: -15mm;
+            bottom: -12mm;
             right: 0;
             font-size: 14pt;
             color: #333;
@@ -240,22 +218,33 @@
             $competitionDateText = "วันที่ {$day} {$month} พ.ศ. {$year}";
         }
 
+        // ชื่อกิจกรรม (ไม่มีระดับ)
+        $activityName = $competition->name ?? '-';
+
+        // รหัสกิจกรรม
         $activityCode = $competition->code ?? '-';
+
+        // รวมสถานที่และวันที่
+        $venueAndDate = '';
+        if ($venueName && $competitionDateText) {
+            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
+        } elseif ($venueName) {
+            $venueAndDate = "ณ {$venueName}";
+        } elseif ($competitionDateText) {
+            $venueAndDate = $competitionDateText;
+        }
     @endphp
 
     <!-- HEADER - แสดงทุกหน้า -->
     <div class="page-header">
         @if(file_exists(public_path('images/smart-sesao-logo.png')))
-            <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
+            <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo"><br>
         @endif
-        <p class="header-title">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567</p>
-        <p class="header-title">{{ $levelText }}</p>
-        <p class="header-line">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</p>
-        @if($venueName)
-            <p class="header-line">ณ {{ $venueName }}</p>
-        @endif
-        @if($competitionDateText)
-            <p class="header-line-green">{{ $competitionDateText }}</p>
+        <span class="header-text">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567</span><br>
+        <span class="header-text">{{ $levelText }}</span><br>
+        <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
+        @if($venueAndDate)
+            <span class="header-text-green">{{ $venueAndDate }}</span>
         @endif
     </div>
 
@@ -267,7 +256,7 @@
         <!-- DOCUMENT INFO -->
         <table class="doc-info" border="0">
             <tr>
-                <td class="left"><strong>กิจกรรม :</strong> {{ $competition->name }}</td>
+                <td class="left"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
                 <td class="right">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</td>
             </tr>
             <tr>
@@ -301,7 +290,7 @@
                                     <td class="col-school" rowspan="{{ $studentCount }}">{{ $schoolData['school_name'] }}</td>
                                 @endif
                                 <td class="col-student">{{ ($index + 1) }}. {{ $studentName }}</td>
-                                <td class="col-signature">{{ ($index + 1) }}.</td>
+                                <td class="col-signature">{{ ($index + 1) }})</td>
                             </tr>
                         @endforeach
                     @else
@@ -309,19 +298,12 @@
                             <td class="col-no">{{ $rowNumber++ }}</td>
                             <td class="col-school">{{ $schoolData['school_name'] }}</td>
                             <td class="col-student">-</td>
-                            <td class="col-signature">1.</td>
+                            <td class="col-signature">1)</td>
                         </tr>
                     @endif
                 @endforeach
             </tbody>
         </table>
-
-        <!-- FOOTER SIGNATURE -->
-        <div class="footer-signature">
-            <p><strong>ลงชื่อ</strong> ............................................................. กรรมการรับลงทะเบียน</p>
-            <p style="padding-left: 35px;">( ......................................................... )</p>
-            <p class="note-text">หมายเหตุ : เอกสารนี้ใช้สำหรับลงทะเบียนผู้เข้าแข่งขัน ณ สถานที่แข่งขัน</p>
-        </div>
     </div>
 </body>
 </html>
