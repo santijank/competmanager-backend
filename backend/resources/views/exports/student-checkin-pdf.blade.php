@@ -35,12 +35,10 @@
             line-height: 1.0;
         }
 
-        /* ===== HEADER - แสดงทุกหน้า ===== */
+        /* ===== HEADER (หน้าแรกเท่านั้น) ===== */
         .page-header {
-            position: fixed;
-            top: -8mm;
-            left: 0;
-            right: 0;
+            width: 100%;
+            margin-bottom: 8px;
         }
 
         .header-table {
@@ -54,24 +52,24 @@
         }
 
         .logo-cell {
-            width: 85px;
+            width: 90px;
             text-align: left;
             vertical-align: top;
         }
 
         .logo-img {
-            width: 80px;
+            width: 85px;
             height: auto;
         }
 
         .info-cell {
             text-align: left;
-            padding-left: 8px;
+            padding-left: 10px;
             vertical-align: top;
         }
 
         .page-cell {
-            width: 70px;
+            width: 80px;
             text-align: right;
             vertical-align: top;
         }
@@ -96,11 +94,6 @@
 
         .page-number-text {
             font-size: 14pt;
-        }
-
-        /* ===== CONTENT AREA ===== */
-        .content {
-            margin-top: 28mm;
         }
 
         /* ===== DOCUMENT INFO ===== */
@@ -228,7 +221,7 @@
         $activityCode = $competition->code ?? '-';
     @endphp
 
-    <!-- HEADER - แสดงทุกหน้า -->
+    <!-- HEADER (แสดงหน้าแรก) -->
     <div class="page-header">
         <table class="header-table">
             <tr>
@@ -247,84 +240,65 @@
                     @endif
                 </td>
                 <td class="page-cell">
-                    <span class="page-number-text">หน้าที่</span>
                 </td>
             </tr>
         </table>
     </div>
 
-    <!-- CONTENT -->
-    <div class="content">
-        <!-- DOCUMENT INFO -->
-        <table class="doc-info" border="0">
-            <tr>
-                <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-                <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</span></td>
-            </tr>
-            <tr>
-                <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
-                <td style="text-align: right;"></td>
-            </tr>
-        </table>
+    <!-- DOCUMENT INFO -->
+    <table class="doc-info" border="0">
+        <tr>
+            <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
+            <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</span></td>
+        </tr>
+        <tr>
+            <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
+            <td style="text-align: right;"></td>
+        </tr>
+    </table>
 
-        <!-- DATA TABLE - ไม่ใช้ rowspan เพื่อป้องกันปัญหาข้ามหน้า -->
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th class="col-no">ลำดับ</th>
-                    <th class="col-school">สถานศึกษา</th>
-                    <th class="col-student">ผู้เข้าแข่งขัน</th>
-                    <th class="col-signature">ลงชื่อตัวบรรจง</th>
-                </tr>
-            </thead>
-            <tbody>
-                @php $rowNumber = 1; @endphp
-                @forelse($schools as $schoolData)
-                    @php
-                        $students = $schoolData['students'] ?? [];
-                        $studentCount = count($students);
-                        $schoolName = $schoolData['school_name'] ?? '-';
-                    @endphp
-                    @if($studentCount > 0)
-                        @foreach($students as $index => $studentName)
-                            <tr>
-                                <td class="col-no">{{ $rowNumber }}</td>
-                                <td class="col-school">{{ $schoolName }}</td>
-                                <td class="col-student">{{ ($index + 1) }}. {{ $studentName }}</td>
-                                <td class="col-signature">{{ ($index + 1) }})</td>
-                            </tr>
-                        @endforeach
-                        @php $rowNumber++; @endphp
-                    @else
+    <!-- DATA TABLE -->
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th class="col-no">ลำดับ</th>
+                <th class="col-school">สถานศึกษา</th>
+                <th class="col-student">ผู้เข้าแข่งขัน</th>
+                <th class="col-signature">ลงชื่อตัวบรรจง</th>
+            </tr>
+        </thead>
+        <tbody>
+            @php $rowNumber = 1; @endphp
+            @forelse($schools as $schoolData)
+                @php
+                    $students = $schoolData['students'] ?? [];
+                    $studentCount = count($students);
+                    $schoolName = $schoolData['school_name'] ?? '-';
+                @endphp
+                @if($studentCount > 0)
+                    @foreach($students as $index => $studentName)
                         <tr>
-                            <td class="col-no">{{ $rowNumber++ }}</td>
+                            <td class="col-no">{{ $rowNumber }}</td>
                             <td class="col-school">{{ $schoolName }}</td>
-                            <td class="col-student">-</td>
-                            <td class="col-signature">1)</td>
+                            <td class="col-student">{{ ($index + 1) }}. {{ $studentName }}</td>
+                            <td class="col-signature">{{ ($index + 1) }})</td>
                         </tr>
-                    @endif
-                @empty
+                    @endforeach
+                    @php $rowNumber++; @endphp
+                @else
                     <tr>
-                        <td colspan="4" style="text-align: center; padding: 20px;">ไม่มีข้อมูลผู้ลงทะเบียน</td>
+                        <td class="col-no">{{ $rowNumber++ }}</td>
+                        <td class="col-school">{{ $schoolName }}</td>
+                        <td class="col-student">-</td>
+                        <td class="col-signature">1)</td>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <script type="text/php">
-        if (isset($pdf)) {
-            $pdf->page_script('
-                $font = $fontMetrics->get_font("THSarabunNew", "normal");
-                $size = 14;
-                $pageNum = $PAGE_NUM;
-                $pageCount = $PAGE_COUNT;
-                $text = $pageNum . "/" . $pageCount;
-                $x = 540;
-                $y = 25;
-                $pdf->text($x, $y, $text, $font, $size);
-            ');
-        }
-    </script>
+                @endif
+            @empty
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 20px;">ไม่มีข้อมูลผู้ลงทะเบียน</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
 </body>
 </html>
