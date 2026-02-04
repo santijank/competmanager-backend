@@ -245,8 +245,8 @@
 
     <!-- HEADER - แสดงทุกหน้า -->
     <div class="page-header">
-        @if(file_exists(storage_path('app/public/logos/smart-sesao-logo.png')))
-            <img src="{{ storage_path('app/public/logos/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
+        @if(file_exists(public_path('images/smart-sesao-logo.png')))
+            <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
         @endif
         <p class="header-title">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567</p>
         <p class="header-title">{{ $levelText }}</p>
