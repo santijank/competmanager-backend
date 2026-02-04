@@ -46,12 +46,8 @@ RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
     && chmod -R 755 /var/www/bootstrap/cache
 
-# Copy and set entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
 # Expose port
 EXPOSE 8080
 
-# Use entrypoint script
-CMD ["/usr/local/bin/docker-entrypoint.sh"]
+# Start server directly - Railway sets PORT env var
+CMD ["sh", "-c", "php artisan config:clear && php artisan cache:clear && echo 'Starting server on port' $PORT && php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]
