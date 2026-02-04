@@ -183,6 +183,40 @@ const documentService = {
     const filename = `ลงทะเบียนกรรมการ_${competitionCode}.pdf`;
     this.downloadPDF(blob, filename);
   },
+
+  /**
+   * Generate Score Sheet Document (DOC4)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async generateScoreSheet(competitionId) {
+    try {
+      const response = await api.get(
+        `/documents/competitions/${competitionId}/score-sheet`,
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error generating score sheet:', error);
+      throw new Error('ไม่สามารถสร้างใบลงคะแนนได้');
+    }
+  },
+
+  /**
+   * Generate and Download Score Sheet (ทางลัด)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @param {string} competitionCode - รหัสการแข่งขัน
+   */
+  async downloadScoreSheet(competitionId, competitionCode) {
+    const blob = await this.generateScoreSheet(competitionId);
+    const filename = `ใบลงคะแนน_${competitionCode}.pdf`;
+    this.downloadPDF(blob, filename);
+  },
 };
 
 export default documentService;

@@ -7,6 +7,7 @@ use App\Models\Competition;
 use App\Models\Registration;
 use App\Models\CompetitionSchedule;
 use App\Models\CommitteeMember;
+use App\Models\CompetitionJudge;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -230,6 +231,82 @@ class DocumentController extends Controller
 
             return response()->json([
                 'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารรายชื่อกรรมการ',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * สร้างเอกสารใบลงคะแนน (Score Sheet)
+     */
+    public function generateScoreSheet(Request $request, $competition)
+    {
+        try {
+            Log::info("DocumentController: Generating score sheet for competition {$competition}");
+
+            // ดึงข้อมูลการแข่งขัน
+            $competitionData = Competition::with([
+                'category',
+                'schoolGroup'
+            ])->findOrFail($competition);
+
+            // ดึงข้อมูล schedule สำหรับการแข่งขันนี้
+            $schedule = CompetitionSchedule::where('competition_id', $competition)
+                ->first();
+
+            Log::info("Schedule found: " . ($schedule ? 'Yes' : 'No'));
+
+            // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว
+            $registrations = Registration::where('competition_id', $competition)
+                ->where('status', 'approved')
+                ->with(['school'])
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            // จัดข้อมูลโรงเรียน
+            $schools = [];
+            foreach ($registrations as $registration) {
+                $schools[] = [
+                    'school_id' => $registration->school_id,
+                    'school_name' => $registration->school->name ?? '-',
+                ];
+            }
+
+            Log::info("Found " . count($schools) . " schools");
+
+            // ดึงข้อมูลกรรมการตัดสิน
+            $judges = CompetitionJudge::where('competition_id', $competition)
+                ->orderBy('id', 'asc')
+                ->get();
+
+            Log::info("Found {$judges->count()} judges");
+
+            // ข้อมูลสำหรับ PDF
+            $data = [
+                'competition' => $competitionData,
+                'schedule' => $schedule,
+                'schools' => $schools,
+                'judges' => $judges,
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            // สร้าง PDF
+            $pdf = Pdf::loadView('exports.score-sheet-pdf', $data)
+                ->setPaper('a4', 'portrait')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $filename = 'DOC4-ใบลงคะแนน-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: Score sheet PDF generated successfully");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (Score Sheet): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างใบลงคะแนน',
                 'error' => $e->getMessage()
             ], 500);
         }
