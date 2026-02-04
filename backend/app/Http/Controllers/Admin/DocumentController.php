@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
 use App\Models\Registration;
+use App\Models\CompetitionSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -25,6 +26,12 @@ class DocumentController extends Controller
                 'category',
                 'schoolGroup'
             ])->findOrFail($competition);
+
+            // ดึงข้อมูล schedule สำหรับการแข่งขันนี้
+            $schedule = CompetitionSchedule::where('competition_id', $competition)
+                ->first();
+
+            Log::info("Schedule found: " . ($schedule ? 'Yes' : 'No'));
 
             // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว เรียงตามชื่อโรงเรียน
             $registrations = Registration::where('competition_id', $competition)
@@ -60,6 +67,7 @@ class DocumentController extends Controller
             // ข้อมูลสำหรับ PDF
             $data = [
                 'competition' => $competitionData,
+                'schedule' => $schedule,
                 'schools' => $schools,
                 'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
             ];

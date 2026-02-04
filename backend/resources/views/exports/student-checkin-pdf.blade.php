@@ -26,217 +26,301 @@
         }
 
         @page {
-            margin: 15mm 10mm 20mm 10mm;
+            margin: 20mm 15mm 20mm 20mm;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
-            line-height: 1.3;
+            line-height: 1.15;
         }
 
-        /* ===== PAGE BREAK CONTROLS ===== */
-        .page-break {
-            page-break-after: always;
-        }
-
-        .no-break {
-            page-break-inside: avoid;
-        }
-
-        .header {
+        /* ===== HEADER - แสดงทุกหน้า ===== */
+        .page-header {
+            position: fixed;
+            top: -15mm;
+            left: 0;
+            right: 0;
             text-align: center;
-            margin-bottom: 10px;
         }
 
-        .doc-number {
-            font-size: 18pt;
-            font-weight: bold;
+        .logo-img {
+            width: 80px;
+            height: auto;
             margin-bottom: 5px;
         }
 
-        .title {
+        .header-line {
             font-size: 16pt;
-            font-weight: bold;
-            margin-bottom: 3px;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
         }
 
-        .subtitle {
+        .header-line-bold {
+            font-size: 18pt;
+            font-weight: bold;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-line-green {
             font-size: 16pt;
             font-weight: bold;
+            color: #006600;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ===== CONTENT AREA ===== */
+        .content {
+            margin-top: 75mm;
+        }
+
+        /* ===== DOCUMENT INFO ===== */
+        .doc-info {
+            width: 100%;
             margin-bottom: 10px;
+            font-size: 16pt;
         }
 
-        .activity-line {
-            font-size: 16pt;
-            margin-bottom: 15px;
+        .doc-info td {
+            padding: 2px 0;
+            vertical-align: top;
+        }
+
+        .doc-info .left {
             text-align: left;
+            width: 60%;
+        }
+
+        .doc-info .right {
+            text-align: right;
+            width: 40%;
         }
 
         /* ===== TABLE STYLES ===== */
-        table {
+        table.data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+            font-size: 16pt;
         }
 
-        thead {
+        /* ทำให้ thead แสดงทุกหน้า */
+        table.data-table thead {
             display: table-header-group;
         }
 
-        tbody {
+        table.data-table tbody {
             display: table-row-group;
         }
 
-        tr {
+        /* ป้องกันแถวถูกตัดกลาง */
+        table.data-table tr {
             page-break-inside: avoid;
         }
 
-        th, td {
-            border: 1px solid #000;
-            padding: 8px 5px;
-            text-align: center;
+        table.data-table th,
+        table.data-table td {
+            border: 0.5pt solid #000;
+            padding: 4px 6px;
             vertical-align: middle;
         }
 
-        th {
-            font-size: 16pt;
+        table.data-table th {
+            background-color: #1a5c1a;
+            color: white;
             font-weight: bold;
-            background-color: #e0e0e0;
-        }
-
-        td {
+            text-align: center;
             font-size: 16pt;
         }
 
+        table.data-table td {
+            font-size: 16pt;
+        }
+
+        /* คำนวณความกว้างคอลัมน์ */
         .col-no {
             width: 8%;
+            text-align: center;
         }
 
         .col-school {
-            width: 22%;
-        }
-
-        .col-affiliation {
-            width: 18%;
+            width: 27%;
+            text-align: left;
+            padding-left: 8px;
         }
 
         .col-student {
-            width: 32%;
+            width: 40%;
             text-align: left;
-            padding-left: 10px;
+            padding-left: 8px;
         }
 
         .col-signature {
-            width: 20%;
+            width: 25%;
+            text-align: center;
         }
 
-        /* ===== FOOTER ===== */
-        .footer {
-            margin-top: 20px;
+        /* ===== FOOTER SIGNATURE ===== */
+        .footer-signature {
+            margin-top: 15px;
             font-size: 16pt;
+            page-break-inside: avoid;
         }
 
-        .footer-title {
-            font-weight: bold;
-            margin-bottom: 5px;
+        .footer-signature p {
+            margin: 3px 0;
+            line-height: 1.8;
         }
 
-        .signature-line {
-            margin: 10px 0;
-        }
-
-        .note {
+        .note-text {
             margin-top: 10px;
             font-size: 14pt;
-        }
-
-        /* ===== PAGE FOOTER ===== */
-        .page-footer {
-            position: fixed;
-            bottom: 5mm;
-            left: 10mm;
-            right: 10mm;
-            font-size: 10pt;
             color: #666;
-            border-top: 1px solid #ccc;
-            padding-top: 3px;
         }
 
-        .page-footer-left {
-            float: left;
+        /* ===== PAGE NUMBER ===== */
+        .page-number {
+            position: fixed;
+            bottom: -15mm;
+            right: 0;
+            font-size: 14pt;
+            color: #333;
         }
 
-        .page-footer-right {
-            float: right;
+        .page-number:before {
+            content: "หน้า " counter(page);
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="doc-number">DOC.1</div>
-        <div class="title">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2568 @if($competition->competition_level == 'district')ระดับเขตพื้นที่การศึกษา@else{{ $competition->schoolGroup->name ?? 'ระดับกลุ่มโรงเรียน' }}@endif</div>
-        <div class="subtitle">แบบลงทะเบียนนักเรียน</div>
+    @php
+        // กำหนดค่าตัวแปร
+        $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+
+        // ระดับการแข่งขัน
+        if ($competition->competition_level == 'district') {
+            $levelText = 'ระดับเขตพื้นที่การศึกษา';
+        } else {
+            $levelText = "ระดับกลุ่มโรงเรียน ({$groupName})";
+        }
+
+        // ดึงสถานที่จาก schedule
+        $venueName = '';
+        if (isset($schedule) && $schedule) {
+            $venueParts = [];
+            if ($schedule->venue) $venueParts[] = $schedule->venue;
+            if ($schedule->room) $venueParts[] = $schedule->room;
+            $venueName = implode(' ', $venueParts);
+        }
+        if (empty($venueName)) {
+            $venueName = $competition->venue ?? '';
+        }
+
+        // Format วันที่แข่งขัน
+        $competitionDateText = '';
+        $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        $dateToUse = null;
+        if (isset($schedule) && $schedule && $schedule->competition_date) {
+            $dateToUse = $schedule->competition_date;
+        } elseif ($competition->competition_date) {
+            $dateToUse = $competition->competition_date;
+        }
+
+        if ($dateToUse) {
+            $day = $dateToUse->format('j');
+            $month = $thaiMonths[(int)$dateToUse->format('n')];
+            $year = $dateToUse->format('Y') + 543;
+            $competitionDateText = "วันที่ {$day} {$month} พ.ศ. {$year}";
+        }
+
+        $activityCode = $competition->code ?? '-';
+    @endphp
+
+    <!-- HEADER - แสดงทุกหน้า -->
+    <div class="page-header">
+        @if(file_exists(storage_path('app/public/logos/smart-sesao-logo.png')))
+            <img src="{{ storage_path('app/public/logos/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
+        @endif
+        <p class="header-line-bold">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2567 {{ $levelText }}</p>
+        <p class="header-line">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</p>
+        @if($venueName)
+            <p class="header-line">ณ {{ $venueName }}</p>
+        @endif
+        @if($competitionDateText)
+            <p class="header-line-green">{{ $competitionDateText }}</p>
+        @endif
     </div>
 
-    <div class="activity-line">
-        กิจกรรม {{ $competition->name }}
-    </div>
+    <!-- PAGE NUMBER -->
+    <div class="page-number"></div>
 
-    <table>
-        <thead>
+    <!-- CONTENT -->
+    <div class="content">
+        <!-- DOCUMENT INFO -->
+        <table class="doc-info" border="0">
             <tr>
-                <th class="col-no">ลำดับที่</th>
-                <th class="col-school">โรงเรียน</th>
-                <th class="col-affiliation">สังกัด</th>
-                <th class="col-student">ผู้เข้าแข่งขัน</th>
-                <th class="col-signature">ลงชื่อตัวบรรจง</th>
+                <td class="left"><strong>กิจกรรม :</strong> {{ $competition->name }}</td>
+                <td class="right">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</td>
             </tr>
-        </thead>
-        <tbody>
-            @php $rowNumber = 1; @endphp
-            @foreach($schools as $schoolData)
-                @php
-                    $students = $schoolData['students'] ?? [];
-                    $studentCount = count($students);
-                @endphp
-                @if($studentCount > 0)
-                    @foreach($students as $index => $studentName)
-                        <tr class="no-break">
-                            @if($index === 0)
-                                <td class="col-no" rowspan="{{ $studentCount }}">{{ $rowNumber++ }}</td>
-                                <td class="col-school" rowspan="{{ $studentCount }}">{{ $schoolData['school_name'] }}</td>
-                                <td class="col-affiliation" rowspan="{{ $studentCount }}">สพป.นฐ.เขต 1</td>
-                            @endif
-                            <td class="col-student">{{ ($index + 1) }}) {{ $studentName }}</td>
-                            <td class="col-signature">................................</td>
+            <tr>
+                <td class="left"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
+                <td class="right"></td>
+            </tr>
+        </table>
+
+        <!-- DATA TABLE -->
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="col-no">ลำดับ</th>
+                    <th class="col-school">สถานศึกษา</th>
+                    <th class="col-student">ผู้เข้าแข่งขัน</th>
+                    <th class="col-signature">ลงชื่อตัวบรรจง</th>
+                </tr>
+            </thead>
+            <tbody>
+                @php $rowNumber = 1; @endphp
+                @foreach($schools as $schoolData)
+                    @php
+                        $students = $schoolData['students'] ?? [];
+                        $studentCount = count($students);
+                    @endphp
+                    @if($studentCount > 0)
+                        @foreach($students as $index => $studentName)
+                            <tr>
+                                @if($index === 0)
+                                    <td class="col-no" rowspan="{{ $studentCount }}">{{ $rowNumber++ }}</td>
+                                    <td class="col-school" rowspan="{{ $studentCount }}">{{ $schoolData['school_name'] }}</td>
+                                @endif
+                                <td class="col-student">{{ ($index + 1) }}. {{ $studentName }}</td>
+                                <td class="col-signature">{{ ($index + 1) }}.</td>
+                            </tr>
+                        @endforeach
+                    @else
+                        <tr>
+                            <td class="col-no">{{ $rowNumber++ }}</td>
+                            <td class="col-school">{{ $schoolData['school_name'] }}</td>
+                            <td class="col-student">-</td>
+                            <td class="col-signature">1.</td>
                         </tr>
-                    @endforeach
-                @else
-                    <tr class="no-break">
-                        <td class="col-no">{{ $rowNumber++ }}</td>
-                        <td class="col-school">{{ $schoolData['school_name'] }}</td>
-                        <td class="col-affiliation">สพป.นฐ.เขต 1</td>
-                        <td class="col-student">-</td>
-                        <td class="col-signature">................................</td>
-                    </tr>
-                @endif
-            @endforeach
-        </tbody>
-    </table>
+                    @endif
+                @endforeach
+            </tbody>
+        </table>
 
-    <div class="footer no-break">
-        <div class="footer-title">รับรองข้อมูล</div>
-        <div class="signature-line">ลงชื่อ ………………………………………………</div>
-        <div class="signature-line">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div>
-        <div class="signature-line">เบอร์โทร ………………………………………</div>
-        <div class="note">หมายเหตุ ปรับใช้ได้ตามความเหมาะสม</div>
-    </div>
-
-    <!-- Page Footer -->
-    <div class="page-footer">
-        <span class="page-footer-left">DOC.1 - {{ $competition->name }}</span>
-        <span class="page-footer-right">{{ $competition->code }}</span>
+        <!-- FOOTER SIGNATURE -->
+        <div class="footer-signature">
+            <p><strong>ลงชื่อ</strong> ............................................................. กรรมการรับลงทะเบียน</p>
+            <p style="padding-left: 35px;">( ......................................................... )</p>
+            <p class="note-text">หมายเหตุ : เอกสารนี้ใช้สำหรับลงทะเบียนผู้เข้าแข่งขัน ณ สถานที่แข่งขัน</p>
+        </div>
     </div>
 </body>
 </html>
