@@ -322,7 +322,7 @@ const MyRegistrations = () => {
                         </h3>
                         {getStatusBadge(registration.status)}
                       </div>
-                      
+
                       <div className="space-y-1">
                         <p className="text-sm text-gray-600">
                           หมวดหมู่: {registration.competition?.category?.name || '-'}
@@ -335,6 +335,26 @@ const MyRegistrations = () => {
                         </p>
                       </div>
                     </div>
+
+                    {/* ✅ ปุ่มแก้ไข และ ยกเลิก - แสดงเฉพาะสถานะ pending */}
+                    {registration.status === 'pending' && (
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={() => handleEdit(registration)}
+                          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span>แก้ไข</span>
+                        </button>
+                        <button
+                          onClick={() => handleCancelRegistration(registration)}
+                          className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>ยกเลิก</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Students */}
@@ -382,30 +402,6 @@ const MyRegistrations = () => {
                         )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center space-x-2">
-                        {/* ✅ ปุ่มแก้ไข - เฉพาะสถานะ pending หรือ rejected เท่านั้น */}
-                        {(registration.status === 'pending' || registration.status === 'rejected') && (
-                          <button
-                            onClick={() => handleEdit(registration)}
-                            className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                            <span>แก้ไข</span>
-                          </button>
-                        )}
-
-                        {/* ปุ่มยกเลิก - เฉพาะสถานะ pending */}
-                        {registration.status === 'pending' && (
-                          <button
-                            onClick={() => handleCancelRegistration(registration)}
-                            className="flex items-center space-x-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>ยกเลิก</span>
-                          </button>
-                        )}
-                      </div>
                     </div>
                   </div>
 
