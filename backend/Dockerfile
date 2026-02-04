@@ -46,14 +46,12 @@ RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
     && chmod -R 755 /var/www/bootstrap/cache
 
-# Expose port (Railway จะกำหนด PORT ผ่าน environment variable)
-EXPOSE ${PORT:-8080}
+# Copy and set entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Start command - clear cache and start server
-# ใช้ $PORT จาก Railway environment หรือ default 8080
-CMD php artisan config:clear && \
-    php artisan cache:clear && \
-    php artisan route:clear && \
-    php artisan view:clear && \
-    php artisan migrate --force && \
-    php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
+# Expose port
+EXPOSE 8080
+
+# Use entrypoint script
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
