@@ -38,7 +38,12 @@ class CommitteeMemberController extends Controller
         }
 
         if ($request->has('competition_id') && $request->competition_id !== '') {
-            $query->where('competition_id', $request->competition_id);
+            if ($request->competition_id === 'null') {
+                // กรองเฉพาะคณะทำงานที่ไม่ได้ผูกกับการแข่งขัน
+                $query->whereNull('competition_id');
+            } else {
+                $query->where('competition_id', $request->competition_id);
+            }
         }
 
         if ($request->has('search') && $request->search !== '') {
