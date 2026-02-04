@@ -196,6 +196,12 @@
 
         .signature-name {
             font-size: 16pt;
+            font-weight: bold;
+        }
+
+        .signature-position {
+            font-size: 14pt;
+            color: #333;
         }
     </style>
 </head>
@@ -322,13 +328,15 @@
                         <td>
                             <div class="signature-line">(..............................)</div>
                             <div class="signature-name">{{ $judge->name }}</div>
+                            <div class="signature-position">{{ $index === 0 ? 'ประธานกรรมการ' : 'กรรมการ' }}</div>
                         </td>
                     @endif
                 @endforeach
                 @for($i = count($judges); $i < 3; $i++)
                     <td>
                         <div class="signature-line">(..............................)</div>
-                        <div class="signature-name">กรรมการคนที่ {{ $i + 1 }}</div>
+                        <div class="signature-name">................................................</div>
+                        <div class="signature-position">{{ $i === 0 ? 'ประธานกรรมการ' : 'กรรมการ' }}</div>
                     </td>
                 @endfor
             </tr>
