@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>แบบลงทะเบียนครู</title>
+    <title>แบบลงทะเบียนกรรมการ</title>
     <style>
         @font-face {
             font-family: 'THSarabunNew';
@@ -149,25 +149,26 @@
             text-align: center;
         }
 
-        .col-teacher {
+        .col-name {
             width: 30%;
             text-align: left;
             padding-left: 5px;
         }
 
-        .col-school {
-            width: 27%;
+        .col-position {
+            width: 25%;
             text-align: left;
             padding-left: 5px;
         }
 
-        .col-affiliation {
-            width: 15%;
-            text-align: center;
+        .col-organization {
+            width: 20%;
+            text-align: left;
+            padding-left: 5px;
         }
 
         .col-signature {
-            width: 20%;
+            width: 17%;
             text-align: left;
             padding-left: 6px;
         }
@@ -224,12 +225,6 @@
 
         // รหัสกิจกรรม
         $activityCode = $competition->code ?? '-';
-
-        // นับจำนวนครูทั้งหมด
-        $totalTeachers = 0;
-        foreach ($schools as $schoolData) {
-            $totalTeachers += count($schoolData['teachers'] ?? []);
-        }
     @endphp
 
     <!-- HEADER -->
@@ -256,7 +251,7 @@
     <table class="doc-info" border="0">
         <tr>
             <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-            <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนครูผู้ฝึกสอน (DC.02)</span></td>
+            <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนกรรมการ (DC.03)</span></td>
         </tr>
         <tr>
             <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
@@ -269,33 +264,25 @@
         <thead>
             <tr>
                 <th class="col-no">ลำดับ</th>
-                <th class="col-teacher">ชื่อครูผู้ฝึกสอน</th>
-                <th class="col-school">โรงเรียน</th>
-                <th class="col-affiliation">สังกัด</th>
+                <th class="col-name">ชื่อกรรมการ</th>
+                <th class="col-position">ตำแหน่ง</th>
+                <th class="col-organization">หน่วยงาน</th>
                 <th class="col-signature">ลงชื่อตัวบรรจง</th>
             </tr>
         </thead>
         <tbody>
             @php $rowNumber = 1; @endphp
-            @forelse($schools as $schoolData)
-                @php
-                    $teachers = $schoolData['teachers'] ?? [];
-                    $schoolName = $schoolData['school_name'] ?? '-';
-                @endphp
-                @if(count($teachers) > 0)
-                    @foreach($teachers as $index => $teacherName)
-                        <tr>
-                            <td class="col-no">{{ $rowNumber++ }}</td>
-                            <td class="col-teacher">{{ $teacherName }}</td>
-                            <td class="col-school">{{ $schoolName }}</td>
-                            <td class="col-affiliation">สพป.นฐ.เขต 1</td>
-                            <td class="col-signature"></td>
-                        </tr>
-                    @endforeach
-                @endif
+            @forelse($committees as $committee)
+                <tr>
+                    <td class="col-no">{{ $rowNumber++ }}</td>
+                    <td class="col-name">{{ $committee->name ?? '-' }}</td>
+                    <td class="col-position">{{ $committee->position ?? '-' }}</td>
+                    <td class="col-organization">{{ $committee->organization ?? '-' }}</td>
+                    <td class="col-signature"></td>
+                </tr>
             @empty
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 20px;">ไม่มีข้อมูลครูผู้ฝึกสอน</td>
+                    <td colspan="5" style="text-align: center; padding: 20px;">ไม่มีข้อมูลกรรมการ</td>
                 </tr>
             @endforelse
         </tbody>

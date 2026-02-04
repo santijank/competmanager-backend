@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Competition;
 use App\Models\Registration;
 use App\Models\CompetitionSchedule;
+use App\Models\CommitteeMember;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -109,6 +110,12 @@ class DocumentController extends Controller
                 'schoolGroup'
             ])->findOrFail($competition);
 
+            // ดึงข้อมูล schedule สำหรับการแข่งขันนี้
+            $schedule = CompetitionSchedule::where('competition_id', $competition)
+                ->first();
+
+            Log::info("Schedule found: " . ($schedule ? 'Yes' : 'No'));
+
             // ดึงข้อมูลการลงทะเบียนที่ approved แล้ว เรียงตามชื่อโรงเรียน
             $registrations = Registration::where('competition_id', $competition)
                 ->where('status', 'approved')
@@ -143,6 +150,7 @@ class DocumentController extends Controller
             // ข้อมูลสำหรับ PDF
             $data = [
                 'competition' => $competitionData,
+                'schedule' => $schedule,
                 'schools' => $schools,
                 'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
             ];
@@ -164,6 +172,64 @@ class DocumentController extends Controller
 
             return response()->json([
                 'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารรายชื่อครู',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * สร้างเอกสารรายชื่อกรรมการ (Committee Check-in)
+     */
+    public function generateCommitteeCheckin(Request $request, $competition)
+    {
+        try {
+            Log::info("DocumentController: Generating committee checkin for competition {$competition}");
+
+            // ดึงข้อมูลการแข่งขัน
+            $competitionData = Competition::with([
+                'category',
+                'schoolGroup'
+            ])->findOrFail($competition);
+
+            // ดึงข้อมูล schedule สำหรับการแข่งขันนี้
+            $schedule = CompetitionSchedule::where('competition_id', $competition)
+                ->first();
+
+            Log::info("Schedule found: " . ($schedule ? 'Yes' : 'No'));
+
+            // ดึงข้อมูลกรรมการสำหรับการแข่งขันนี้
+            $committees = CommitteeMember::where('competition_id', $competition)
+                ->where('is_active', true)
+                ->orderBy('id', 'asc')
+                ->get();
+
+            Log::info("Found {$committees->count()} committee members");
+
+            // ข้อมูลสำหรับ PDF
+            $data = [
+                'competition' => $competitionData,
+                'schedule' => $schedule,
+                'committees' => $committees,
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            // สร้าง PDF
+            $pdf = Pdf::loadView('exports.committee-checkin-pdf', $data)
+                ->setPaper('a4', 'portrait')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $filename = 'DOC3-แบบลงทะเบียนกรรมการ-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: Committee check-in PDF generated successfully");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (Committee Check-in): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารรายชื่อกรรมการ',
                 'error' => $e->getMessage()
             ], 500);
         }
