@@ -26,7 +26,7 @@
         }
 
         @page {
-            margin: 12mm 12mm 12mm 15mm;
+            margin: 10mm 10mm 10mm 12mm;
         }
 
         body {
@@ -38,7 +38,7 @@
         /* ===== HEADER - แสดงทุกหน้า ===== */
         .page-header {
             position: fixed;
-            top: -10mm;
+            top: -8mm;
             left: 0;
             right: 0;
         }
@@ -49,27 +49,29 @@
         }
 
         .header-table td {
-            vertical-align: middle;
+            vertical-align: top;
             padding: 0;
         }
 
         .logo-cell {
-            width: 70px;
+            width: 85px;
             text-align: left;
+            vertical-align: top;
         }
 
         .logo-img {
-            width: 60px;
+            width: 80px;
             height: auto;
         }
 
         .info-cell {
             text-align: left;
-            padding-left: 10px;
+            padding-left: 8px;
+            vertical-align: top;
         }
 
         .page-cell {
-            width: 80px;
+            width: 70px;
             text-align: right;
             vertical-align: top;
         }
@@ -77,25 +79,19 @@
         .header-text {
             font-size: 16pt;
             font-weight: bold;
-            line-height: 1.2;
-            margin: 0;
-            padding: 0;
+            line-height: 1.3;
         }
 
         .header-text-normal {
             font-size: 16pt;
-            line-height: 1.2;
-            margin: 0;
-            padding: 0;
+            line-height: 1.3;
         }
 
         .header-text-green {
             font-size: 16pt;
             font-weight: bold;
             color: #006600;
-            line-height: 1.2;
-            margin: 0;
-            padding: 0;
+            line-height: 1.3;
         }
 
         .page-number-text {
@@ -104,13 +100,13 @@
 
         /* ===== CONTENT AREA ===== */
         .content {
-            margin-top: 32mm;
+            margin-top: 28mm;
         }
 
         /* ===== DOCUMENT INFO ===== */
         .doc-info {
             width: 100%;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-size: 16pt;
             border-collapse: collapse;
         }
@@ -120,18 +116,10 @@
             vertical-align: top;
         }
 
-        .doc-info .left {
-            text-align: left;
-        }
-
-        .doc-info .right {
-            text-align: right;
-        }
-
         .doc-badge {
             border: 1px solid #333;
-            padding: 3px 10px;
-            display: inline-block;
+            padding: 2px 8px;
+            font-size: 14pt;
         }
 
         /* ===== TABLE STYLES ===== */
@@ -156,7 +144,7 @@
         table.data-table th,
         table.data-table td {
             border: 0.5pt solid #000;
-            padding: 4px 6px;
+            padding: 3px 5px;
             vertical-align: middle;
         }
 
@@ -181,19 +169,19 @@
         .col-school {
             width: 27%;
             text-align: left;
-            padding-left: 6px;
+            padding-left: 5px;
         }
 
         .col-student {
             width: 38%;
             text-align: left;
-            padding-left: 6px;
+            padding-left: 5px;
         }
 
         .col-signature {
             width: 27%;
             text-align: left;
-            padding-left: 8px;
+            padding-left: 6px;
         }
     </style>
 </head>
@@ -238,13 +226,6 @@
 
         // รหัสกิจกรรม
         $activityCode = $competition->code ?? '-';
-
-        // นับจำนวนหน้า (ประมาณ)
-        $totalRows = 0;
-        foreach ($schools as $s) {
-            $totalRows += max(1, count($s['students'] ?? []));
-        }
-        $totalPages = max(1, ceil($totalRows / 20));
     @endphp
 
     <!-- HEADER - แสดงทุกหน้า -->
@@ -258,13 +239,15 @@
                 </td>
                 <td class="info-cell">
                     <span class="header-text">{{ $groupName }}</span><br>
-                    <span class="header-text-normal">ณ {{ $venueName }}</span><br>
+                    @if($venueName)
+                        <span class="header-text-normal">ณ {{ $venueName }}</span><br>
+                    @endif
                     @if($competitionDateText)
                         <span class="header-text-green">{{ $competitionDateText }}</span>
                     @endif
                 </td>
                 <td class="page-cell">
-                    <span class="page-number-text">หน้าที่ <span class="page-num"></span></span>
+                    <span class="page-number-text">หน้าที่</span>
                 </td>
             </tr>
         </table>
@@ -275,16 +258,16 @@
         <!-- DOCUMENT INFO -->
         <table class="doc-info" border="0">
             <tr>
-                <td class="left" style="width: 70%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-                <td class="right" style="width: 30%;"><span class="doc-badge">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</span></td>
+                <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
+                <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</span></td>
             </tr>
             <tr>
-                <td class="left"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
-                <td class="right"></td>
+                <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
+                <td style="text-align: right;"></td>
             </tr>
         </table>
 
-        <!-- DATA TABLE -->
+        <!-- DATA TABLE - ไม่ใช้ rowspan เพื่อป้องกันปัญหาข้ามหน้า -->
         <table class="data-table">
             <thead>
                 <tr>
@@ -300,22 +283,22 @@
                     @php
                         $students = $schoolData['students'] ?? [];
                         $studentCount = count($students);
+                        $schoolName = $schoolData['school_name'] ?? '-';
                     @endphp
                     @if($studentCount > 0)
                         @foreach($students as $index => $studentName)
                             <tr>
-                                @if($index === 0)
-                                    <td class="col-no" rowspan="{{ $studentCount }}">{{ $rowNumber++ }}</td>
-                                    <td class="col-school" rowspan="{{ $studentCount }}">{{ $schoolData['school_name'] }}</td>
-                                @endif
+                                <td class="col-no">{{ $rowNumber }}</td>
+                                <td class="col-school">{{ $schoolName }}</td>
                                 <td class="col-student">{{ ($index + 1) }}. {{ $studentName }}</td>
                                 <td class="col-signature">{{ ($index + 1) }})</td>
                             </tr>
                         @endforeach
+                        @php $rowNumber++; @endphp
                     @else
                         <tr>
                             <td class="col-no">{{ $rowNumber++ }}</td>
-                            <td class="col-school">{{ $schoolData['school_name'] }}</td>
+                            <td class="col-school">{{ $schoolName }}</td>
                             <td class="col-student">-</td>
                             <td class="col-signature">1)</td>
                         </tr>
@@ -337,8 +320,8 @@
                 $pageNum = $PAGE_NUM;
                 $pageCount = $PAGE_COUNT;
                 $text = $pageNum . "/" . $pageCount;
-                $x = 520;
-                $y = 28;
+                $x = 540;
+                $y = 25;
                 $pdf->text($x, $y, $text, $font, $size);
             ');
         }
