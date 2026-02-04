@@ -35,10 +35,10 @@
             line-height: 1.0;
         }
 
-        /* ===== HEADER (หน้าแรกเท่านั้น) ===== */
+        /* ===== HEADER ===== */
         .page-header {
             width: 100%;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .header-table {
@@ -52,48 +52,38 @@
         }
 
         .logo-cell {
-            width: 90px;
+            width: 110px;
             text-align: left;
             vertical-align: top;
         }
 
         .logo-img {
-            width: 85px;
+            width: 100px;
             height: auto;
         }
 
         .info-cell {
             text-align: left;
             padding-left: 10px;
-            vertical-align: top;
-        }
-
-        .page-cell {
-            width: 80px;
-            text-align: right;
-            vertical-align: top;
+            vertical-align: middle;
         }
 
         .header-text {
             font-size: 16pt;
             font-weight: bold;
-            line-height: 1.3;
+            line-height: 1.5;
         }
 
         .header-text-normal {
             font-size: 16pt;
-            line-height: 1.3;
+            line-height: 1.5;
         }
 
         .header-text-green {
             font-size: 16pt;
             font-weight: bold;
             color: #006600;
-            line-height: 1.3;
-        }
-
-        .page-number-text {
-            font-size: 14pt;
+            line-height: 1.5;
         }
 
         /* ===== DOCUMENT INFO ===== */
@@ -211,7 +201,17 @@
             $day = $dateToUse->format('j');
             $month = $thaiMonths[(int)$dateToUse->format('n')];
             $year = $dateToUse->format('Y') + 543;
-            $competitionDateText = "วันที่ {$day} {$month} พ.ศ.{$year}";
+            $competitionDateText = "วันที่แข่งขัน วันที่ {$day} {$month} พ.ศ.{$year}";
+        }
+
+        // รวมสถานที่และวันที่
+        $venueAndDate = '';
+        if ($venueName && $competitionDateText) {
+            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
+        } elseif ($venueName) {
+            $venueAndDate = "ณ {$venueName}";
+        } elseif ($competitionDateText) {
+            $venueAndDate = $competitionDateText;
         }
 
         // ชื่อกิจกรรม
@@ -221,7 +221,7 @@
         $activityCode = $competition->code ?? '-';
     @endphp
 
-    <!-- HEADER (แสดงหน้าแรก) -->
+    <!-- HEADER -->
     <div class="page-header">
         <table class="header-table">
             <tr>
@@ -231,15 +231,11 @@
                     @endif
                 </td>
                 <td class="info-cell">
-                    <span class="header-text">{{ $groupName }}</span><br>
-                    @if($venueName)
-                        <span class="header-text-normal">ณ {{ $venueName }}</span><br>
+                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $groupName }}</span><br>
+                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
+                    @if($venueAndDate)
+                        <span class="header-text-green">{{ $venueAndDate }}</span>
                     @endif
-                    @if($competitionDateText)
-                        <span class="header-text-green">{{ $competitionDateText }}</span>
-                    @endif
-                </td>
-                <td class="page-cell">
                 </td>
             </tr>
         </table>
