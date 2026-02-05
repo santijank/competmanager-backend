@@ -15,7 +15,8 @@ import GroupCompetitionList from '@/components/competitions/GroupCompetitionList
 import CompetitionScheduleModal from '@/components/competitions/CompetitionScheduleModal';
 import CompetitionStatsCard from '@/components/competitions/CompetitionStatsCard';
 import GroupCompetitionFilters from '@/components/competitions/GroupCompetitionFilters';
-import BulkOpenRegistrationModal from '@/components/competitions/BulkOpenRegistrationModal'; // ⭐ เพิ่ม
+import BulkOpenRegistrationModal from '@/components/competitions/BulkOpenRegistrationModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * 📊 Group Competition Dashboard
@@ -29,7 +30,8 @@ const GroupCompetitionDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCompetition, setSelectedCompetition] = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [showBulkOpenModal, setShowBulkOpenModal] = useState(false); // ⭐ เพิ่ม
+  const [showBulkOpenModal, setShowBulkOpenModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   // Filters
   const [filters, setFilters] = useState({
@@ -158,25 +160,28 @@ const GroupCompetitionDashboard = () => {
   /**
    * ส่งผลไปยังระดับเขต
    */
-  const handleSubmitToDistrict = async (competition) => {
-    if (!window.confirm('ยืนยันการส่งผลการแข่งขันไปยังระดับเขต?')) {
-      return;
-    }
-
-    try {
-      const response = await api.post(
-        `/competitions/group/${competition.id}/submit-to-district`
-      );
-
-      if (response.data.success) {
-        toast.success('ส่งผลการแข่งขันไปยังระดับเขตสำเร็จ');
-        fetchCompetitions(); // Refresh list
-      }
-    } catch (error) {
-      console.error('Failed to submit to district:', error);
-      const message = error.response?.data?.message || 'ไม่สามารถส่งผลการแข่งขันได้';
-      toast.error(message);
-    }
+  const handleSubmitToDistrict = (competition) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการส่งผล',
+      message: 'ยืนยันการส่งผลการแข่งขันไปยังระดับเขต?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const response = await api.post(
+            `/competitions/group/${competition.id}/submit-to-district`
+          );
+          if (response.data.success) {
+            toast.success('ส่งผลการแข่งขันไปยังระดับเขตสำเร็จ');
+            fetchCompetitions();
+          }
+        } catch (error) {
+          console.error('Failed to submit to district:', error);
+          const message = error.response?.data?.message || 'ไม่สามารถส่งผลการแข่งขันได้';
+          toast.error(message);
+        }
+      },
+    });
   };
 
   /**
@@ -315,7 +320,7 @@ const GroupCompetitionDashboard = () => {
         />
       )}
 
-      {/* ⭐ Bulk Open Registration Modal */}
+      {/* Bulk Open Registration Modal */}
       <BulkOpenRegistrationModal
         isOpen={showBulkOpenModal}
         onClose={() => setShowBulkOpenModal(false)}
@@ -323,6 +328,17 @@ const GroupCompetitionDashboard = () => {
           setShowBulkOpenModal(false);
           fetchCompetitions();
         }}
+      />
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="warning"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { ArrowLeft, Trophy, Medal, RefreshCw, Award } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { resultService, competitionService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function ResultLeaderboard() {
   const { competitionId } = useParams();
@@ -14,6 +15,7 @@ export default function ResultLeaderboard() {
   const [loading, setLoading] = useState(true);
   const [selectedLevel, setSelectedLevel] = useState('group');
   const [calculating, setCalculating] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     fetchData();
@@ -35,19 +37,25 @@ export default function ResultLeaderboard() {
     }
   };
 
-  const handleCalculateRanks = async () => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะคำนวณอันดับใหม่?')) return;
-
-    try {
-      setCalculating(true);
-      await resultService.calculateRanks(competitionId, { level: selectedLevel });
-      toast.success('คำนวณอันดับสำเร็จ');
-      fetchData();
-    } catch (error) {
-      toast.error('ไม่สามารถคำนวณอันดับได้');
-    } finally {
-      setCalculating(false);
-    }
+  const handleCalculateRanks = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการคำนวณ',
+      message: 'คุณแน่ใจหรือไม่ที่จะคำนวณอันดับใหม่?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setCalculating(true);
+          await resultService.calculateRanks(competitionId, { level: selectedLevel });
+          toast.success('คำนวณอันดับสำเร็จ');
+          fetchData();
+        } catch (error) {
+          toast.error('ไม่สามารถคำนวณอันดับได้');
+        } finally {
+          setCalculating(false);
+        }
+      },
+    });
   };
 
   const getMedalIcon = (medal) => {
@@ -286,6 +294,16 @@ export default function ResultLeaderboard() {
           </Link>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

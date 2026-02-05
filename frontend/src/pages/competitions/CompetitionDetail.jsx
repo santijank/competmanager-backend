@@ -6,6 +6,7 @@ import { competitionService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
 import { format } from 'date-fns';
 import JudgeManagement from '../../components/judges/JudgeManagement';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function CompetitionDetail() {
   const { id } = useParams();
@@ -13,6 +14,7 @@ export default function CompetitionDetail() {
   const { isAdmin, isCommittee, isGroupAdmin } = useAuthStore();
   const [competition, setCompetition] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, onConfirm: null });
 
   useEffect(() => {
     fetchCompetition();
@@ -30,16 +32,20 @@ export default function CompetitionDetail() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('à¸„à¸¸à¸“à¹à¸™à¹ˆà¹ƒà¸ˆà¸«à¸£à¸·à¸­à¹„à¸¡à¹ˆà¸—à¸µà¹ˆà¸ˆà¸°à¸¥à¸šà¸à¸²à¸£à¹à¸‚à¹ˆà¸‡à¸‚à¸±à¸™à¸™à¸µà¹‰?')) return;
-
-    try {
-      await competitionService.delete(id);
-      toast.success('à¸¥à¸šà¸à¸²à¸£à¹à¸‚à¹ˆà¸‡à¸‚à¸±à¸™à¸ªà¸³à¹€à¸£à¹‡à¸ˆ');
-      navigate('/competitions');
-    } catch (error) {
-      toast.error('à¹„à¸¡à¹ˆà¸ªà¸²à¸¡à¸²à¸£à¸–à¸¥à¸šà¸à¸²à¸£à¹à¸‚à¹ˆà¸‡à¸‚à¸±à¸™à¹„à¸”à¹‰');
-    }
+  const handleDelete = () => {
+    setConfirmModal({
+      isOpen: true,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await competitionService.delete(id);
+          toast.success('ลบการแข่งขันสำเร็จ');
+          navigate('/competitions');
+        } catch (error) {
+          toast.error('ไม่สามารถลบการแข่งขันได้');
+        }
+      },
+    });
   };
 
   // âœ… à¹€à¸žà¸´à¹ˆà¸¡à¹€à¸Šà¹‡à¸„à¸§à¹ˆà¸² Group Admin à¹à¸à¹‰à¹„à¸‚à¹„à¸”à¹‰à¸”à¹‰à¸§à¸¢
@@ -246,5 +252,14 @@ export default function CompetitionDetail() {
         </div>
       </div>
     </div>
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title="ยืนยันการลบ"
+        message="คุณแน่ใจหรือไม่ที่จะลบการแข่งขันนี้?"
+        confirmText="ลบ"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
   );
 }

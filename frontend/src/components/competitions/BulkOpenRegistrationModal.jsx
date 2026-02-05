@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Calendar, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * 🎯 Bulk Open Registration Modal
@@ -11,6 +12,7 @@ import api from '@/lib/api';
 const BulkOpenRegistrationModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [formData, setFormData] = useState({
     registration_start_date: '',
     registration_end_date: '',
@@ -64,9 +66,9 @@ const BulkOpenRegistrationModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.registration_start_date || !formData.registration_end_date) {
       toast.error('กรุณากรอกวันที่เริ่มต้นและสิ้นสุด');
@@ -82,42 +84,44 @@ const BulkOpenRegistrationModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     // Confirm
-    const categoryText = formData.category_id 
-      ? categories.find(c => c.id == formData.category_id)?.name 
+    const categoryText = formData.category_id
+      ? categories.find(c => c.id == formData.category_id)?.name
       : 'ทั้งหมด';
 
-    if (!window.confirm(
-      `คุณต้องการเปิดรับสมัครหรือไม่?\n\n` +
-      `หมวดหมู่: ${categoryText}\n` +
-      `วันเริ่มต้น: ${formatDate(formData.registration_start_date)}\n` +
-      `วันสิ้นสุด: ${formatDate(formData.registration_end_date)}`
-    )) {
-      return;
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการเปิดรับสมัคร',
+      message: `คุณต้องการเปิดรับสมัครหรือไม่?\n\n` +
+        `หมวดหมู่: ${categoryText}\n` +
+        `วันเริ่มต้น: ${formatDate(formData.registration_start_date)}\n` +
+        `วันสิ้นสุด: ${formatDate(formData.registration_end_date)}`,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setLoading(true);
+        try {
+          const payload = {
+            registration_start_date: formData.registration_start_date,
+            registration_end_date: formData.registration_end_date,
+          };
 
-    setLoading(true);
-    try {
-      const payload = {
-        registration_start_date: formData.registration_start_date,
-        registration_end_date: formData.registration_end_date,
-      };
+          // เพิ่ม category_id ถ้าเลือก
+          if (formData.category_id) {
+            payload.category_id = formData.category_id;
+          }
 
-      // เพิ่ม category_id ถ้าเลือก
-      if (formData.category_id) {
-        payload.category_id = formData.category_id;
-      }
+          const response = await api.post('/competitions/group/bulk-open-registration', payload);
 
-      const response = await api.post('/competitions/group/bulk-open-registration', payload);
-      
-      toast.success(response.data.message || 'เปิดรับสมัครสำเร็จ');
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Bulk open registration error:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
-    } finally {
-      setLoading(false);
-    }
+          toast.success(response.data.message || 'เปิดรับสมัครสำเร็จ');
+          onSuccess();
+          onClose();
+        } catch (error) {
+          console.error('Bulk open registration error:', error);
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   const formatDate = (dateString) => {
@@ -285,6 +289,16 @@ const BulkOpenRegistrationModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

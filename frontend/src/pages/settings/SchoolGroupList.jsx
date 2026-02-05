@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Search, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { schoolGroupService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function SchoolGroupList() {
   const { isAdmin } = useAuthStore();
@@ -11,6 +12,7 @@ export default function SchoolGroupList() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -62,16 +64,22 @@ export default function SchoolGroupList() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบกลุ่มโรงเรียนนี้?')) return;
-
-    try {
-      await schoolGroupService.delete(id);
-      toast.success('ลบกลุ่มโรงเรียนสำเร็จ');
-      fetchSchoolGroups();
-    } catch (error) {
-      toast.error('ไม่สามารถลบกลุ่มโรงเรียนได้');
-    }
+  const handleDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: 'คุณแน่ใจหรือไม่ที่จะลบกลุ่มโรงเรียนนี้?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await schoolGroupService.delete(id);
+          toast.success('ลบกลุ่มโรงเรียนสำเร็จ');
+          fetchSchoolGroups();
+        } catch (error) {
+          toast.error('ไม่สามารถลบกลุ่มโรงเรียนได้');
+        }
+      },
+    });
   };
 
   const resetForm = () => {
@@ -243,6 +251,16 @@ export default function SchoolGroupList() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Calendar, Clock, MapPin, Send } from 'lucide-react';
 import { toast } from 'react-toastify';
 import twoTierCompetitionService from '@/lib/api/twoTierCompetition-service';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * 🎯 Group Admin - Competition Management
@@ -21,6 +22,7 @@ export default function GroupCompetitions() {
   const [loading, setLoading] = useState(true);
   const [selectedCompetition, setSelectedCompetition] = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     fetchCompetitions();
@@ -96,30 +98,40 @@ export default function GroupCompetitions() {
     );
   };
 
-  const handleOpenRegistration = async (competition) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะเปิดรับสมัคร?')) return;
-
-    try {
-      await twoTierCompetitionService.openRegistration(competition.id);
-      toast.success('เปิดรับสมัครสำเร็จ');
-      fetchCompetitions();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
-    }
+  const handleOpenRegistration = (competition) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการเปิดรับสมัคร',
+      message: 'คุณแน่ใจหรือไม่ที่จะเปิดรับสมัคร?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await twoTierCompetitionService.openRegistration(competition.id);
+          toast.success('เปิดรับสมัครสำเร็จ');
+          fetchCompetitions();
+        } catch (error) {
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
+        }
+      },
+    });
   };
 
-  const handleSubmitToDistrict = async (competition) => {
-    if (!window.confirm(`คุณแน่ใจหรือไม่ที่จะส่งผู้ชนะไปยังระดับเขต?\n(จะส่งอันดับ 1 และ 2 ไปแข่งต่อที่เขต)`)) {
-      return;
-    }
-
-    try {
-      const response = await twoTierCompetitionService.submitToDistrict(competition.id);
-      toast.success(`ส่งผู้ชนะ ${response.data.total_advanced} คน ไปยังระดับเขตสำเร็จ`);
-      fetchCompetitions();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
-    }
+  const handleSubmitToDistrict = (competition) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ส่งผู้ชนะไปยังระดับเขต',
+      message: 'คุณแน่ใจหรือไม่ที่จะส่งผู้ชนะไปยังระดับเขต?\n(จะส่งอันดับ 1 และ 2 ไปแข่งต่อที่เขต)',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const response = await twoTierCompetitionService.submitToDistrict(competition.id);
+          toast.success(`ส่งผู้ชนะ ${response.data.total_advanced} คน ไปยังระดับเขตสำเร็จ`);
+          fetchCompetitions();
+        } catch (error) {
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
+        }
+      },
+    });
   };
 
   if (loading) {
@@ -244,6 +256,16 @@ export default function GroupCompetitions() {
           }}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

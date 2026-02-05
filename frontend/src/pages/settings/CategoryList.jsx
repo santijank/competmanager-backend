@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Search, FolderOpen } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { categoryService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function CategoryList() {
   const { isAdmin } = useAuthStore();
@@ -11,6 +12,7 @@ export default function CategoryList() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -62,16 +64,22 @@ export default function CategoryList() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่นี้?')) return;
-
-    try {
-      await categoryService.delete(id);
-      toast.success('ลบหมวดหมู่สำเร็จ');
-      fetchCategories();
-    } catch (error) {
-      toast.error('ไม่สามารถลบหมวดหมู่ได้');
-    }
+  const handleDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: 'คุณแน่ใจหรือไม่ที่จะลบหมวดหมู่นี้?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await categoryService.delete(id);
+          toast.success('ลบหมวดหมู่สำเร็จ');
+          fetchCategories();
+        } catch (error) {
+          toast.error('ไม่สามารถลบหมวดหมู่ได้');
+        }
+      },
+    });
   };
 
   const resetForm = () => {
@@ -236,6 +244,16 @@ export default function CategoryList() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

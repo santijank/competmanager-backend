@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ScoreExportButtons from '@/components/scores/ScoreExportButtons';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import {
   ArrowLeft,
   Save,
@@ -44,6 +45,7 @@ const ScoreEntry = () => {
   const [statistics, setStatistics] = useState(null);
   const [isFinalized, setIsFinalized] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     fetchData();
@@ -207,141 +209,148 @@ const ScoreEntry = () => {
   /**
    * ✅ Finalize scores (lock)
    */
-  const handleFinalizeScores = async () => {
+  const handleFinalizeScores = () => {
     // Check if all teams have scores
     const unscoredCount = registrations.filter(reg => !scores[reg.id] || scores[reg.id] === '').length;
-    
-    if (unscoredCount > 0) {
-      const confirm = window.confirm(
-        `ยังมี ${unscoredCount} ทีมที่ยังไม่ได้ใส่คะแนน\n\nต้องการยืนยันคะแนนหรือไม่?\n\n` +
+
+    const message = unscoredCount > 0
+      ? `ยังมี ${unscoredCount} ทีมที่ยังไม่ได้ใส่คะแนน\n\nต้องการยืนยันคะแนนหรือไม่?\n\n` +
         `(หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${user.role === 'district_admin' ? 'เว้นแต่คุณเป็น District Admin' : ''})`
-      );
-      
-      if (!confirm) return;
-    } else {
-      const confirm = window.confirm(
-        'ยืนยันคะแนนสุดท้าย?\n\n' +
-        `หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${user.role === 'district_admin' ? 'เว้นแต่คุณเป็น District Admin' : ''}`
-      );
-      
-      if (!confirm) return;
-    }
-    
-    try {
-      setFinalizing(true);
-      
-      const response = await api.post(`/competitions/${competitionId}/finalize`);
-      
-      if (response.data.success) {
-        toast.success('ยืนยันคะแนนสำเร็จ');
-        setIsFinalized(true);
-        
-        // Refresh data
-        await fetchData();
-      }
-      
-    } catch (error) {
-      console.error('Error finalizing scores:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการยืนยัน');
-    } finally {
-      setFinalizing(false);
-    }
+      : 'ยืนยันคะแนนสุดท้าย?\n\n' +
+        `หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${user.role === 'district_admin' ? 'เว้นแต่คุณเป็น District Admin' : ''}`;
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันคะแนน',
+      message,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setFinalizing(true);
+
+          const response = await api.post(`/competitions/${competitionId}/finalize`);
+
+          if (response.data.success) {
+            toast.success('ยืนยันคะแนนสำเร็จ');
+            setIsFinalized(true);
+
+            // Refresh data
+            await fetchData();
+          }
+
+        } catch (error) {
+          console.error('Error finalizing scores:', error);
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการยืนยัน');
+        } finally {
+          setFinalizing(false);
+        }
+      },
+    });
   };
 
   /**
    * ✅ Promote to district (Top 2 only)
    */
-  const handlePromoteToDistrict = async () => {
-    if (!window.confirm(
-      'ส่งผู้ผ่านเกณฑ์เข้ารอบเขต?\n\n' +
-      '- จะส่งเฉพาะอันดับที่ 1 และ 2 เท่านั้น\n' +
-      '- ระบบจะสร้างการลงทะเบียนใหม่สำหรับระดับเขต\n' +
-      '- District Admin ต้องอนุมัติอีกครั้ง'
-    )) {
-      return;
-    }
+  const handlePromoteToDistrict = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ส่งผู้ผ่านเกณฑ์เข้ารอบเขต',
+      message: 'ส่งผู้ผ่านเกณฑ์เข้ารอบเขต?\n\n' +
+        '- จะส่งเฉพาะอันดับที่ 1 และ 2 เท่านั้น\n' +
+        '- ระบบจะสร้างการลงทะเบียนใหม่สำหรับระดับเขต\n' +
+        '- District Admin ต้องอนุมัติอีกครั้ง',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setPromotingToDistrict(true);
 
-    try {
-      setPromotingToDistrict(true);
-      
-      const response = await api.post(`/competitions/${competitionId}/promote-to-district`);
-      
-      if (response.data.success) {
-        const data = response.data.data;
-        
-        toast.success(
-          `ส่งเข้ารอบเขตสำเร็จ ${data.promoted_count} ทีม`,
-          { autoClose: 5000 }
-        );
-        
-        // แสดงรายละเอียดผู้ที่ส่ง
-        if (data.promoted_teams && data.promoted_teams.length > 0) {
-          console.log('✅ ทีมที่ส่งเข้ารอบเขต:', data.promoted_teams);
-          
-          const teamList = data.promoted_teams
-            .map(t => `อันดับ ${t.rank}: ${t.team_name} (${t.school_name})`)
-            .join('\n');
-          
-          setTimeout(() => {
-            alert(
-              `ส่งเข้ารอบเขตสำเร็จ!\n\n${teamList}\n\n` +
-              `การแข่งขันระดับเขต: ${data.district_competition.name}\n\n` +
-              'District Admin สามารถอนุมัติได้ที่หน้า "จัดการการลงทะเบียน"'
+          const response = await api.post(`/competitions/${competitionId}/promote-to-district`);
+
+          if (response.data.success) {
+            const data = response.data.data;
+
+            toast.success(
+              `ส่งเข้ารอบเขตสำเร็จ ${data.promoted_count} ทีม`,
+              { autoClose: 5000 }
             );
-          }, 500);
+
+            // แสดงรายละเอียดผู้ที่ส่ง
+            if (data.promoted_teams && data.promoted_teams.length > 0) {
+              console.log('ทีมที่ส่งเข้ารอบเขต:', data.promoted_teams);
+
+              const teamList = data.promoted_teams
+                .map(t => `อันดับ ${t.rank}: ${t.team_name} (${t.school_name})`)
+                .join('\n');
+
+              setTimeout(() => {
+                toast.info(
+                  `ส่งเข้ารอบเขตสำเร็จ!\n${teamList}\nการแข่งขันระดับเขต: ${data.district_competition.name}`,
+                  { autoClose: 10000 }
+                );
+              }, 500);
+            }
+          }
+
+        } catch (error) {
+          console.error('Error promoting:', error);
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการส่งเข้ารอบเขต');
+        } finally {
+          setPromotingToDistrict(false);
         }
-      }
-      
-    } catch (error) {
-      console.error('Error promoting:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการส่งเข้ารอบเขต');
-    } finally {
-      setPromotingToDistrict(false);
-    }
+      },
+    });
   };
 
   /**
    * 📢 Publish Results
    */
-  const handlePublish = async () => {
-    if (!window.confirm('คุณต้องการประกาศผลการแข่งขันนี้หรือไม่?\n\nผลจะถูกเผยแพร่ให้บุคคลทั่วไปสามารถดูได้')) {
-      return;
-    }
-
-    try {
-      setPublishing(true);
-      await api.post(`/competitions/${competitionId}/publish`);
-      toast.success('ประกาศผลสำเร็จ');
-      setIsPublished(true);
-      fetchData();
-    } catch (error) {
-      console.error('Error publishing:', error);
-      toast.error(error.response?.data?.message || 'ไม่สามารถประกาศผลได้');
-    } finally {
-      setPublishing(false);
-    }
+  const handlePublish = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ประกาศผลการแข่งขัน',
+      message: 'คุณต้องการประกาศผลการแข่งขันนี้หรือไม่?\n\nผลจะถูกเผยแพร่ให้บุคคลทั่วไปสามารถดูได้',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setPublishing(true);
+          await api.post(`/competitions/${competitionId}/publish`);
+          toast.success('ประกาศผลสำเร็จ');
+          setIsPublished(true);
+          fetchData();
+        } catch (error) {
+          console.error('Error publishing:', error);
+          toast.error(error.response?.data?.message || 'ไม่สามารถประกาศผลได้');
+        } finally {
+          setPublishing(false);
+        }
+      },
+    });
   };
 
   /**
    * 🔙 Unpublish Results
    */
-  const handleUnpublish = async () => {
-    if (!window.confirm('คุณต้องการยกเลิกประกาศผลหรือไม่?')) {
-      return;
-    }
-
-    try {
-      setUnpublishing(true);
-      await api.post(`/competitions/${competitionId}/unpublish`);
-      toast.success('ยกเลิกประกาศผลสำเร็จ');
-      setIsPublished(false);
-      fetchData();
-    } catch (error) {
-      console.error('Error unpublishing:', error);
-      toast.error('ไม่สามารถยกเลิกประกาศผลได้');
-    } finally {
-      setUnpublishing(false);
-    }
+  const handleUnpublish = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยกเลิกประกาศผล',
+      message: 'คุณต้องการยกเลิกประกาศผลหรือไม่?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setUnpublishing(true);
+          await api.post(`/competitions/${competitionId}/unpublish`);
+          toast.success('ยกเลิกประกาศผลสำเร็จ');
+          setIsPublished(false);
+          fetchData();
+        } catch (error) {
+          console.error('Error unpublishing:', error);
+          toast.error('ไม่สามารถยกเลิกประกาศผลได้');
+        } finally {
+          setUnpublishing(false);
+        }
+      },
+    });
   };
 
   /**
@@ -742,6 +751,16 @@ const ScoreEntry = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

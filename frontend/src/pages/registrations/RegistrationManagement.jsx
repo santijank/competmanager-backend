@@ -26,6 +26,7 @@ import RegistrationApprovalModal from '@/components/registrations/RegistrationAp
 import EditRegistrationModal from '@/components/registrations/EditRegistrationModal';
 import DocumentButtons from '@/components/documents/DocumentButtons';
 import ResetRegistrationsModal from '@/components/registrations/ResetRegistrationsModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 const RegistrationManagement = () => {
   const { user, isDistrictAdmin, isGroupAdmin } = useAuthStore();
@@ -61,6 +62,16 @@ const RegistrationManagement = () => {
 
   // ✅ State สำหรับอนุมัติทั้งหมด
   const [bulkApproving, setBulkApproving] = useState(false);
+
+  // ✅ State สำหรับ ConfirmModal (แทน window.confirm ที่ถูก block ใน sandboxed env)
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'ยืนยัน',
+    variant: 'danger',
+    onConfirm: null,
+  });
 
   useEffect(() => {
     // โหลดรายชื่อกลุ่มสำหรับ District Admin
@@ -235,9 +246,35 @@ const RegistrationManagement = () => {
     }));
   };
 
+  // ✅ ลบการลงทะเบียน (สำหรับ Group Admin และ District Admin)
+  const handleDelete = (registration) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: `คุณต้องการลบการลงทะเบียน "${registration.competition?.name}" ของ "${registration.school?.name}" หรือไม่?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!`,
+      confirmText: 'ลบ',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const response = await api.delete(`/registrations/${registration.id}`);
+          if (response.data.success) {
+            toast.success('ลบการลงทะเบียนสำเร็จ');
+            loadData();
+            loadCompetitionsWithApprovedRegistrations();
+          } else {
+            toast.error(response.data.message || 'ไม่สามารถลบได้');
+          }
+        } catch (error) {
+          console.error('Delete registration error:', error);
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการลบ');
+        }
+      },
+    });
+  };
+
   // ✅ อนุมัติทั้งหมดที่รอการอนุมัติ
-  const handleBulkApprove = async () => {
-    // กรองเฉพาะ pending
+  const handleBulkApprove = () => {
     const pendingRegistrations = registrations.filter(reg => reg.status === 'pending');
 
     if (pendingRegistrations.length === 0) {
@@ -245,39 +282,39 @@ const RegistrationManagement = () => {
       return;
     }
 
-    const confirmMessage = `ต้องการอนุมัติทั้งหมด ${pendingRegistrations.length} รายการหรือไม่?`;
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการอนุมัติทั้งหมด',
+      message: `ต้องการอนุมัติทั้งหมด ${pendingRegistrations.length} รายการหรือไม่?`,
+      confirmText: 'อนุมัติทั้งหมด',
+      variant: 'info',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setBulkApproving(true);
+          const registrationIds = pendingRegistrations.map(reg => reg.id);
+          const response = await api.post('/registrations/bulk-approve', {
+            registration_ids: registrationIds
+          });
 
-    try {
-      setBulkApproving(true);
-
-      const registrationIds = pendingRegistrations.map(reg => reg.id);
-
-      const response = await api.post('/registrations/bulk-approve', {
-        registration_ids: registrationIds
-      });
-
-      if (response.data.success) {
-        toast.success(response.data.message || `อนุมัติสำเร็จ ${response.data.approved_count} รายการ`);
-
-        // แสดง errors ถ้ามี
-        if (response.data.errors && response.data.errors.length > 0) {
-          response.data.errors.forEach(err => toast.warning(err));
+          if (response.data.success) {
+            toast.success(response.data.message || `อนุมัติสำเร็จ ${response.data.approved_count} รายการ`);
+            if (response.data.errors && response.data.errors.length > 0) {
+              response.data.errors.forEach(err => toast.warning(err));
+            }
+            loadData();
+            loadCompetitionsWithApprovedRegistrations();
+          } else {
+            toast.error(response.data.message || 'เกิดข้อผิดพลาด');
+          }
+        } catch (error) {
+          console.error('Bulk approve error:', error);
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการอนุมัติ');
+        } finally {
+          setBulkApproving(false);
         }
-
-        loadData();
-        loadCompetitionsWithApprovedRegistrations();
-      } else {
-        toast.error(response.data.message || 'เกิดข้อผิดพลาด');
-      }
-    } catch (error) {
-      console.error('Bulk approve error:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการอนุมัติ');
-    } finally {
-      setBulkApproving(false);
-    }
+      },
+    });
   };
 
   // ✅ จัดกลุ่ม registrations ตาม category > competition
@@ -835,6 +872,7 @@ const RegistrationManagement = () => {
                                     handleEdit={handleEdit}
                                     handleApprove={handleApprove}
                                     handleReject={handleReject}
+                                    handleDelete={handleDelete}
                                     showLevel={false}
                                     nested={true}
                                   />
@@ -933,6 +971,7 @@ const RegistrationManagement = () => {
                                     handleEdit={handleEdit}
                                     handleApprove={handleApprove}
                                     handleReject={handleReject}
+                                    handleDelete={handleDelete}
                                     showLevel={activeLevel === 'district'}
                                     nested={true}
                                   />
@@ -986,6 +1025,17 @@ const RegistrationManagement = () => {
           loadCompetitionsWithApprovedRegistrations();
         }}
       />
+
+      {/* Confirm Modal (แทน window.confirm) */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
@@ -998,6 +1048,7 @@ const RegistrationItem = ({
   handleEdit,
   handleApprove,
   handleReject,
+  handleDelete,
   showLevel = false,
   nested = false
 }) => {
@@ -1082,6 +1133,16 @@ const RegistrationItem = ({
               </button>
             </>
           )}
+
+          {/* ✅ ปุ่มลบ - สำหรับทุกสถานะ (Group Admin / District Admin) */}
+          <button
+            onClick={() => handleDelete(registration)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            title="ลบการลงทะเบียน"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>ลบ</span>
+          </button>
         </div>
       </div>
     </div>

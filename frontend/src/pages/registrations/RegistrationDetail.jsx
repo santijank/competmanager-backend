@@ -4,6 +4,7 @@ import { ArrowLeft, User, Users, Phone, Mail, Calendar, FileText, CheckCircle, X
 import { toast } from 'react-toastify';
 import { registrationService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import { format } from 'date-fns';
 
 export default function RegistrationDetail() {
@@ -12,6 +13,7 @@ export default function RegistrationDetail() {
   const { isAdmin, isCommittee, isGroupAdmin } = useAuthStore();
   const [registration, setRegistration] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     fetchRegistration();
@@ -29,16 +31,22 @@ export default function RegistrationDetail() {
     }
   };
 
-  const handleApprove = async () => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะอนุมัติการลงทะเบียนนี้?')) return;
-
-    try {
-      await registrationService.approve(id);
-      toast.success('อนุมัติการลงทะเบียนสำเร็จ');
-      fetchRegistration();
-    } catch (error) {
-      toast.error('ไม่สามารถอนุมัติได้');
-    }
+  const handleApprove = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการอนุมัติ',
+      message: 'คุณแน่ใจหรือไม่ที่จะอนุมัติการลงทะเบียนนี้?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await registrationService.approve(id);
+          toast.success('อนุมัติการลงทะเบียนสำเร็จ');
+          fetchRegistration();
+        } catch (error) {
+          toast.error('ไม่สามารถอนุมัติได้');
+        }
+      },
+    });
   };
 
   const handleReject = async () => {
@@ -322,6 +330,16 @@ export default function RegistrationDetail() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

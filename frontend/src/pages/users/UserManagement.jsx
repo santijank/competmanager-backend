@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Search, UserPlus, Key, RefreshCw } from 'lucide-rea
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function UserManagement() {
   const { isAdmin } = useAuthStore();
@@ -25,6 +26,8 @@ export default function UserManagement() {
   const [resetPasswordData, setResetPasswordData] = useState({
     password: '',
   });
+
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -72,16 +75,22 @@ export default function UserManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบผู้ใช้นี้?')) return;
-
-    try {
-      await api.delete(`/users/${id}`);
-      toast.success('ลบผู้ใช้สำเร็จ');
-      fetchUsers();
-    } catch (error) {
-      toast.error('ไม่สามารถลบได้');
-    }
+  const handleDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: 'คุณแน่ใจหรือไม่ที่จะลบผู้ใช้นี้?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.delete(`/users/${id}`);
+          toast.success('ลบผู้ใช้สำเร็จ');
+          fetchUsers();
+        } catch (error) {
+          toast.error('ไม่สามารถลบได้');
+        }
+      },
+    });
   };
 
   // ⭐ Reset Password
@@ -397,6 +406,16 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

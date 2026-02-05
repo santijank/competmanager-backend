@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { competitionService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
 import { format } from 'date-fns';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function CompetitionList() {
   const { isAdmin, isCommittee } = useAuthStore();
@@ -22,6 +23,11 @@ export default function CompetitionList() {
   // Floating buttons state
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [showQuickMenu, setShowQuickMenu] = useState(false);
+
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false, title: '', message: '', onConfirm: null,
+  });
 
   useEffect(() => {
     fetchCompetitions();
@@ -65,16 +71,22 @@ export default function CompetitionList() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบการแข่งขันนี้?')) return;
-
-    try {
-      await competitionService.delete(id);
-      toast.success('ลบการแข่งขันสำเร็จ');
-      fetchCompetitions();
-    } catch (error) {
-      toast.error('ไม่สามารถลบการแข่งขันได้');
-    }
+  const handleDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: 'คุณแน่ใจหรือไม่ที่จะลบการแข่งขันนี้?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await competitionService.delete(id);
+          toast.success('ลบการแข่งขันสำเร็จ');
+          fetchCompetitions();
+        } catch (error) {
+          toast.error('ไม่สามารถลบการแข่งขันได้');
+        }
+      },
+    });
   };
 
   const handlePageChange = (newPage) => {
@@ -474,6 +486,16 @@ export default function CompetitionList() {
           )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ลบ"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
 
       <style jsx>{`
         @keyframes fade-in {

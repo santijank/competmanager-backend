@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import EditRegistrationModal from '@/components/registrations/EditRegistrationModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * 📋 My Registrations
@@ -31,6 +32,9 @@ const MyRegistrations = () => {
   // ✅ State สำหรับ Edit Modal
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState(null);
+
+  // ✅ State สำหรับ ConfirmModal
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     loadData();
@@ -109,22 +113,27 @@ const MyRegistrations = () => {
     return [];
   };
 
-  const handleCancelRegistration = async (registration) => {
-    if (!window.confirm('คุณต้องการยกเลิกการลงทะเบียนนี้หรือไม่?')) {
-      return;
-    }
-
-    try {
-      const response = await api.delete(`/registrations/${registration.id}`);
-
-      if (response.data.success) {
-        toast.success('ยกเลิกการลงทะเบียนสำเร็จ');
-        loadData();
-      }
-    } catch (error) {
-      console.error('Cancel registration error:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
-    }
+  const handleCancelRegistration = (registration) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการยกเลิก',
+      message: `คุณต้องการยกเลิกการลงทะเบียน "${registration.competition?.name}" หรือไม่?`,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const response = await api.delete(`/registrations/${registration.id}`);
+          if (response.data.success) {
+            toast.success('ยกเลิกการลงทะเบียนสำเร็จ');
+            loadData();
+          } else {
+            toast.error(response.data.message || 'ไม่สามารถยกเลิกได้');
+          }
+        } catch (error) {
+          console.error('Cancel registration error:', error);
+          toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการยกเลิก');
+        }
+      },
+    });
   };
 
   // ✅ Handle Edit
@@ -437,6 +446,17 @@ const MyRegistrations = () => {
           onSuccess={handleEditSuccess}
         />
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

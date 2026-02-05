@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import RegistrationExportButtons from '@/components/registrations/RegistrationExportButtons';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import {
   List,
   Plus,
@@ -34,6 +35,7 @@ const RegistrationList = () => {
 
   const [registrations, setRegistrations] = useState([]); // ✅ Initialize as empty array
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [filters, setFilters] = useState({
     search: '',
     status: 'all',
@@ -98,17 +100,23 @@ const RegistrationList = () => {
   /**
    * Delete registration
    */
-  const handleDelete = async (id) => {
-    if (!window.confirm('ยืนยันการลบการลงทะเบียนนี้?')) return;
-
-    try {
-      await apiClient.delete(`/registrations/${id}`);
-      toast.success('ลบการลงทะเบียนสำเร็จ');
-      loadRegistrations();
-    } catch (error) {
-      console.error('Error deleting registration:', error);
-      toast.error('ไม่สามารถลบการลงทะเบียนได้');
-    }
+  const handleDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: 'ยืนยันการลบการลงทะเบียนนี้?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await apiClient.delete(`/registrations/${id}`);
+          toast.success('ลบการลงทะเบียนสำเร็จ');
+          loadRegistrations();
+        } catch (error) {
+          console.error('Error deleting registration:', error);
+          toast.error('ไม่สามารถลบการลงทะเบียนได้');
+        }
+      },
+    });
   };
 
   /**
@@ -395,11 +403,21 @@ const RegistrationList = () => {
       {!loading && filteredRegistrations.length > 0 && (
         <div className="mt-6 text-sm text-gray-600 text-center">
           แสดง {filteredRegistrations.length} รายการ
-          {filters.search || filters.status !== 'all' 
-            ? ` จากทั้งหมด ${registrations.length} รายการ` 
+          {filters.search || filters.status !== 'all'
+            ? ` จากทั้งหมด ${registrations.length} รายการ`
             : ''}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Edit2, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 export default function JudgesPage() {
   const { id } = useParams();
@@ -16,6 +17,7 @@ export default function JudgesPage() {
   const [editingJudge, setEditingJudge] = useState(null);
   const [hasRegistrations, setHasRegistrations] = useState(false);
   const [registrationsCount, setRegistrationsCount] = useState(0);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   useEffect(() => {
     fetchData();
@@ -95,20 +97,26 @@ export default function JudgesPage() {
     }
   };
 
-  const handleDeleteJudge = async (judge) => {
-    if (!window.confirm(`คุณต้องการลบกรรมการ "${judge.name}" หรือไม่?`)) return;
-    
-    try {
-      const response = await api.delete(`/competitions/${id}/judges/${judge.id}`);
-      
-      if (response.data.success) {
-        toast.success('ลบกรรมการสำเร็จ');
-        await fetchJudges();
-      }
-    } catch (error) {
-      const message = error.response?.data?.message || 'ไม่สามารถลบกรรมการได้';
-      toast.error(message);
-    }
+  const handleDeleteJudge = (judge) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: `คุณต้องการลบกรรมการ "${judge.name}" หรือไม่?`,
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const response = await api.delete(`/competitions/${id}/judges/${judge.id}`);
+
+          if (response.data.success) {
+            toast.success('ลบกรรมการสำเร็จ');
+            await fetchJudges();
+          }
+        } catch (error) {
+          const message = error.response?.data?.message || 'ไม่สามารถลบกรรมการได้';
+          toast.error(message);
+        }
+      },
+    });
   };
 
   const openEditModal = (judge) => {
@@ -331,6 +339,16 @@ export default function JudgesPage() {
           onSubmit={handleEditJudge}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
