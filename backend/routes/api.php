@@ -184,6 +184,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('competitions/{competition}/teacher-checkin', [\App\Http\Controllers\Admin\DocumentController::class, 'generateTeacherCheckin']);
         Route::get('competitions/{competition}/committee-checkin', [\App\Http\Controllers\Admin\DocumentController::class, 'generateCommitteeCheckin']);
         Route::get('competitions/{competition}/score-sheet', [\App\Http\Controllers\Admin\DocumentController::class, 'generateScoreSheet']);
+        Route::get('competitions/{competition}/cover-sheet', [\App\Http\Controllers\Admin\DocumentController::class, 'generateCoverSheet']);
         Route::get('competitions/{competition}/summary', [\App\Http\Controllers\Admin\DocumentController::class, 'generateSummary']);
     });
 

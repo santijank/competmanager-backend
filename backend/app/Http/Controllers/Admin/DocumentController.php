@@ -315,6 +315,55 @@ class DocumentController extends Controller
     }
 
     /**
+     * สร้างใบปะหน้าซองเอกสาร (Cover Sheet)
+     */
+    public function generateCoverSheet(Request $request, $competition)
+    {
+        try {
+            Log::info("DocumentController: Generating cover sheet for competition {$competition}");
+
+            // ดึงข้อมูลการแข่งขัน
+            $competitionData = Competition::with([
+                'category',
+                'schoolGroup'
+            ])->findOrFail($competition);
+
+            // ดึงข้อมูล schedule สำหรับการแข่งขันนี้
+            $schedule = CompetitionSchedule::where('competition_id', $competition)
+                ->first();
+
+            Log::info("Schedule found: " . ($schedule ? 'Yes' : 'No'));
+
+            // ข้อมูลสำหรับ PDF
+            $data = [
+                'competition' => $competitionData,
+                'schedule' => $schedule,
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            // สร้าง PDF
+            $pdf = Pdf::loadView('exports.cover-sheet-pdf', $data)
+                ->setPaper('a4', 'portrait')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $filename = 'ใบปะหน้าซอง-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: Cover sheet PDF generated successfully");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (Cover Sheet): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างใบปะหน้าซองเอกสาร',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * สร้างเอกสารสรุปการลงทะเบียน (Summary)
      */
     public function generateSummary(Request $request, $competition)

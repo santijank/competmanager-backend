@@ -217,6 +217,40 @@ const documentService = {
     const filename = `ใบลงคะแนน_${competitionCode}.pdf`;
     this.downloadPDF(blob, filename);
   },
+
+  /**
+   * Generate Cover Sheet Document (ใบปะหน้าซองเอกสาร)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async generateCoverSheet(competitionId) {
+    try {
+      const response = await api.get(
+        `/documents/competitions/${competitionId}/cover-sheet`,
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error generating cover sheet:', error);
+      throw new Error('ไม่สามารถสร้างใบปะหน้าซองเอกสารได้');
+    }
+  },
+
+  /**
+   * Generate and Download Cover Sheet (ทางลัด)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @param {string} competitionCode - รหัสการแข่งขัน
+   */
+  async downloadCoverSheet(competitionId, competitionCode) {
+    const blob = await this.generateCoverSheet(competitionId);
+    const filename = `ใบปะหน้าซอง_${competitionCode}.pdf`;
+    this.downloadPDF(blob, filename);
+  },
 };
 
 export default documentService;
