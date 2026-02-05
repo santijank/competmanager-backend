@@ -74,14 +74,14 @@ const documentService = {
   },
 
   /**
-   * Generate Committee Sign-in Document (DOC.1)
+   * Generate Committee Check-in Document (DOC.03)
    * @param {number} competitionId - ID ของกิจกรรม
    * @returns {Promise<Blob>} - PDF file
    */
   async generateCommitteeSignin(competitionId) {
     try {
       const response = await api.get(
-        `/committee-members/signin-pdf/${competitionId}`,
+        `/documents/competitions/${competitionId}/committee-checkin`,
         {
           responseType: 'blob',
           headers: {
@@ -91,7 +91,7 @@ const documentService = {
       );
       return response.data;
     } catch (error) {
-      console.error('Error generating committee signin:', error);
+      console.error('Error generating committee checkin:', error);
       throw new Error('ไม่สามารถสร้างเอกสารลงทะเบียนกรรมการได้');
     }
   },
