@@ -64,6 +64,7 @@ export default function CompetitionDetail() {
   if (!competition) return null;
 
   return (
+    <>
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -252,6 +253,7 @@ export default function CompetitionDetail() {
         </div>
       </div>
     </div>
+
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title="ยืนยันการลบ"
@@ -261,5 +263,6 @@ export default function CompetitionDetail() {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
+    </>
   );
 }
