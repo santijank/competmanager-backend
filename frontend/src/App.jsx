@@ -4,6 +4,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import JudgesPage from '@/pages/judges/JudgesPage';
 import LandingPage from '@/pages/public/LandingPage';
 import PublicDashboard from '@/pages/PublicDashboard';
+import PublicDashboardNew from '@/pages/PublicDashboardNew';
 import PublicResults from '@/pages/public/PublicResults';
 import AnnouncementManagement from '@/pages/announcements/AnnouncementManagement';
 
@@ -73,6 +74,10 @@ import SchoolManagement from '@/pages/admin/SchoolManagement';
 import ActivityLogs from '@/pages/admin/ActivityLogs';
 import CompetitionExclusionManager from '@/pages/admin/CompetitionExclusionManager';
 
+// School Pages
+import SchoolSchedules from '@/pages/school/SchoolSchedules';
+import SchoolResults from '@/pages/school/SchoolResults';
+
 // Components
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import NotFound from '@/pages/NotFound';
@@ -103,6 +108,9 @@ function App() {
           <Route path="/" element={<PublicDashboard />} />
           <Route path="/public-dashboard" element={<PublicDashboard />} />
         </Route>
+
+        {/* NEW Public Dashboard - Modern Design (ทดลอง) */}
+        <Route path="/new" element={<PublicDashboardNew />} />
 
         {/* Login Page */}
         <Route element={<AuthLayout />}>
@@ -160,6 +168,10 @@ function App() {
 
             {/* Schedule Management (Group Admin & District Admin) */}
             <Route path="/schedules/manage" element={<ScheduleManagement />} />
+
+            {/* School Pages (School Admin & Teacher) */}
+            <Route path="/school/schedules" element={<SchoolSchedules />} />
+            <Route path="/school/results" element={<SchoolResults />} />
             
             {/* Old Registration Routes (kept for compatibility) */}
             <Route path="/registrations" element={<RegistrationList />} />

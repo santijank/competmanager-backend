@@ -487,13 +487,24 @@ const DashboardHome = () => {
               </button>
               
               <button
-                onClick={() => navigate('/results')}
+                onClick={() => navigate('/school/results')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <TrendingUp className="w-5 h-5 text-purple-600 mr-3" />
                 <div className="text-left">
-                  <div className="font-medium text-gray-900">ผลการแข่งขัน</div>
-                  <div className="text-sm text-gray-600">ดูผลคะแนน</div>
+                  <div className="font-medium text-gray-900">ประกาศผล</div>
+                  <div className="text-sm text-gray-600">ดูผลการแข่งขัน</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/school/schedules')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Calendar className="w-5 h-5 text-orange-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">ประกาศสถานที่แข่งขัน</div>
+                  <div className="text-sm text-gray-600">ดูสถานที่แข่งขัน</div>
                 </div>
               </button>
             </div>
