@@ -211,6 +211,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('competitions/{id}/scores', [\App\Http\Controllers\Api\ScoreController::class, 'saveScores']);
     Route::get('competitions/{id}/score-statistics', [\App\Http\Controllers\Api\ScoreController::class, 'getStatistics']);
     Route::post('competitions/{id}/finalize', [\App\Http\Controllers\Api\ScoreController::class, 'finalize']);
+    Route::post('competitions/{id}/unfinalize', [\App\Http\Controllers\Api\ScoreController::class, 'unfinalize']);
     Route::post('competitions/{id}/publish', [\App\Http\Controllers\Api\ScoreController::class, 'publishResults']);
     Route::post('competitions/{id}/unpublish', [\App\Http\Controllers\Api\ScoreController::class, 'unpublishResults']);
     Route::post('competitions/{id}/promote-to-district', [\App\Http\Controllers\Api\ScoreController::class, 'promoteToDistrict']);

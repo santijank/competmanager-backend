@@ -472,6 +472,21 @@ class ScoreController extends Controller
             }
             // Admin มีสิทธิ์ทั้งหมด
 
+            // ✅ ตรวจสอบ finalization: group_admin ไม่สามารถแก้คะแนนหลัง finalize ได้
+            if ($user->role === 'group_admin') {
+                $hasFinalized = Score::where('competition_id', $competitionId)
+                    ->where('is_finalized', true)
+                    ->exists();
+
+                if ($hasFinalized) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Scores are finalized',
+                        'message' => 'คะแนนถูกยืนยันแล้ว ไม่สามารถแก้ไขได้ กรุณาติดต่อผู้ดูแลระบบ'
+                    ], 403);
+                }
+            }
+
             DB::beginTransaction();
 
             $savedScores = [];
@@ -660,6 +675,58 @@ class ScoreController extends Controller
             ]);
 
             return response()->json([
+                'error' => 'Server error',
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Unfinalize scores for a competition (ยกเลิกการยืนยันคะแนน)
+     * Route: POST /competitions/{id}/unfinalize
+     * เฉพาะ admin และ district_admin เท่านั้น
+     */
+    public function unfinalize(Request $request, $competitionId)
+    {
+        try {
+            $user = auth()->user();
+
+            // เฉพาะ admin และ district_admin เท่านั้นที่ยกเลิกยืนยันได้
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถยกเลิกการยืนยันคะแนนได้'
+                ], 403);
+            }
+
+            $competition = Competition::findOrFail($competitionId);
+
+            Score::where('competition_id', $competitionId)
+                ->update([
+                    'is_finalized' => false,
+                    'finalized_by' => null,
+                    'finalized_at' => null,
+                ]);
+
+            Log::info('Scores unfinalized', [
+                'competition_id' => $competitionId,
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'ยกเลิกการยืนยันคะแนนสำเร็จ'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('ScoreController: Error unfinalizing scores', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
                 'error' => 'Server error',
                 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
             ], 500);

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import CommitteeMemberModal from '@/components/committee/CommitteeMemberModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import useAuthStore from '@/stores/authStore';
 
 const CommitteeManagement = () => {
@@ -33,6 +34,7 @@ const CommitteeManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [activeLevel, setActiveLevel] = useState('group'); // 'group' หรือ 'district'
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [expandedCategories, setExpandedCategories] = useState({}); // สำหรับ accordion
   const [filters, setFilters] = useState({
     member_type: '',
@@ -113,19 +115,23 @@ const CommitteeManagement = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (member) => {
-    if (!confirm(`คุณต้องการลบ "${member.name}" ใช่หรือไม่?`)) {
-      return;
-    }
-
-    try {
-      await api.delete(`/committee-members/${member.id}`);
-      toast.success('ลบคณะทำงานสำเร็จ');
-      loadData();
-    } catch (error) {
-      console.error('Delete error:', error);
-      toast.error(error.response?.data?.message || 'ไม่สามารถลบได้');
-    }
+  const handleDelete = (member) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการลบ',
+      message: `คุณต้องการลบ "${member.name}" ใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/committee-members/${member.id}`);
+          toast.success('ลบคณะทำงานสำเร็จ');
+          loadData();
+        } catch (error) {
+          console.error('Delete error:', error);
+          toast.error(error.response?.data?.message || 'ไม่สามารถลบได้');
+        }
+        setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
+      },
+    });
   };
 
   const handleSuccess = () => {
@@ -696,6 +702,17 @@ const CommitteeManagement = () => {
           onSuccess={handleSuccess}
         />
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ลบ"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null })}
+      />
     </div>
   );
 };

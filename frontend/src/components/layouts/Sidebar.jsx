@@ -132,6 +132,18 @@ export default function Sidebar({ isOpen, onClose }) {
           icon: FileText,
           path: '/registrations/my',
           roles: ['teacher', 'school_admin'],
+        },
+        {
+          label: 'ประกาศสถานที่แข่งขัน',
+          icon: MapPin,
+          path: '/school/schedules',
+          roles: ['teacher', 'school_admin'],
+        },
+        {
+          label: 'ประกาศผล',
+          icon: BarChart3,
+          path: '/school/results',
+          roles: ['teacher', 'school_admin'],
         }
       );
     }
@@ -236,7 +248,7 @@ export default function Sidebar({ isOpen, onClose }) {
       label: 'คณะทำงาน',
       icon: Users,
       path: '/settings/committee',
-      roles: ['admin', 'district_admin', 'group_admin'],
+      roles: ['admin', 'district_admin', 'group_admin', 'school_admin'],
     },
   ];
 

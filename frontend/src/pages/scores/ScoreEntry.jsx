@@ -213,11 +213,12 @@ const ScoreEntry = () => {
     // Check if all teams have scores
     const unscoredCount = registrations.filter(reg => !scores[reg.id] || scores[reg.id] === '').length;
 
+    const canOverride = ['admin', 'district_admin'].includes(user.role);
     const message = unscoredCount > 0
       ? `ยังมี ${unscoredCount} ทีมที่ยังไม่ได้ใส่คะแนน\n\nต้องการยืนยันคะแนนหรือไม่?\n\n` +
-        `(หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${user.role === 'district_admin' ? 'เว้นแต่คุณเป็น District Admin' : ''})`
+        `(หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${canOverride ? 'เว้นแต่ผู้ดูแลระบบยกเลิกยืนยัน' : ''})`
       : 'ยืนยันคะแนนสุดท้าย?\n\n' +
-        `หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${user.role === 'district_admin' ? 'เว้นแต่คุณเป็น District Admin' : ''}`;
+        `หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${canOverride ? 'เว้นแต่ผู้ดูแลระบบยกเลิกยืนยัน' : ''}`;
 
     setConfirmModal({
       isOpen: true,
@@ -348,6 +349,31 @@ const ScoreEntry = () => {
           toast.error('ไม่สามารถยกเลิกประกาศผลได้');
         } finally {
           setUnpublishing(false);
+        }
+      },
+    });
+  };
+
+  /**
+   * 🔓 Unfinalize scores (admin/district_admin only)
+   */
+  const handleUnfinalize = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยกเลิกการยืนยันคะแนน',
+      message: 'คุณต้องการยกเลิกการยืนยันคะแนนหรือไม่?\n\nGroup Admin จะสามารถแก้ไขคะแนนได้อีกครั้ง',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          const response = await api.post(`/competitions/${competitionId}/unfinalize`);
+          if (response.data.success) {
+            toast.success('ยกเลิกการยืนยันคะแนนสำเร็จ');
+            setIsFinalized(false);
+            await fetchData();
+          }
+        } catch (error) {
+          console.error('Error unfinalizing:', error);
+          toast.error(error.response?.data?.message || 'ไม่สามารถยกเลิกการยืนยันคะแนนได้');
         }
       },
     });
@@ -525,7 +551,7 @@ const ScoreEntry = () => {
                     const medal = score !== '' ? calculateMedal(score) : null;
                     const medalDisplay = medal ? getMedalDisplay(medal) : null;
                     const rank = rankPreview[reg.id];
-                    const isLocked = reg.score?.is_finalized && user.role !== 'district_admin';
+                    const isLocked = reg.score?.is_finalized && !['admin', 'district_admin'].includes(user.role);
                     
                     return (
                       <tr key={reg.id} className={isLocked ? 'bg-gray-50' : 'hover:bg-gray-50'}>
@@ -626,7 +652,7 @@ const ScoreEntry = () => {
             
             <button
               onClick={handleSaveScores}
-              disabled={saving || (isFinalized && user.role !== 'district_admin')}
+              disabled={saving || (isFinalized && !['admin', 'district_admin'].includes(user.role))}
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
@@ -659,6 +685,17 @@ const ScoreEntry = () => {
                     <span>ยืนยันคะแนนสุดท้าย</span>
                   </>
                 )}
+              </button>
+            )}
+
+            {/* ปุ่มยกเลิกยืนยัน - เฉพาะ admin/district_admin */}
+            {isFinalized && ['admin', 'district_admin'].includes(user.role) && (
+              <button
+                onClick={handleUnfinalize}
+                className="flex items-center space-x-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>ยกเลิกยืนยัน</span>
               </button>
             )}
 
