@@ -23,6 +23,8 @@ class Competition extends Model
         'max_students',
         'min_teachers',      // ✅ เพิ่ม - จำนวนครูขั้นต่ำ
         'max_teachers',
+        'min_judges',        // ✅ เพิ่ม - จำนวนกรรมการขั้นต่ำ
+        'max_judges',        // ✅ เพิ่ม - จำนวนกรรมการสูงสุด
 
         'school_group_id',
         'excluded_school_groups',  // ✅ กลุ่มที่ไม่อนุญาตให้ลงทะเบียน
@@ -63,6 +65,8 @@ class Competition extends Model
         'max_students' => 'integer',
         'min_teachers' => 'integer',
         'max_teachers' => 'integer',
+        'min_judges' => 'integer',
+        'max_judges' => 'integer',
     ];
 
     // Relationships

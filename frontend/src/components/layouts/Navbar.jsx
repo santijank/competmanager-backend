@@ -19,11 +19,11 @@ export default function Navbar({ onMenuClick }) {
 
   return (
     <nav
-      className="relative z-40 h-[1220px] bg-cover"
-      style={{ 
+      className="relative z-40 min-h-[350px] h-[56vh] max-h-[700px] bg-cover md:min-h-[450px] lg:min-h-[500px]"
+      style={{
         backgroundImage: "url('/images/header-banner.png')",
-        backgroundPosition: '0 0',
-        backgroundSize: 'cover'
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top'
       }}
     >
       {/* Overlay */}
