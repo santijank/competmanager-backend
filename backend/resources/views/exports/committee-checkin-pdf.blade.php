@@ -26,71 +26,39 @@
         }
 
         @page {
+            size: A4 landscape;
             margin: 10mm 10mm 10mm 12mm;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
-            font-size: 16pt;
+            font-size: 14pt;
             line-height: 1.0;
         }
 
         /* ===== HEADER ===== */
         .page-header {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            text-align: center;
         }
 
-        .header-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .header-table td {
-            vertical-align: top;
-            padding: 0;
-        }
-
-        .logo-cell {
-            width: 210px;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .logo-img {
-            width: 200px;
-            height: auto;
-        }
-
-        .info-cell {
-            text-align: left;
-            padding-left: 10px;
-            vertical-align: middle;
-        }
-
-        .header-text {
+        .header-title {
             font-size: 16pt;
             font-weight: bold;
-            line-height: 1.5;
+            line-height: 1.4;
         }
 
-        .header-text-normal {
-            font-size: 16pt;
-            line-height: 1.5;
-        }
-
-        .header-text-green {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #006600;
-            line-height: 1.5;
+        .header-subtitle {
+            font-size: 14pt;
+            line-height: 1.4;
         }
 
         /* ===== DOCUMENT INFO ===== */
         .doc-info {
             width: 100%;
-            margin-bottom: 6px;
-            font-size: 16pt;
+            margin-bottom: 4px;
+            font-size: 14pt;
             border-collapse: collapse;
         }
 
@@ -102,14 +70,14 @@
         .doc-badge {
             border: 1px solid #333;
             padding: 2px 8px;
-            font-size: 14pt;
+            font-size: 12pt;
         }
 
         /* ===== TABLE STYLES ===== */
         table.data-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 16pt;
+            font-size: 14pt;
         }
 
         table.data-table thead {
@@ -132,45 +100,63 @@
         }
 
         table.data-table th {
-            background-color: #1a5c1a;
+            background-color: #000;
             color: white;
             font-weight: bold;
             text-align: center;
-            font-size: 16pt;
+            font-size: 14pt;
         }
 
         table.data-table td {
-            font-size: 16pt;
+            font-size: 14pt;
+            height: 32px;
         }
 
         /* ความกว้างคอลัมน์ */
         .col-no {
-            width: 8%;
+            width: 5%;
             text-align: center;
         }
 
         .col-name {
-            width: 30%;
+            width: 18%;
+            text-align: left;
+            padding-left: 5px;
+        }
+
+        .col-org {
+            width: 17%;
             text-align: left;
             padding-left: 5px;
         }
 
         .col-position {
-            width: 25%;
-            text-align: left;
-            padding-left: 5px;
+            width: 12%;
+            text-align: center;
         }
 
-        .col-organization {
-            width: 20%;
-            text-align: left;
-            padding-left: 5px;
+        .col-time {
+            width: 8%;
+            text-align: center;
         }
 
-        .col-signature {
-            width: 17%;
-            text-align: left;
-            padding-left: 6px;
+        .col-sign {
+            width: 11%;
+            text-align: center;
+        }
+
+        .col-signature-name {
+            width: 10%;
+            text-align: center;
+        }
+
+        .col-remark {
+            width: 9%;
+            text-align: center;
+        }
+
+        .empty-row td {
+            height: 32px;
         }
     </style>
 </head>
@@ -207,17 +193,7 @@
             $day = $dateToUse->format('j');
             $month = $thaiMonths[(int)$dateToUse->format('n')];
             $year = $dateToUse->format('Y') + 543;
-            $competitionDateText = "วันที่แข่งขัน วันที่ {$day} {$month} พ.ศ.{$year}";
-        }
-
-        // รวมสถานที่และวันที่
-        $venueAndDate = '';
-        if ($venueName && $competitionDateText) {
-            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
-        } elseif ($venueName) {
-            $venueAndDate = "ณ {$venueName}";
-        } elseif ($competitionDateText) {
-            $venueAndDate = $competitionDateText;
+            $competitionDateText = "วันที่ {$day} {$month} พ.ศ.{$year}";
         }
 
         // ชื่อกิจกรรม
@@ -225,37 +201,29 @@
 
         // รหัสกิจกรรม
         $activityCode = $competition->code ?? '-';
+
+        // จำนวนแถวว่างที่ต้องเพิ่ม
+        $totalRows = max(8, $committees->count());
+        $emptyRows = $totalRows - $committees->count();
     @endphp
 
     <!-- HEADER -->
     <div class="page-header">
-        <table class="header-table">
-            <tr>
-                <td class="logo-cell">
-                    @if(file_exists(public_path('images/smart-sesao-logo.png')))
-                        <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
-                    @endif
-                </td>
-                <td class="info-cell">
-                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $groupName }}</span><br>
-                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
-                    @if($venueAndDate)
-                        <span class="header-text-green">{{ $venueAndDate }}</span>
-                    @endif
-                </td>
-            </tr>
-        </table>
+        <div class="header-title">เอกสารการลงเวลาปฏิราชการของกรรมการตัดสินการแข่งขัน</div>
+        <div class="header-title">กิจกรรม {{ $activityName }}</div>
+        @if($venueName)
+            <div class="header-subtitle">ณ {{ $venueName }}</div>
+        @endif
+        @if($competitionDateText)
+            <div class="header-subtitle">{{ $competitionDateText }}</div>
+        @endif
     </div>
 
     <!-- DOCUMENT INFO -->
     <table class="doc-info" border="0">
         <tr>
-            <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-            <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนกรรมการ (DC.03)</span></td>
-        </tr>
-        <tr>
-            <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
-            <td style="text-align: right;"></td>
+            <td style="text-align: left; width: 70%;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
+            <td style="text-align: right; width: 30%;"><span class="doc-badge">เอกสารลงทะเบียนกรรมการ (DC.03)</span></td>
         </tr>
     </table>
 
@@ -264,10 +232,15 @@
         <thead>
             <tr>
                 <th class="col-no">ลำดับ</th>
-                <th class="col-name">ชื่อกรรมการ</th>
+                <th class="col-name">ชื่อสกุล</th>
+                <th class="col-org">สังกัด</th>
                 <th class="col-position">ตำแหน่ง</th>
-                <th class="col-organization">หน่วยงาน</th>
-                <th class="col-signature">ลงชื่อตัวบรรจง</th>
+                <th class="col-time">เวลามา</th>
+                <th class="col-sign">ลายเซ็น</th>
+                <th class="col-time">เวลากลับ</th>
+                <th class="col-sign">ลายเซ็น</th>
+                <th class="col-signature-name">ลงชื่อตัวบรรจง</th>
+                <th class="col-remark">หมายเหตุ</th>
             </tr>
         </thead>
         <tbody>
@@ -276,15 +249,32 @@
                 <tr>
                     <td class="col-no">{{ $rowNumber++ }}</td>
                     <td class="col-name">{{ $committee->name ?? '-' }}</td>
+                    <td class="col-org">{{ $committee->organization ?? '-' }}</td>
                     <td class="col-position">{{ $committee->position ?? '-' }}</td>
-                    <td class="col-organization">{{ $committee->organization ?? '-' }}</td>
-                    <td class="col-signature"></td>
+                    <td class="col-time"></td>
+                    <td class="col-sign"></td>
+                    <td class="col-time"></td>
+                    <td class="col-sign"></td>
+                    <td class="col-signature-name"></td>
+                    <td class="col-remark"></td>
                 </tr>
             @empty
-                <tr>
-                    <td colspan="5" style="text-align: center; padding: 20px;">ไม่มีข้อมูลกรรมการ</td>
-                </tr>
             @endforelse
+            {{-- เพิ่มแถวว่าง --}}
+            @for($i = 0; $i < $emptyRows; $i++)
+                <tr class="empty-row">
+                    <td class="col-no">{{ $rowNumber++ }}</td>
+                    <td class="col-name"></td>
+                    <td class="col-org"></td>
+                    <td class="col-position"></td>
+                    <td class="col-time"></td>
+                    <td class="col-sign"></td>
+                    <td class="col-time"></td>
+                    <td class="col-sign"></td>
+                    <td class="col-signature-name"></td>
+                    <td class="col-remark"></td>
+                </tr>
+            @endfor
         </tbody>
     </table>
 </body>

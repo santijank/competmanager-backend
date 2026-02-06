@@ -216,7 +216,7 @@ class DocumentController extends Controller
 
             // สร้าง PDF
             $pdf = Pdf::loadView('exports.committee-checkin-pdf', $data)
-                ->setPaper('a4', 'portrait')
+                ->setPaper('a4', 'landscape')
                 ->setOption('defaultFont', 'THSarabunNew');
 
             $filename = 'DOC3-แบบลงทะเบียนกรรมการ-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
