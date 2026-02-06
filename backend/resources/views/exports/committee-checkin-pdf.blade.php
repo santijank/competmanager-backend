@@ -27,7 +27,7 @@
 
         @page {
             size: A4 landscape;
-            margin: 10mm 10mm 10mm 12mm;
+            margin: 15mm 15mm 15mm 15mm;
         }
 
         body {
@@ -39,25 +39,58 @@
         /* ===== HEADER ===== */
         .page-header {
             width: 100%;
-            margin-bottom: 5px;
-            text-align: center;
+            margin-bottom: 8px;
         }
 
-        .header-title {
-            font-size: 16pt;
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-table td {
+            vertical-align: top;
+            padding: 0;
+        }
+
+        .logo-cell {
+            width: 180px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .logo-img {
+            width: 170px;
+            height: auto;
+        }
+
+        .info-cell {
+            text-align: left;
+            padding-left: 10px;
+            vertical-align: middle;
+        }
+
+        .header-text {
+            font-size: 15pt;
             font-weight: bold;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
-        .header-subtitle {
-            font-size: 14pt;
-            line-height: 1.4;
+        .header-text-normal {
+            font-size: 15pt;
+            line-height: 1.5;
+        }
+
+        .header-text-green {
+            font-size: 15pt;
+            font-weight: bold;
+            color: #006600;
+            line-height: 1.5;
         }
 
         /* ===== DOCUMENT INFO ===== */
         .doc-info {
             width: 100%;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             font-size: 14pt;
             border-collapse: collapse;
         }
@@ -100,7 +133,7 @@
         }
 
         table.data-table th {
-            background-color: #000;
+            background-color: #1a5c1a;
             color: white;
             font-weight: bold;
             text-align: center;
@@ -193,7 +226,17 @@
             $day = $dateToUse->format('j');
             $month = $thaiMonths[(int)$dateToUse->format('n')];
             $year = $dateToUse->format('Y') + 543;
-            $competitionDateText = "วันที่ {$day} {$month} พ.ศ.{$year}";
+            $competitionDateText = "วันที่แข่งขัน วันที่ {$day} {$month} พ.ศ.{$year}";
+        }
+
+        // รวมสถานที่และวันที่
+        $venueAndDate = '';
+        if ($venueName && $competitionDateText) {
+            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
+        } elseif ($venueName) {
+            $venueAndDate = "ณ {$venueName}";
+        } elseif ($competitionDateText) {
+            $venueAndDate = $competitionDateText;
         }
 
         // ชื่อกิจกรรม
@@ -209,21 +252,33 @@
 
     <!-- HEADER -->
     <div class="page-header">
-        <div class="header-title">เอกสารการลงเวลาปฏิราชการของกรรมการตัดสินการแข่งขัน</div>
-        <div class="header-title">กิจกรรม {{ $activityName }}</div>
-        @if($venueName)
-            <div class="header-subtitle">ณ {{ $venueName }}</div>
-        @endif
-        @if($competitionDateText)
-            <div class="header-subtitle">{{ $competitionDateText }}</div>
-        @endif
+        <table class="header-table">
+            <tr>
+                <td class="logo-cell">
+                    @if(file_exists(public_path('images/smart-sesao-logo.png')))
+                        <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
+                    @endif
+                </td>
+                <td class="info-cell">
+                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $groupName }}</span><br>
+                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
+                    @if($venueAndDate)
+                        <span class="header-text-green">{{ $venueAndDate }}</span>
+                    @endif
+                </td>
+            </tr>
+        </table>
     </div>
 
     <!-- DOCUMENT INFO -->
     <table class="doc-info" border="0">
         <tr>
-            <td style="text-align: left; width: 70%;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
-            <td style="text-align: right; width: 30%;"><span class="doc-badge">เอกสารลงทะเบียนกรรมการ (DC.03)</span></td>
+            <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
+            <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนกรรมการ (DC.03)</span></td>
+        </tr>
+        <tr>
+            <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
+            <td style="text-align: right;"></td>
         </tr>
     </table>
 
