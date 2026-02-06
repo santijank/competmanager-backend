@@ -134,6 +134,12 @@ export default function Sidebar({ isOpen, onClose }) {
           roles: ['teacher', 'school_admin'],
         },
         {
+          label: 'กิจกรรมแข่งขันของกลุ่ม',
+          icon: Layers,
+          path: '/school/group-competitions',
+          roles: ['teacher', 'school_admin'],
+        },
+        {
           label: 'ประกาศสถานที่แข่งขัน',
           icon: MapPin,
           path: '/school/schedules',

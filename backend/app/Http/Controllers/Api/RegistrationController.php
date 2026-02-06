@@ -1294,4 +1294,108 @@ class RegistrationController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * ดูกิจกรรมทั้งหมดของกลุ่มพร้อม approved registrations
+     * สำหรับ school_admin/teacher ดูได้อย่างเดียว
+     * Route: GET /registrations/group-overview
+     */
+    public function groupOverview(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // หา school_group_id ของ user
+            $schoolGroupId = $user->school_group_id;
+            if (!$schoolGroupId && $user->school_id) {
+                $school = School::find($user->school_id);
+                $schoolGroupId = $school ? $school->school_group_id : null;
+            }
+
+            if (!$schoolGroupId && !in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบกลุ่มโรงเรียน'], 400);
+            }
+
+            // ดึง competitions ของกลุ่ม
+            $query = Competition::with(['category', 'schoolGroup'])
+                ->where('is_active', true);
+
+            if (in_array($user->role, ['admin', 'district_admin'])) {
+                // admin/district_admin ดูได้ทั้งหมด - อาจกรองด้วย school_group_id
+                if ($request->has('school_group_id') && $request->school_group_id) {
+                    $query->where('school_group_id', $request->school_group_id);
+                }
+            } else {
+                $query->where('school_group_id', $schoolGroupId);
+            }
+
+            $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            // ดึง approved registrations ของทุก competition
+            $competitionIds = $competitions->pluck('id')->toArray();
+
+            $registrations = Registration::whereIn('competition_id', $competitionIds)
+                ->where('status', 'approved')
+                ->with(['school', 'score'])
+                ->get()
+                ->groupBy('competition_id');
+
+            // จัดกลุ่มตาม category
+            $categories = [];
+            $grouped = $competitions->groupBy(function ($comp) {
+                return $comp->category->name ?? 'อื่นๆ';
+            });
+
+            foreach ($grouped as $categoryName => $comps) {
+                $categoryComps = [];
+                foreach ($comps as $comp) {
+                    $compRegs = $registrations->get($comp->id, collect());
+
+                    $categoryComps[] = [
+                        'id' => $comp->id,
+                        'name' => $comp->name,
+                        'code' => $comp->code,
+                        'level' => $comp->level,
+                        'competition_level' => $comp->competition_level,
+                        'school_group_name' => $comp->schoolGroup->name ?? null,
+                        'registration_count' => $compRegs->count(),
+                        'is_published' => (bool) $comp->is_published,
+                        'registrations' => $compRegs->map(function ($reg) {
+                            return [
+                                'id' => $reg->id,
+                                'team_name' => $reg->team_name,
+                                'school_name' => $reg->school->name ?? '-',
+                                'student_count' => $reg->student_count,
+                                'teacher_count' => $reg->teacher_count,
+                                'score' => $reg->score ? number_format($reg->score->score, 2) : null,
+                                'medal' => $reg->score->medal ?? null,
+                                'rank' => $reg->score->rank ?? null,
+                                'is_finalized' => $reg->score ? (bool) $reg->score->is_finalized : false,
+                            ];
+                        })->sortBy('rank')->values()->toArray(),
+                    ];
+                }
+
+                $categories[] = [
+                    'category' => $categoryName,
+                    'competitions' => $categoryComps,
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $categories,
+                'total_competitions' => $competitions->count(),
+                'total_registrations' => $registrations->flatten()->count(),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Group overview error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด'], 500);
+        }
+    }
 }
