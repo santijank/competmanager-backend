@@ -37,6 +37,7 @@ const ScoreManagement = () => {
 
   // Tab สำหรับแยกระดับ (สำหรับ admin/district_admin)
   const [activeLevel, setActiveLevel] = useState('group'); // 'group' | 'district'
+  const [selectedGroupId, setSelectedGroupId] = useState(''); // กรองกลุ่มโรงเรียน
 
   useEffect(() => {
     fetchCompetitions();
@@ -97,6 +98,19 @@ const ScoreManagement = () => {
   // แยกการแข่งขันตามระดับ
   const groupCompetitions = competitions.filter(c => c.competition_level === 'group');
   const districtCompetitions = competitions.filter(c => c.competition_level === 'district');
+
+  // ดึงรายชื่อกลุ่มโรงเรียนจาก competitions (สำหรับ admin/district_admin)
+  const schoolGroups = (() => {
+    const groups = {};
+    groupCompetitions.forEach(c => {
+      if (c.school_group?.id && c.school_group?.name) {
+        groups[c.school_group.id] = c.school_group.name;
+      }
+    });
+    return Object.entries(groups)
+      .map(([id, name]) => ({ id: parseInt(id), name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  })();
 
   // คำนวณ stats แยกตามระดับ
   const calculateLevelStats = (comps) => {
@@ -266,6 +280,7 @@ const ScoreManagement = () => {
   // เปลี่ยน tab และ reset expanded categories
   const handleTabChange = (level) => {
     setActiveLevel(level);
+    setSelectedGroupId(''); // reset กลุ่มที่เลือก
     const comps = level === 'group' ? groupCompetitions : districtCompetitions;
     const grouped = groupByCategory(comps);
     if (grouped.length > 0) {
@@ -503,8 +518,15 @@ const ScoreManagement = () => {
 
   // สำหรับ group_admin แสดงเฉพาะระดับกลุ่ม
   const isGroupAdminOnly = user?.role === 'group_admin';
-  const currentCompetitions = activeLevel === 'group' ? groupCompetitions : districtCompetitions;
-  const currentStats = activeLevel === 'group' ? groupStats : districtStats;
+  const isAdmin = ['admin', 'district_admin'].includes(user?.role);
+
+  // กรองตามกลุ่มโรงเรียนที่เลือก (สำหรับ admin ที่ดู tab ระดับกลุ่ม)
+  const filteredGroupCompetitions = (isAdmin && selectedGroupId && activeLevel === 'group')
+    ? groupCompetitions.filter(c => c.school_group_id === parseInt(selectedGroupId))
+    : groupCompetitions;
+
+  const currentCompetitions = activeLevel === 'group' ? filteredGroupCompetitions : districtCompetitions;
+  const currentStats = calculateLevelStats(currentCompetitions);
   const currentCategories = groupByCategory(
     searchTerm
       ? currentCompetitions.filter(c =>
@@ -597,7 +619,9 @@ const ScoreManagement = () => {
                 <p className="text-sm opacity-90">
                   {activeLevel === 'district'
                     ? 'การแข่งขันระดับสำนักงานเขตพื้นที่การศึกษา'
-                    : 'การแข่งขันระดับกลุ่มโรงเรียน'
+                    : selectedGroupId
+                      ? `กลุ่ม: ${schoolGroups.find(g => g.id === parseInt(selectedGroupId))?.name || ''}`
+                      : 'การแข่งขันระดับกลุ่มโรงเรียน'
                   }
                 </p>
               </div>
@@ -655,6 +679,22 @@ const ScoreManagement = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+
+            {/* กรองกลุ่มโรงเรียน - เฉพาะ admin/district_admin ที่ดู tab ระดับกลุ่ม */}
+            {isAdmin && activeLevel === 'group' && schoolGroups.length > 0 && (
+              <div className="min-w-[220px]">
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">ทุกกลุ่มโรงเรียน</option>
+                  {schoolGroups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex space-x-2">
               <button
