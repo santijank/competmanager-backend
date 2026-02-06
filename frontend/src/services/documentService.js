@@ -251,6 +251,41 @@ const documentService = {
     const filename = `ใบปะหน้าซอง_${competitionCode}.pdf`;
     this.downloadPDF(blob, filename);
   },
+
+  /**
+   * Generate School Registrations Document
+   * @param {string} status - 'approved' or 'pending'
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async generateSchoolRegistrations(status) {
+    try {
+      const response = await api.get(
+        `/documents/school-registrations`,
+        {
+          params: { status },
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error generating school registrations:', error);
+      throw new Error('ไม่สามารถสร้างเอกสารรายการลงทะเบียนได้');
+    }
+  },
+
+  /**
+   * Generate and Download School Registrations (ทางลัด)
+   * @param {string} status - 'approved' or 'pending'
+   */
+  async downloadSchoolRegistrations(status) {
+    const blob = await this.generateSchoolRegistrations(status);
+    const statusLabel = status === 'approved' ? 'อนุมัติแล้ว' : 'รออนุมัติ';
+    const filename = `รายการลงทะเบียน_${statusLabel}.pdf`;
+    this.downloadPDF(blob, filename);
+  },
 };
 
 export default documentService;

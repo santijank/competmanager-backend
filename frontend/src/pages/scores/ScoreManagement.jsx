@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * 🎯 Score Management - แยกตามระดับกลุ่ม/เขต
@@ -32,6 +33,7 @@ const ScoreManagement = () => {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [publishingCompetition, setPublishingCompetition] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   // Tab สำหรับแยกระดับ (สำหรับ admin/district_admin)
   const [activeLevel, setActiveLevel] = useState('group'); // 'group' | 'district'
@@ -188,37 +190,45 @@ const ScoreManagement = () => {
     navigate(`/scores/entry/${competitionId}`);
   };
 
-  const handlePublish = async (competitionId) => {
-    if (!confirm('คุณต้องการประกาศผลการแข่งขันนี้หรือไม่?\n\nผลจะถูกเผยแพร่ให้บุคคลทั่วไปสามารถดูได้')) {
-      return;
-    }
-
-    try {
-      setPublishingCompetition(competitionId);
-      await api.post(`/competitions/${competitionId}/publish`);
-      toast.success('ประกาศผลสำเร็จ');
-      fetchCompetitions();
-    } catch (error) {
-      console.error('Error publishing:', error);
-      toast.error(error.response?.data?.message || 'ไม่สามารถประกาศผลได้');
-    } finally {
-      setPublishingCompetition(null);
-    }
+  const handlePublish = (competitionId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ประกาศผลการแข่งขัน',
+      message: 'คุณต้องการประกาศผลการแข่งขันนี้หรือไม่?\n\nผลจะถูกเผยแพร่ให้บุคคลทั่วไปสามารถดูได้',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          setPublishingCompetition(competitionId);
+          await api.post(`/competitions/${competitionId}/publish`);
+          toast.success('ประกาศผลสำเร็จ');
+          fetchCompetitions();
+        } catch (error) {
+          console.error('Error publishing:', error);
+          toast.error(error.response?.data?.message || 'ไม่สามารถประกาศผลได้');
+        } finally {
+          setPublishingCompetition(null);
+        }
+      },
+    });
   };
 
-  const handleUnpublish = async (competitionId) => {
-    if (!confirm('คุณต้องการยกเลิกประกาศผลหรือไม่?')) {
-      return;
-    }
-
-    try {
-      await api.post(`/competitions/${competitionId}/unpublish`);
-      toast.success('ยกเลิกประกาศผลสำเร็จ');
-      fetchCompetitions();
-    } catch (error) {
-      console.error('Error unpublishing:', error);
-      toast.error('ไม่สามารถยกเลิกประกาศผลได้');
-    }
+  const handleUnpublish = (competitionId) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยกเลิกประกาศผล',
+      message: 'คุณต้องการยกเลิกประกาศผลหรือไม่?',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        try {
+          await api.post(`/competitions/${competitionId}/unpublish`);
+          toast.success('ยกเลิกประกาศผลสำเร็จ');
+          fetchCompetitions();
+        } catch (error) {
+          console.error('Error unpublishing:', error);
+          toast.error('ไม่สามารถยกเลิกประกาศผลได้');
+        }
+      },
+    });
   };
 
   const getLevelBadge = (competitionLevel) => {
@@ -743,6 +753,16 @@ const ScoreManagement = () => {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText="ยืนยัน"
+        variant="danger"
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

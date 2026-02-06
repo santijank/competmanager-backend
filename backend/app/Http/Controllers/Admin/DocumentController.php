@@ -364,6 +364,66 @@ class DocumentController extends Controller
     }
 
     /**
+     * สร้างเอกสารรายการลงทะเบียนของโรงเรียน (School Registration Report)
+     * สำหรับ School Admin ออกเอกสารรายการที่ลงทะเบียน แยกตามสถานะ
+     */
+    public function generateSchoolRegistrations(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $status = $request->query('status', 'approved'); // 'approved' or 'pending'
+
+            Log::info("DocumentController: Generating school registrations PDF for user {$user->id}, status: {$status}");
+
+            // ดึง school ของ user
+            $school = $user->school;
+            if (!$school) {
+                return response()->json([
+                    'message' => 'ไม่พบข้อมูลโรงเรียนของคุณ'
+                ], 404);
+            }
+
+            // ดึงข้อมูลการลงทะเบียนของโรงเรียนนี้ตามสถานะ
+            $registrations = Registration::where('school_id', $school->id)
+                ->where('status', $status)
+                ->with(['competition.category', 'school'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            Log::info("Found {$registrations->count()} registrations with status: {$status}");
+
+            // ข้อมูลสำหรับ PDF
+            $data = [
+                'school' => $school,
+                'registrations' => $registrations,
+                'status' => $status,
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            // สร้าง PDF
+            $pdf = Pdf::loadView('exports.school-registrations-pdf', $data)
+                ->setPaper('a4', 'portrait')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $statusLabel = $status === 'approved' ? 'อนุมัติแล้ว' : 'รออนุมัติ';
+            $filename = "รายการลงทะเบียน-{$statusLabel}-{$school->name}-" . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: School registrations PDF generated successfully");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (School Registrations): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสาร',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * สร้างเอกสารสรุปการลงทะเบียน (Summary)
      */
     public function generateSummary(Request $request, $competition)

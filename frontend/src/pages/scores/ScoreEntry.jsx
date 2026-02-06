@@ -605,18 +605,6 @@ const ScoreEntry = () => {
           </div>
         </div>
 
-        {/* 🐛 Debug State Display - ลบทิ้งหลังเช็คเสร็จ */}
-        <div className="bg-yellow-100 border-2 border-yellow-400 rounded-lg p-4 mb-4">
-          <div className="text-sm font-mono">
-            <strong className="text-yellow-900">🐛 DEBUG STATE:</strong>
-            <div className="mt-2 space-y-1">
-              <div>isFinalized = <strong className={isFinalized ? 'text-green-700' : 'text-red-700'}>{String(isFinalized)}</strong></div>
-              <div>isPublished = <strong className={isPublished ? 'text-green-700' : 'text-red-700'}>{String(isPublished)}</strong></div>
-              <div>registrations.length = <strong>{registrations.length}</strong></div>
-            </div>
-          </div>
-        </div>
-
         {/* Actions */}
         <div className="flex items-center justify-between space-x-4">
           <button

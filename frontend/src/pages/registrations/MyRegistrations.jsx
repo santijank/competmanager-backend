@@ -12,9 +12,11 @@ import {
   Trash2,
   Plus,
   RefreshCw,
-  Edit2
+  Edit2,
+  Download
 } from 'lucide-react';
 import api from '@/lib/api';
+import documentService from '@/services/documentService';
 import EditRegistrationModal from '@/components/registrations/EditRegistrationModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 
@@ -35,6 +37,10 @@ const MyRegistrations = () => {
 
   // ✅ State สำหรับ ConfirmModal
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+  // ✅ State สำหรับ PDF Export
+  const [exportingPending, setExportingPending] = useState(false);
+  const [exportingApproved, setExportingApproved] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -146,6 +152,33 @@ const MyRegistrations = () => {
     loadData();
   };
 
+  // ✅ Export PDF handlers
+  const handleExportPending = async () => {
+    try {
+      setExportingPending(true);
+      await documentService.downloadSchoolRegistrations('pending');
+      toast.success('ดาวน์โหลดเอกสารสำเร็จ');
+    } catch (error) {
+      console.error('Export pending error:', error);
+      toast.error('ไม่สามารถสร้างเอกสารได้');
+    } finally {
+      setExportingPending(false);
+    }
+  };
+
+  const handleExportApproved = async () => {
+    try {
+      setExportingApproved(true);
+      await documentService.downloadSchoolRegistrations('approved');
+      toast.success('ดาวน์โหลดเอกสารสำเร็จ');
+    } catch (error) {
+      console.error('Export approved error:', error);
+      toast.error('ไม่สามารถสร้างเอกสารได้');
+    } finally {
+      setExportingApproved(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
       pending: {
@@ -206,6 +239,32 @@ const MyRegistrations = () => {
             </div>
             
             <div className="flex items-center space-x-3">
+              <button
+                onClick={handleExportPending}
+                disabled={exportingPending || !statistics?.pending}
+                className="flex items-center space-x-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exportingPending ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span>ออกเอกสารที่รออนุมัติ</span>
+              </button>
+
+              <button
+                onClick={handleExportApproved}
+                disabled={exportingApproved || !statistics?.approved}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {exportingApproved ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span>ออกเอกสารที่อนุมัติแล้ว</span>
+              </button>
+
               <button
                 onClick={() => navigate('/registrations/browse')}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
