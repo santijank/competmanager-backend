@@ -5,7 +5,9 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  FileDown,
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
 
@@ -16,6 +18,7 @@ const SchoolResults = () => {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({ totalComps: 0, gold: 0, silver: 0, bronze: 0 });
+  const [exportingPdf, setExportingPdf] = useState(null); // track which competition is exporting
 
   useEffect(() => {
     fetchResults();
@@ -99,6 +102,51 @@ const SchoolResults = () => {
       participant: 'text-blue-600 bg-blue-100',
     };
     return map[medal] || '';
+  };
+
+  /**
+   * ดาวน์โหลด PDF สำหรับกิจกรรมเดียว
+   */
+  const handleExportPdf = async (competitionId) => {
+    try {
+      setExportingPdf(competitionId);
+      const response = await api.get(`/competitions/${competitionId}/scores/export/pdf`, {
+        responseType: 'blob'
+      });
+
+      // ตรวจสอบว่า response เป็น JSON error หรือไม่
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || 'เกิดข้อผิดพลาด');
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `ผลคะแนน_${competitionId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('ดาวน์โหลด PDF สำเร็จ');
+    } catch (error) {
+      console.error('Export PDF error:', error);
+      let message = 'ไม่สามารถดาวน์โหลด PDF ได้';
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const json = JSON.parse(text);
+          message = json.message || message;
+        } catch (e) { /* ignore */ }
+      } else if (error.message) {
+        message = error.message;
+      }
+      toast.error(message);
+    } finally {
+      setExportingPdf(null);
+    }
   };
 
   // Filter categories by search
@@ -243,18 +291,33 @@ const SchoolResults = () => {
                       {competitions.map((comp) => (
                         <div key={comp.id} className="border-b border-gray-100 last:border-b-0">
                           {/* Competition Header */}
-                          <div className="px-4 py-3 bg-gray-50">
-                            <div className="flex items-center space-x-3">
-                              <h4 className="text-base font-medium text-gray-900">
-                                {comp.name}
-                              </h4>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                {comp.competition_level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}
-                              </span>
+                          <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center space-x-3">
+                                <h4 className="text-base font-medium text-gray-900">
+                                  {comp.name}
+                                </h4>
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                  {comp.competition_level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}
+                                </span>
+                              </div>
+                              {comp.level && (
+                                <p className="text-sm text-gray-500 mt-1">ระดับชั้น: {comp.level}</p>
+                              )}
                             </div>
-                            {comp.level && (
-                              <p className="text-sm text-gray-500 mt-1">ระดับชั้น: {comp.level}</p>
-                            )}
+                            {/* PDF Download Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleExportPdf(comp.id);
+                              }}
+                              disabled={exportingPdf === comp.id}
+                              className="flex items-center px-3 py-1.5 text-xs border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="ดาวน์โหลด PDF ผลคะแนน"
+                            >
+                              <FileDown className="h-3.5 w-3.5 mr-1" />
+                              {exportingPdf === comp.id ? 'กำลังสร้าง...' : 'PDF'}
+                            </button>
                           </div>
 
                           {/* Results Table */}
