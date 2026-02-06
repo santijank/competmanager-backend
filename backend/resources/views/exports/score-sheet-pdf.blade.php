@@ -26,7 +26,7 @@
         }
 
         @page {
-            margin: 10mm 10mm 10mm 12mm;
+            margin: 15mm 20mm 15mm 20mm;
         }
 
         body {
@@ -151,23 +151,23 @@
         }
 
         .col-school {
-            width: 42%;
+            width: 35%;
             text-align: left;
             padding-left: 8px;
         }
 
         .col-score {
-            width: 18%;
+            width: 20%;
             text-align: center;
         }
 
         .col-rank {
-            width: 12%;
+            width: 14%;
             text-align: center;
         }
 
         .col-note {
-            width: 20%;
+            width: 23%;
             text-align: left;
             padding-left: 5px;
         }
