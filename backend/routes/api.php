@@ -218,10 +218,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('competitions/{id}/promote-to-district', [\App\Http\Controllers\Api\ScoreController::class, 'promoteToDistrict']);
 
     // Score Exports - PDF/Excel
-    Route::get('competitions/{competition}/scores/export/pdf', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportPdf']);
-    Route::get('competitions/{competition}/scores/export/excel', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportExcel']);
-    Route::get('competitions/{competition}/scores/export/blank-sheet', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportBlankSheet']);
-    Route::get('competitions/{competition}/scores/export/leaderboard', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportLeaderboard']);
+    Route::get('competitions/{id}/scores/export/pdf', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportPdf']);
+    Route::get('competitions/{id}/scores/export/excel', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportExcel']);
+    Route::get('competitions/{id}/scores/export/blank-sheet', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportBlankSheet']);
+    Route::get('competitions/{id}/scores/export/leaderboard', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportLeaderboard']);
 
     // Admin: Clear test data (results, scores, announcements)
     Route::post('admin/clear-test-data', function(Request $request) {
