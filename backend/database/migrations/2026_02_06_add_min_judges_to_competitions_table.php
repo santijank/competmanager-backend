@@ -8,9 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('competitions', function (Blueprint $table) {
-            $table->integer('min_judges')->default(1)->after('max_judges');
-        });
+        if (!Schema::hasColumn('competitions', 'min_judges')) {
+            Schema::table('competitions', function (Blueprint $table) {
+                $table->integer('min_judges')->default(1)->after('max_judges');
+            });
+        }
     }
 
     public function down(): void
