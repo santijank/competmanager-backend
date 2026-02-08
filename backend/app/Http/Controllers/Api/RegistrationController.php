@@ -1296,6 +1296,128 @@ class RegistrationController extends Controller
     }
 
     /**
+     * ✅ ดูกิจกรรมที่ผ่านเข้าแข่งขันระดับเขต
+     * - school_admin/teacher: เห็นเฉพาะกิจกรรมของโรงเรียนตนเองที่ผ่านเข้ารอบเขต
+     * - group_admin: เห็นกิจกรรมทั้งหมดของกลุ่มที่ผ่านเข้ารอบเขต
+     * Route: GET /registrations/district-competitions
+     */
+    public function districtCompetitions(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // ดึง competitions ระดับเขต ที่มี approved registrations
+            $query = Competition::with(['category'])
+                ->where('competition_level', 'district')
+                ->where('is_active', true);
+
+            $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            // ดึง approved registrations ของ district competitions
+            $competitionIds = $competitions->pluck('id')->toArray();
+
+            $regQuery = Registration::whereIn('competition_id', $competitionIds)
+                ->where('status', 'approved')
+                ->with(['school.schoolGroup', 'score']);
+
+            // ✅ กรองตาม role
+            if (in_array($user->role, ['school_admin', 'teacher'])) {
+                // School Admin/Teacher: เห็นเฉพาะ registration ของโรงเรียนตนเอง
+                $schoolId = $user->school_id;
+                if (!$schoolId) {
+                    return response()->json([
+                        'success' => true,
+                        'data' => [],
+                        'total_competitions' => 0,
+                        'total_registrations' => 0,
+                    ]);
+                }
+                $regQuery->where('school_id', $schoolId);
+            } elseif ($user->role === 'group_admin') {
+                // Group Admin: เห็นกิจกรรมทั้งหมดที่โรงเรียนในกลุ่มผ่านเข้ารอบ
+                $schoolGroupId = $user->school_group_id;
+                if ($schoolGroupId) {
+                    $schoolIds = School::where('school_group_id', $schoolGroupId)->pluck('id')->toArray();
+                    $regQuery->whereIn('school_id', $schoolIds);
+                }
+            }
+            // admin/district_admin: เห็นทั้งหมด (ไม่กรอง)
+
+            $registrations = $regQuery->get()->groupBy('competition_id');
+
+            // กรองเฉพาะ competitions ที่มี registrations (ผ่านเข้ารอบจริง)
+            $filteredCompetitions = $competitions->filter(function ($comp) use ($registrations) {
+                return $registrations->has($comp->id) && $registrations->get($comp->id)->count() > 0;
+            });
+
+            // จัดกลุ่มตาม category
+            $categories = [];
+            $grouped = $filteredCompetitions->groupBy(function ($comp) {
+                return $comp->category->name ?? 'อื่นๆ';
+            });
+
+            $totalRegs = 0;
+
+            foreach ($grouped as $categoryName => $comps) {
+                $categoryComps = [];
+                foreach ($comps as $comp) {
+                    $compRegs = $registrations->get($comp->id, collect());
+                    $totalRegs += $compRegs->count();
+
+                    $categoryComps[] = [
+                        'id' => $comp->id,
+                        'name' => $comp->name,
+                        'code' => $comp->code,
+                        'level' => $comp->level,
+                        'competition_level' => $comp->competition_level,
+                        'registration_count' => $compRegs->count(),
+                        'is_published' => (bool) $comp->is_published,
+                        'is_finalized' => (bool) $comp->is_finalized,
+                        'registrations' => $compRegs->map(function ($reg) {
+                            return [
+                                'id' => $reg->id,
+                                'team_name' => $reg->team_name,
+                                'school_name' => $reg->school->name ?? '-',
+                                'school_group_name' => $reg->school->schoolGroup->name ?? '-',
+                                'student_count' => $reg->student_count,
+                                'student_names' => $reg->student_names,
+                                'teacher_names' => $reg->teacher_names,
+                                'teacher_count' => $reg->teacher_count,
+                                'notes' => $reg->notes,
+                                'score' => $reg->score ? number_format($reg->score->score, 2) : null,
+                                'medal' => $reg->score->medal ?? null,
+                                'rank' => $reg->score->rank ?? null,
+                                'is_finalized' => $reg->score ? (bool) $reg->score->is_finalized : false,
+                            ];
+                        })->sortBy('rank')->values()->toArray(),
+                    ];
+                }
+
+                $categories[] = [
+                    'category' => $categoryName,
+                    'competition_count' => count($categoryComps),
+                    'competitions' => $categoryComps,
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $categories,
+                'total_competitions' => $filteredCompetitions->count(),
+                'total_registrations' => $totalRegs,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('District competitions error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด'], 500);
+        }
+    }
+
+    /**
      * ดูกิจกรรมทั้งหมดของกลุ่มพร้อม approved registrations
      * สำหรับ school_admin/teacher ดูได้อย่างเดียว
      * Route: GET /registrations/group-overview

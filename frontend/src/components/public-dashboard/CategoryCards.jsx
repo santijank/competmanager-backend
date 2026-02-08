@@ -1,148 +1,40 @@
 import { motion } from 'framer-motion';
 
-/* ── Custom SVG Icons (Futuristic Style) ──────── */
-const CategoryIcon = ({ type, className = '' }) => {
-  const svgProps = { viewBox: '0 0 64 64', className: `w-full h-full ${className}`, fill: 'none', xmlns: 'http://www.w3.org/2000/svg' };
+/* ═══════════════════════════════════════════════════════════════
+   🔮 ULTRA-PREMIUM FUTURISTIC CATEGORY CARDS
+   PNG Icon Set + Cinematic Glassmorphism Cards
+   ═══════════════════════════════════════════════════════════════ */
 
-  switch (type) {
-    case 'music':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <circle cx="32" cy="32" r="20" stroke="currentColor" strokeWidth="0.5" opacity="0.1" />
-          <path d="M24 42V22l20-6v20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="20" cy="42" r="4" fill="currentColor" opacity="0.8" />
-          <circle cx="40" cy="36" r="4" fill="currentColor" opacity="0.8" />
-          <path d="M24 28l20-6" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-          <path d="M48 14c2-2 4-1 4 1s-2 3-4 3" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-          <circle cx="48" cy="18" r="1.5" fill="currentColor" opacity="0.3" />
-        </svg>
-      );
-
-    case 'thai':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <path d="M18 44V24c0-4 4-8 8-8h4c4 0 6 3 6 6s-2 6-6 6H22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M34 44V28c0-3 2-5 5-5h3c3 0 5 2 5 5v16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="42" cy="24" r="3" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-          <rect x="10" y="46" width="44" height="4" rx="2" fill="currentColor" opacity="0.15" />
-        </svg>
-      );
-
-    case 'math':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <path d="M16 20h32M22 20v28M38 20c0 12-2 20-8 28" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M50 10v8M46 14h8" stroke="currentColor" strokeWidth="1.5" opacity="0.4" strokeLinecap="round" />
-          <path d="M8 38h6M8 42h6" stroke="currentColor" strokeWidth="1.5" opacity="0.3" strokeLinecap="round" />
-          <circle cx="52" cy="44" r="2" fill="currentColor" opacity="0.3" />
-        </svg>
-      );
-
-    case 'science':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <path d="M24 12h16M26 12v14l-10 22a4 4 0 004 4h24a4 4 0 004-4L38 26V12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M20 42c4-4 8 2 12-2s8 2 12-2" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-          <circle cx="28" cy="38" r="2" fill="currentColor" opacity="0.3" />
-          <circle cx="35" cy="34" r="1.5" fill="currentColor" opacity="0.25" />
-          <circle cx="32" cy="42" r="1" fill="currentColor" opacity="0.2" />
-          <ellipse cx="50" cy="14" rx="6" ry="3" stroke="currentColor" strokeWidth="0.8" opacity="0.3" transform="rotate(30 50 14)" />
-          <circle cx="50" cy="14" r="1.5" fill="currentColor" opacity="0.3" />
-        </svg>
-      );
-
-    case 'art':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <path d="M32 8C18 8 8 18 8 32c0 8 4 15 10 19 2 1 4-1 4-3v-4c0-4 6-4 6 0v6c0 2 2 4 4 4 14 0 24-10 24-24C56 18 46 8 32 8z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" />
-          <circle cx="20" cy="28" r="3" fill="currentColor" opacity="0.7" />
-          <circle cx="28" cy="18" r="3" fill="currentColor" opacity="0.5" />
-          <circle cx="40" cy="18" r="3" fill="currentColor" opacity="0.6" />
-          <circle cx="44" cy="28" r="3" fill="currentColor" opacity="0.4" />
-        </svg>
-      );
-
-    case 'music_art':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <path d="M32 8v40M28 16c-8 4-12 12-8 20 2 4 8 6 12 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="28" cy="40" r="5" stroke="currentColor" strokeWidth="2" />
-          <path d="M14 22h36M14 30h36M14 38h36" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-          <circle cx="46" cy="22" r="2.5" fill="currentColor" opacity="0.4" />
-          <path d="M48.5 22V14" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-        </svg>
-      );
-
-    case 'health':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <circle cx="36" cy="14" r="4" fill="currentColor" opacity="0.7" />
-          <path d="M28 24l8 4 6-6M36 28l-4 12-6 6M36 28l2 12 8 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M12 36c0-3 2-5 5-5s5 2 5 5c0 6-5 10-5 10s-5-4-5-10z" stroke="currentColor" strokeWidth="1" opacity="0.3" fill="currentColor" fillOpacity="0.15" />
-          <path d="M44 44h4l2-6 4 12 2-6h4" stroke="currentColor" strokeWidth="1.5" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-
-    case 'foreign':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <circle cx="32" cy="32" r="18" stroke="currentColor" strokeWidth="2" />
-          <ellipse cx="32" cy="32" rx="8" ry="18" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
-          <path d="M14 32h36M16 22h32M16 42h32" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-          <text x="20" y="12" fill="currentColor" fontSize="8" fontWeight="bold" opacity="0.4">A</text>
-          <text x="42" y="58" fill="currentColor" fontSize="8" fontWeight="bold" opacity="0.4">B</text>
-        </svg>
-      );
-
-    case 'social':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <path d="M32 10l16 14H16L32 10z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          <rect x="20" y="24" width="24" height="20" stroke="currentColor" strokeWidth="2" />
-          <rect x="28" y="32" width="8" height="12" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M24 24v20M40 24v20" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-          <rect x="16" y="44" width="32" height="4" rx="1" fill="currentColor" opacity="0.15" />
-          <circle cx="32" cy="18" r="2" stroke="currentColor" strokeWidth="1" opacity="0.4" />
-        </svg>
-      );
-
-    case 'career':
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <circle cx="26" cy="26" r="10" stroke="currentColor" strokeWidth="2" />
-          <circle cx="26" cy="26" r="4" fill="currentColor" opacity="0.3" />
-          <path d="M26 14v4M26 34v4M14 26h4M34 26h4M18 18l3 3M31 31l3 3M18 34l3-3M31 21l3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M38 38l12 12M48 38l-10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-          <circle cx="52" cy="52" r="3" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
-        </svg>
-      );
-
-    default:
-      return (
-        <svg {...svgProps}>
-          <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-          <polygon points="32,10 40,26 56,28 44,40 47,56 32,48 17,56 20,40 8,28 24,26" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          <circle cx="32" cy="32" r="6" fill="currentColor" opacity="0.3" />
-        </svg>
-      );
-  }
+/* ── Icon path mapping ─────────────────────────── */
+const iconMap = {
+  thai:       '/images/icons/icon-thai.png',
+  math:       '/images/icons/icon-math.png',
+  science:    '/images/icons/icon-science.png',
+  robotics:   '/images/icons/icon-robotics.png',
+  coding:     '/images/icons/icon-coding.png',
+  innovation: '/images/icons/icon-innovation.png',
+  art:        '/images/icons/icon-awards.png',
+  music:      '/images/icons/icon-awards.png',
+  music_art:  '/images/icons/icon-awards.png',
+  health:     '/images/icons/icon-health.png',
+  foreign:    '/images/icons/icon-foreign.png',
+  social:     '/images/icons/icon-social.png',
+  career:     '/images/icons/icon-career.png',
+  stem:       '/images/icons/icon-stem.png',
+  awards:     '/images/icons/icon-awards.png',
+  default:    '/images/icons/icon-awards.png',
 };
 
-/* ── Category keyword matching ────────────────── */
+/* ── Category keyword matching ─────────────────── */
 const matchCategory = (name) => {
   if (!name) return 'default';
   const n = name.toLowerCase();
-  // Ordered from most specific to least
+
+  if (n.includes('หุ่นยนต์') || n.includes('robot')) return 'robotics';
+  if (n.includes('โปรแกรม') || n.includes('คอมพิวเตอร์') || n.includes('coding')) return 'coding';
+  if (n.includes('นวัตกรรม') || n.includes('สิ่งประดิษฐ์')) return 'innovation';
+  if (n.includes('stem') || n.includes('สะเต็ม')) return 'stem';
+  if (n.includes('รางวัล') || n.includes('เกียรติ')) return 'awards';
   if (n.includes('ศิลปะ-ดนตรี') || (n.includes('ดนตรี') && n.includes('ศิลปะ'))) return 'music_art';
   if (n.includes('ทัศนศิลป์') || n.includes('นาฏศิลป์')) return 'art';
   if (n.includes('ดนตรี') || n.includes('เพลง') || n.includes('ขับร้อง') || n.includes('ลูกทุ่ง')) return 'music';
@@ -152,24 +44,30 @@ const matchCategory = (name) => {
   if (n.includes('สุขศึกษา') || n.includes('พลศึกษา')) return 'health';
   if (n.includes('ภาษาต่างประเทศ') || n.includes('อังกฤษ') || n.includes('จีน')) return 'foreign';
   if (n.includes('สังคม') || n.includes('ศาสนา')) return 'social';
-  if (n.includes('การงาน') || n.includes('อาชีพ') || n.includes('คอมพิวเตอร์')) return 'career';
+  if (n.includes('การงาน') || n.includes('อาชีพ')) return 'career';
   if (n.includes('ศิลปะ')) return 'art';
+  if (n.includes('พัฒนาผู้เรียน') || n.includes('กิจกรรม')) return 'awards';
   return 'default';
 };
 
-/* ── Color schemes per type ───────────────────── */
+/* ── Neon color schemes ───────────────────────── */
 const colorSchemes = {
-  music:     { gradient: 'from-violet-600 via-purple-600 to-fuchsia-600', glow: 'rgba(139,92,246,0.35)', particle: '#a78bfa' },
-  thai:      { gradient: 'from-blue-600 via-indigo-600 to-blue-700', glow: 'rgba(59,130,246,0.35)', particle: '#60a5fa' },
-  math:      { gradient: 'from-emerald-600 via-green-600 to-teal-600', glow: 'rgba(16,185,129,0.35)', particle: '#34d399' },
-  science:   { gradient: 'from-cyan-600 via-sky-600 to-blue-600', glow: 'rgba(6,182,212,0.35)', particle: '#22d3ee' },
-  art:       { gradient: 'from-pink-600 via-rose-600 to-red-600', glow: 'rgba(236,72,153,0.35)', particle: '#f472b6' },
-  music_art: { gradient: 'from-amber-600 via-orange-600 to-yellow-600', glow: 'rgba(245,158,11,0.35)', particle: '#fbbf24' },
-  health:    { gradient: 'from-red-600 via-rose-600 to-pink-600', glow: 'rgba(239,68,68,0.35)', particle: '#f87171' },
-  foreign:   { gradient: 'from-sky-600 via-cyan-600 to-teal-600', glow: 'rgba(14,165,233,0.35)', particle: '#38bdf8' },
-  social:    { gradient: 'from-indigo-600 via-blue-700 to-violet-700', glow: 'rgba(99,102,241,0.35)', particle: '#818cf8' },
-  career:    { gradient: 'from-orange-600 via-amber-600 to-yellow-600', glow: 'rgba(234,88,12,0.35)', particle: '#fb923c' },
-  default:   { gradient: 'from-gray-600 via-slate-600 to-gray-700', glow: 'rgba(148,163,184,0.35)', particle: '#94a3b8' },
+  thai:       { gradient: 'from-blue-500 via-indigo-600 to-blue-700',      glow: 'rgba(59,130,246,0.45)',   particle: '#60a5fa', hex: '#3b82f6' },
+  math:       { gradient: 'from-emerald-500 via-green-600 to-teal-600',    glow: 'rgba(16,185,129,0.45)',   particle: '#34d399', hex: '#10b981' },
+  science:    { gradient: 'from-cyan-500 via-sky-600 to-blue-600',         glow: 'rgba(6,182,212,0.45)',    particle: '#22d3ee', hex: '#06b6d4' },
+  robotics:   { gradient: 'from-violet-500 via-purple-600 to-indigo-700',  glow: 'rgba(139,92,246,0.45)',   particle: '#a78bfa', hex: '#8b5cf6' },
+  coding:     { gradient: 'from-green-500 via-emerald-600 to-cyan-700',    glow: 'rgba(34,197,94,0.45)',    particle: '#4ade80', hex: '#22c55e' },
+  innovation: { gradient: 'from-amber-500 via-yellow-500 to-orange-600',   glow: 'rgba(245,158,11,0.45)',   particle: '#fbbf24', hex: '#f59e0b' },
+  art:        { gradient: 'from-pink-500 via-rose-600 to-red-600',         glow: 'rgba(236,72,153,0.45)',   particle: '#f472b6', hex: '#ec4899' },
+  music:      { gradient: 'from-violet-600 via-purple-600 to-fuchsia-600', glow: 'rgba(168,85,247,0.45)',   particle: '#c084fc', hex: '#a855f7' },
+  music_art:  { gradient: 'from-orange-500 via-amber-600 to-yellow-600',   glow: 'rgba(234,88,12,0.45)',    particle: '#fb923c', hex: '#ea580c' },
+  health:     { gradient: 'from-red-500 via-rose-600 to-pink-600',         glow: 'rgba(239,68,68,0.45)',    particle: '#f87171', hex: '#ef4444' },
+  foreign:    { gradient: 'from-sky-500 via-cyan-600 to-teal-600',         glow: 'rgba(14,165,233,0.45)',   particle: '#38bdf8', hex: '#0ea5e9' },
+  social:     { gradient: 'from-indigo-500 via-blue-700 to-violet-700',    glow: 'rgba(99,102,241,0.45)',   particle: '#818cf8', hex: '#6366f1' },
+  career:     { gradient: 'from-orange-600 via-amber-600 to-yellow-600',   glow: 'rgba(234,88,12,0.45)',    particle: '#fb923c', hex: '#ea580c' },
+  stem:       { gradient: 'from-teal-500 via-cyan-600 to-blue-600',        glow: 'rgba(20,184,166,0.45)',   particle: '#2dd4bf', hex: '#14b8a6' },
+  awards:     { gradient: 'from-yellow-500 via-amber-500 to-orange-600',   glow: 'rgba(234,179,8,0.45)',    particle: '#facc15', hex: '#eab308' },
+  default:    { gradient: 'from-slate-500 via-gray-600 to-slate-700',      glow: 'rgba(148,163,184,0.35)',  particle: '#94a3b8', hex: '#64748b' },
 };
 
 /* ── Main Component ───────────────────────────── */
@@ -177,11 +75,19 @@ export default function CategoryCards({ categories }) {
   if (!categories || categories.length === 0) return null;
 
   return (
-    <section className="py-20 px-4 relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #0f1535 0%, #0a0e27 50%, #0f1535 100%)' }}>
-      {/* Background ambient glow */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: `radial-gradient(circle at 25% 25%, rgba(6,182,212,0.4) 0%, transparent 50%),
-                          radial-gradient(circle at 75% 75%, rgba(139,92,246,0.4) 0%, transparent 50%)`,
+    <section className="py-24 px-4 relative overflow-hidden" style={{ background: 'linear-gradient(180deg, #080c24 0%, #060919 40%, #0a0e27 60%, #080c24 100%)' }}>
+      {/* Background — multi-layer ambient glow */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: `
+          radial-gradient(ellipse 600px 400px at 20% 30%, rgba(6,182,212,0.06) 0%, transparent 70%),
+          radial-gradient(ellipse 600px 400px at 80% 70%, rgba(139,92,246,0.06) 0%, transparent 70%),
+          radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.03) 0%, transparent 60%)
+        `,
+      }} />
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 opacity-[0.015]" style={{
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+        backgroundSize: '60px 60px',
       }} />
 
       <div className="max-w-7xl mx-auto relative z-10">
@@ -191,101 +97,134 @@ export default function CategoryCards({ categories }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-20"
         >
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="h-px w-16 bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
-            <span className="text-cyan-400 text-xs font-semibold tracking-[0.2em] uppercase">
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="h-px w-20 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+            <span className="text-cyan-400 text-[10px] font-bold tracking-[0.3em] uppercase">
               Category Section
             </span>
-            <div className="h-px w-16 bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+            <div className="h-px w-20 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-3">
+          <h2 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
             หมวดหมู่การแข่งขัน
           </h2>
-          <p className="text-blue-200/40 text-sm max-w-lg mx-auto">
+          <p className="text-blue-200/30 text-sm max-w-xl mx-auto">
             กิจกรรมการแข่งขันศิลปหัตถกรรมนักเรียน แบ่งตามกลุ่มสาระการเรียนรู้
           </p>
         </motion.div>
 
         {/* Category grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8">
           {categories.slice(0, 10).map((cat, idx) => {
             const type = matchCategory(cat.category);
             const scheme = colorSchemes[type] || colorSchemes.default;
+            const iconSrc = iconMap[type] || iconMap.default;
             const count = cat.count || cat.competitions?.length || 0;
 
             return (
               <motion.div
                 key={cat.category || idx}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.07 }}
-                whileHover={{ y: -10, scale: 1.03 }}
+                transition={{ duration: 0.6, delay: idx * 0.08, type: 'spring', stiffness: 100 }}
+                whileHover={{ y: -14, scale: 1.05 }}
                 className="group relative cursor-default"
               >
-                <div className="relative bg-white/[0.03] backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-5 pt-16 text-center overflow-hidden transition-all duration-500 hover:border-white/20 hover:bg-white/[0.06]">
-
-                  {/* Animated glow on hover */}
-                  <div
-                    className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-700"
-                    style={{
-                      background: `radial-gradient(circle at 50% 30%, ${scheme.glow}, transparent 70%)`,
-                    }}
+                {/* Card */}
+                <div className="relative bg-white/[0.025] backdrop-blur-2xl border border-white/[0.06] rounded-3xl p-6 pt-32 text-center overflow-hidden transition-all duration-700 hover:border-white/15 hover:bg-white/[0.05]"
+                  style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.02), 0 20px 60px rgba(0,0,0,0.4)' }}
+                >
+                  {/* Hover glow — multi-layer */}
+                  <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-700"
+                    style={{ background: `radial-gradient(circle at 50% 15%, ${scheme.glow}, transparent 65%)` }}
+                  />
+                  <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-50 transition-all duration-1000"
+                    style={{ background: `radial-gradient(circle at 50% 80%, ${scheme.glow.replace('0.45', '0.15')}, transparent 50%)` }}
                   />
 
-                  {/* Floating particles on hover */}
-                  {[...Array(3)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="absolute w-1 h-1 rounded-full opacity-0 group-hover:opacity-60 transition-opacity duration-500"
+                  {/* Floating particles */}
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i}
+                      className="absolute rounded-full opacity-0 group-hover:opacity-50 transition-opacity duration-700"
                       style={{
+                        width: `${2 + (i % 3)}px`, height: `${2 + (i % 3)}px`,
                         backgroundColor: scheme.particle,
-                        left: `${20 + i * 25}%`,
-                        top: `${15 + i * 20}%`,
-                        animation: `float ${3 + i}s ease-in-out infinite`,
-                        animationDelay: `${i * 0.5}s`,
+                        left: `${10 + i * 15}%`, top: `${8 + (i * 14) % 60}%`,
+                        animation: `float ${3 + i * 0.5}s ease-in-out infinite`,
+                        animationDelay: `${i * 0.3}s`,
+                        filter: `blur(${i % 2}px)`,
                       }}
                     />
                   ))}
 
-                  {/* Icon container */}
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 z-20">
+                  {/* 3D Icon container — PNG */}
+                  <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20">
                     <motion.div
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                      className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${scheme.gradient} p-3 shadow-2xl`}
-                      style={{
-                        boxShadow: `0 8px 32px ${scheme.glow}, 0 0 0 1px rgba(255,255,255,0.1)`,
-                      }}
+                      whileHover={{ rotateY: 12, rotateX: -8, scale: 1.08 }}
+                      transition={{ duration: 0.5, type: 'spring', stiffness: 180 }}
+                      className="relative"
+                      style={{ perspective: '800px', transformStyle: 'preserve-3d' }}
                     >
-                      <CategoryIcon type={type} className="text-white drop-shadow-lg" />
+                      {/* Deep shadow */}
+                      <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${scheme.gradient} blur-2xl opacity-30 group-hover:opacity-50 transition-opacity duration-700`}
+                        style={{ transform: 'translateZ(-30px) translateY(10px) scale(1.1)' }}
+                      />
+                      {/* Icon box */}
+                      <div className="relative w-[6.5rem] h-[6.5rem] rounded-2xl overflow-hidden border border-white/20"
+                        style={{
+                          boxShadow: `
+                            0 16px 50px ${scheme.glow},
+                            0 0 0 1px rgba(255,255,255,0.1),
+                            0 0 30px ${scheme.glow.replace('0.45', '0.2')},
+                            inset 0 1px 0 rgba(255,255,255,0.3),
+                            inset 0 -3px 6px rgba(0,0,0,0.25)
+                          `,
+                        }}
+                      >
+                        {/* PNG Icon Image */}
+                        <img
+                          src={iconSrc}
+                          alt={cat.category}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        {/* Glass reflection overlay */}
+                        <div className="absolute top-0 left-0 right-0 h-[40%] bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+                      </div>
+                      {/* Bottom neon reflection */}
+                      <div className={`absolute -bottom-4 left-1 right-1 h-5 rounded-full bg-gradient-to-r ${scheme.gradient} opacity-15 blur-lg group-hover:opacity-30 transition-opacity duration-500`} />
                     </motion.div>
                   </div>
 
-                  {/* Top scan line */}
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  {/* Scan line */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
 
                   {/* Content */}
-                  <div className="relative z-10 mt-2">
-                    <h3 className="text-white font-bold text-sm md:text-base mb-3 line-clamp-2 min-h-[2.5rem] leading-tight">
+                  <div className="relative z-10 mt-4">
+                    <h3 className="text-white font-bold text-sm md:text-base mb-3 line-clamp-2 min-h-[2.5rem] leading-tight tracking-tight">
                       {cat.category}
                     </h3>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-                      <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: scheme.particle }} />
-                      <span className="text-blue-200/60 text-xs font-medium">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-500"
+                      style={{
+                        backgroundColor: `${scheme.hex}08`,
+                        borderColor: `${scheme.hex}20`,
+                      }}
+                    >
+                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: scheme.particle, boxShadow: `0 0 6px ${scheme.particle}` }} />
+                      <span className="text-blue-200/60 text-xs font-semibold">
                         {count} รายการ
                       </span>
                     </div>
                   </div>
 
                   {/* Bottom gradient line */}
-                  <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${scheme.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                  <div className={`absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r ${scheme.gradient} opacity-0 group-hover:opacity-80 transition-opacity duration-500`} />
 
-                  {/* Corner decorations */}
-                  <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-white/[0.06] rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-white/[0.06] rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {/* Corner accents */}
+                  <div className="absolute top-3 right-3 w-6 h-6 border-t border-r border-white/[0.04] rounded-tr-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute bottom-3 left-3 w-6 h-6 border-b border-l border-white/[0.04] rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 </div>
               </motion.div>
             );

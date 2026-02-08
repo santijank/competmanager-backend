@@ -5,9 +5,12 @@ import api from '@/lib/api';
 import HeroBanner from '@/components/public-dashboard/HeroBanner';
 import StatsOverview from '@/components/public-dashboard/StatsOverview';
 import CategoryCards from '@/components/public-dashboard/CategoryCards';
+import ThailandMapSection from '@/components/public-dashboard/ThailandMapSection';
 import CompetitionTimeline from '@/components/public-dashboard/CompetitionTimeline';
 import FeatureCards from '@/components/public-dashboard/FeatureCards';
 import RealtimeDashboard from '@/components/public-dashboard/RealtimeDashboard';
+import TransparencySection from '@/components/public-dashboard/TransparencySection';
+import FinalCTA from '@/components/public-dashboard/FinalCTA';
 import NewsSection from '@/components/public-dashboard/NewsSection';
 import DashboardFooter from '@/components/public-dashboard/DashboardFooter';
 
@@ -103,25 +106,34 @@ export default function PublicDashboardNew() {
       {/* 1. Hero Banner */}
       <HeroBanner />
 
-      {/* 2. Stats Overview */}
+      {/* 2. Live Statistics */}
       <StatsOverview data={overview} />
 
       {/* 3. Category Cards */}
       <CategoryCards categories={categories} />
 
-      {/* 4. Competition Timeline */}
-      <CompetitionTimeline />
+      {/* 4. Interactive Thailand Map */}
+      <ThailandMapSection overview={overview} />
 
-      {/* 5. Feature Cards */}
-      <FeatureCards />
-
-      {/* 6. Real-Time Dashboard (Charts) */}
+      {/* 5. Real-Time Competition Snapshot */}
       <RealtimeDashboard groups={groups} overview={overview} />
 
-      {/* 7. News Section */}
+      {/* 6. Technology Showcase */}
+      <FeatureCards />
+
+      {/* 7. Competition Timeline */}
+      <CompetitionTimeline />
+
+      {/* 8. Transparency & Trust */}
+      <TransparencySection />
+
+      {/* 9. Final Call to Action */}
+      <FinalCTA />
+
+      {/* 10. News Section */}
       <NewsSection announcements={announcements} />
 
-      {/* 8. Footer */}
+      {/* 11. Footer */}
       <DashboardFooter />
     </div>
   );

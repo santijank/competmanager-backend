@@ -115,6 +115,12 @@ export default function Sidebar({ isOpen, onClose }) {
           icon: ClipboardList,
           path: '/registrations/manage',
           roles: ['group_admin'],
+        },
+        {
+          label: 'กิจกรรมระดับเขต',
+          icon: Award,
+          path: '/school/district-competitions',
+          roles: ['group_admin'],
         }
       );
     }
@@ -137,6 +143,12 @@ export default function Sidebar({ isOpen, onClose }) {
           label: 'กิจกรรมแข่งขันของกลุ่ม',
           icon: Layers,
           path: '/school/group-competitions',
+          roles: ['teacher', 'school_admin'],
+        },
+        {
+          label: 'กิจกรรมระดับเขต',
+          icon: Award,
+          path: '/school/district-competitions',
           roles: ['teacher', 'school_admin'],
         },
         {

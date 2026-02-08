@@ -52,10 +52,19 @@ export default {
         'float': 'float 6s ease-in-out infinite',
         'float-delay': 'float 6s ease-in-out 2s infinite',
         'float-slow': 'float 8s ease-in-out infinite',
+        'float-fast': 'float 4s ease-in-out infinite',
         'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+        'pulse-glow-slow': 'pulseGlow 4s ease-in-out infinite',
         'slide-up': 'slideUp 0.6s ease-out',
         'fade-in': 'fadeIn 0.8s ease-out',
         'glow-border': 'glowBorder 3s linear infinite',
+        'shimmer': 'shimmer 3s linear infinite',
+        'scan-line': 'scanLine 4s linear infinite',
+        'rotate-slow': 'rotateSlow 20s linear infinite',
+        'orbit': 'orbit 8s linear infinite',
+        'data-flow': 'dataFlow 2s linear infinite',
+        'pulse-ring': 'pulseRing 2s ease-out infinite',
+        'gradient-shift': 'gradientShift 6s ease infinite',
       },
       keyframes: {
         float: {
@@ -78,6 +87,35 @@ export default {
           '0%': { boxShadow: '0 0 5px rgba(0,191,255,0.3), inset 0 0 5px rgba(0,191,255,0.1)' },
           '50%': { boxShadow: '0 0 20px rgba(0,191,255,0.5), inset 0 0 10px rgba(0,191,255,0.2)' },
           '100%': { boxShadow: '0 0 5px rgba(0,191,255,0.3), inset 0 0 5px rgba(0,191,255,0.1)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        scanLine: {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(100%)' },
+        },
+        rotateSlow: {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+        orbit: {
+          '0%': { transform: 'rotate(0deg) translateX(30px) rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg) translateX(30px) rotate(-360deg)' },
+        },
+        dataFlow: {
+          '0%': { transform: 'translateX(-100%)', opacity: '0' },
+          '50%': { opacity: '1' },
+          '100%': { transform: 'translateX(100%)', opacity: '0' },
+        },
+        pulseRing: {
+          '0%': { transform: 'scale(0.8)', opacity: '1' },
+          '100%': { transform: 'scale(2)', opacity: '0' },
+        },
+        gradientShift: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
         },
       },
     },
