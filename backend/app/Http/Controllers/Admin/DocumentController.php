@@ -77,7 +77,11 @@ class DocumentController extends Controller
             // สร้าง PDF
             $pdf = Pdf::loadView('exports.student-checkin-pdf', $data)
                 ->setPaper('a4', 'portrait')
-                ->setOption('defaultFont', 'THSarabunNew');
+                ->setOption('defaultFont', 'THSarabunNew')
+                ->setOption('margin-top', 20)
+                ->setOption('margin-bottom', 20)
+                ->setOption('margin-left', 18)
+                ->setOption('margin-right', 15);
 
             $filename = 'DOC1-แบบลงทะเบียนนักเรียน-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
 
@@ -159,7 +163,11 @@ class DocumentController extends Controller
             // สร้าง PDF
             $pdf = Pdf::loadView('exports.teacher-checkin-pdf', $data)
                 ->setPaper('a4', 'portrait')
-                ->setOption('defaultFont', 'THSarabunNew');
+                ->setOption('defaultFont', 'THSarabunNew')
+                ->setOption('margin-top', 20)
+                ->setOption('margin-bottom', 20)
+                ->setOption('margin-left', 18)
+                ->setOption('margin-right', 15);
 
             $filename = 'DOC2-แบบลงทะเบียนครู-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
 
@@ -344,7 +352,11 @@ class DocumentController extends Controller
             // สร้าง PDF
             $pdf = Pdf::loadView('exports.cover-sheet-pdf', $data)
                 ->setPaper('a4', 'portrait')
-                ->setOption('defaultFont', 'THSarabunNew');
+                ->setOption('defaultFont', 'THSarabunNew')
+                ->setOption('margin-top', 20)
+                ->setOption('margin-bottom', 20)
+                ->setOption('margin-left', 18)
+                ->setOption('margin-right', 15);
 
             $filename = 'ใบปะหน้าซอง-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
 
@@ -403,7 +415,11 @@ class DocumentController extends Controller
             // สร้าง PDF
             $pdf = Pdf::loadView('exports.school-registrations-pdf', $data)
                 ->setPaper('a4', 'portrait')
-                ->setOption('defaultFont', 'THSarabunNew');
+                ->setOption('defaultFont', 'THSarabunNew')
+                ->setOption('margin-top', 20)
+                ->setOption('margin-bottom', 20)
+                ->setOption('margin-left', 18)
+                ->setOption('margin-right', 15);
 
             $statusLabel = $status === 'approved' ? 'อนุมัติแล้ว' : 'รออนุมัติ';
             $filename = "รายการลงทะเบียน-{$statusLabel}-{$school->name}-" . now()->format('YmdHis') . '.pdf';
