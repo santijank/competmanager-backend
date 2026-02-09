@@ -509,31 +509,31 @@ const ScoreEntry = () => {
         {/* Score Entry Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" style={{ minWidth: '900px' }}>
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '60px' }}>
                     ลำดับ
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     โรงเรียน
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     ทีม
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '80px' }}>
                     จำนวนนักเรียน
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '160px' }}>
                     คะแนน
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '100px' }}>
                     เหรียญ
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '70px' }}>
                     อันดับ
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider" style={{ width: '150px' }}>
                     หมายเหตุ
                   </th>
                 </tr>
@@ -555,10 +555,10 @@ const ScoreEntry = () => {
                     
                     return (
                       <tr key={reg.id} className={isLocked ? 'bg-gray-50' : 'hover:bg-gray-50'}>
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                        <td className="px-3 py-3 text-sm text-gray-900 text-center">
                           {index + 1}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="text-sm font-medium text-gray-900">
                             {reg.school.name}
                           </div>
@@ -568,13 +568,13 @@ const ScoreEntry = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                        <td className="px-3 py-3 text-sm text-gray-900">
                           {reg.team_name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 text-center">
+                        <td className="px-3 py-3 text-sm text-gray-900 text-center">
                           {reg.student_count}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <input
                             type="number"
                             min="0"
@@ -584,14 +584,15 @@ const ScoreEntry = () => {
                             onChange={(e) => handleScoreChange(reg.id, e.target.value)}
                             disabled={isLocked}
                             placeholder="0.00"
-                            className={`w-32 px-3 py-2 text-center border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                              isLocked 
-                                ? 'bg-gray-100 cursor-not-allowed' 
-                                : 'border-gray-300'
+                            className={`w-full px-3 py-3 text-center text-lg font-semibold border-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              isLocked
+                                ? 'bg-gray-100 cursor-not-allowed border-gray-200'
+                                : 'border-gray-300 bg-yellow-50'
                             }`}
+                            style={{ minWidth: '120px', fontSize: '18px' }}
                           />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           {medalDisplay && (
                             <div className="flex items-center justify-center">
                               <span className={`inline-flex items-center space-x-1 px-3 py-1 ${medalDisplay.color} text-xs font-medium rounded-full`}>
@@ -601,23 +602,23 @@ const ScoreEntry = () => {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-3 py-3 text-center">
                           {rank && (
                             <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 font-semibold rounded-full">
                               {rank}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <input
                             type="text"
                             value={notes[reg.id] || ''}
                             onChange={(e) => handleNoteChange(reg.id, e.target.value)}
                             disabled={isLocked}
                             placeholder="หมายเหตุ..."
-                            className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                              isLocked 
-                                ? 'bg-gray-100 cursor-not-allowed' 
+                            className={`w-full px-2 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                              isLocked
+                                ? 'bg-gray-100 cursor-not-allowed'
                                 : 'border-gray-300'
                             }`}
                           />
