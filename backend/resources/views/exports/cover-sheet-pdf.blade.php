@@ -26,7 +26,7 @@
         }
 
         @page {
-            margin: 8mm 10mm 8mm 10mm;
+            margin: 20mm 15mm 20mm 18mm;
         }
 
         body {
