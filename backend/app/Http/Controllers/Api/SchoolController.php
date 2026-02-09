@@ -201,30 +201,16 @@ class SchoolController extends Controller
         if (!$school) {
             return response()->json([
                 'success' => false,
-                'message' => 'School not found'
+                'message' => 'ไม่พบข้อมูลโรงเรียน'
             ], 404);
         }
 
-        // Check if school has users or registrations
-        if ($school->users()->count() > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete school with existing users'
-            ], 422);
-        }
-
-        if ($school->registrations()->count() > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete school with existing registrations'
-            ], 422);
-        }
-
+        // Soft delete โรงเรียน (ข้อมูลยังอยู่ในฐานข้อมูล แค่ซ่อน)
         $school->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'School deleted successfully'
+            'message' => 'ลบโรงเรียนสำเร็จ'
         ]);
     }
 
