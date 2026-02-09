@@ -105,10 +105,12 @@ const RegistrationManagement = () => {
         paginate: false
       };
 
-      // ✅ เพิ่ม filter ตาม level สำหรับ district admin
-      if (isDistrictAdmin()) {
+      // ✅ เพิ่ม filter ตาม level สำหรับทุก role ที่มี tab
+      if (isDistrictAdmin() || isGroupAdmin()) {
         params.competition_level = activeLevel;
+      }
 
+      if (isDistrictAdmin()) {
         // ถ้าเลือกดูระดับกลุ่ม และเลือกกลุ่มเฉพาะ
         if (activeLevel === 'group' && selectedGroupId !== 'all') {
           params.school_group_id = selectedGroupId;
@@ -136,11 +138,11 @@ const RegistrationManagement = () => {
     try {
       const params = { paginate: false };
 
-      if (isDistrictAdmin()) {
+      if (isDistrictAdmin() || isGroupAdmin()) {
         params.competition_level = activeLevel;
-        if (activeLevel === 'group' && selectedGroupId !== 'all') {
-          params.school_group_id = selectedGroupId;
-        }
+      }
+      if (isDistrictAdmin() && activeLevel === 'group' && selectedGroupId !== 'all') {
+        params.school_group_id = selectedGroupId;
       }
 
       const regResponse = await api.get('/registrations', { params });
@@ -483,8 +485,8 @@ const RegistrationManagement = () => {
           </div>
         </div>
 
-        {/* ✅ Level Tabs - สำหรับ District Admin */}
-        {isDistrictAdmin() && (
+        {/* ✅ Level Tabs - สำหรับ District Admin และ Group Admin */}
+        {(isDistrictAdmin() || isGroupAdmin()) && (
           <div className="mb-6">
             <div className="bg-white rounded-lg border border-gray-200 p-2 inline-flex gap-2">
               <button
