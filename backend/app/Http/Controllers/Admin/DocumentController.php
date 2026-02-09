@@ -245,6 +245,65 @@ class DocumentController extends Controller
     }
 
     /**
+     * สร้างเอกสารรายชื่อคณะกรรมการดำเนินงาน (Staff Check-in)
+     */
+    public function generateStaffCheckin(Request $request, $competition)
+    {
+        try {
+            Log::info("DocumentController: Generating staff checkin for competition {$competition}");
+
+            // ดึงข้อมูลการแข่งขัน
+            $competitionData = Competition::with([
+                'category',
+                'schoolGroup'
+            ])->findOrFail($competition);
+
+            // ดึงข้อมูล schedule สำหรับการแข่งขันนี้
+            $schedule = CompetitionSchedule::where('competition_id', $competition)
+                ->first();
+
+            // ดึงเฉพาะคณะกรรมการดำเนินงาน (member_type = 'staff')
+            $committees = CommitteeMember::where('competition_id', $competition)
+                ->where('is_active', true)
+                ->where('member_type', 'staff')
+                ->orderBy('id', 'asc')
+                ->get();
+
+            Log::info("Found {$committees->count()} staff members");
+
+            // ข้อมูลสำหรับ PDF
+            $data = [
+                'competition' => $competitionData,
+                'schedule' => $schedule,
+                'committees' => $committees,
+                'documentTitle' => 'แบบลงทะเบียนคณะกรรมการดำเนินงาน',
+                'documentCode' => 'DC.05',
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            // สร้าง PDF - ใช้ template เดียวกับ committee-checkin
+            $pdf = Pdf::loadView('exports.committee-checkin-pdf', $data)
+                ->setPaper('a4', 'landscape')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $filename = 'DOC5-แบบลงทะเบียนคณะกรรมการดำเนินงาน-' . ($competitionData->code ?? 'export') . '-' . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: Staff check-in PDF generated successfully");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (Staff Check-in): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารรายชื่อคณะกรรมการดำเนินงาน',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * สร้างเอกสารใบลงคะแนน (Score Sheet)
      */
     public function generateScoreSheet(Request $request, $competition)

@@ -97,6 +97,29 @@ const documentService = {
   },
 
   /**
+   * Generate Staff Check-in Document (DC.05 - คณะกรรมการดำเนินงาน)
+   * @param {number} competitionId - ID ของกิจกรรม
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async generateStaffCheckin(competitionId) {
+    try {
+      const response = await api.get(
+        `/documents/competitions/${competitionId}/staff-checkin`,
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error generating staff checkin:', error);
+      throw new Error('ไม่สามารถสร้างเอกสารลงทะเบียนคณะกรรมการดำเนินงานได้');
+    }
+  },
+
+  /**
    * Download PDF file
    * @param {Blob} blob - PDF blob
    * @param {string} filename - ชื่อไฟล์

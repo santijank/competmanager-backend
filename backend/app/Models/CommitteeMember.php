@@ -95,7 +95,7 @@ class CommitteeMember extends Model
     {
         $labels = [
             'committee' => 'คณะกรรมการ',
-            'staff' => 'เจ้าหน้าที่',
+            'staff' => 'คณะกรรมการดำเนินงาน',
             'volunteer' => 'อาสาสมัคร',
         ];
 

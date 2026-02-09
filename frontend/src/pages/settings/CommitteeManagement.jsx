@@ -44,9 +44,11 @@ const CommitteeManagement = () => {
     level: 'group',
   });
 
-  // Group admin และ School admin เห็นเฉพาะ tab ระดับกลุ่ม
+  // ทุก Role เห็นทั้งหมด แต่ school_admin ดูได้อย่างเดียว
   const canSeeDistrictLevel = user?.role === 'district_admin' || user?.role === 'admin';
-  const canAddMember = ['admin', 'district_admin', 'group_admin', 'school_admin'].includes(user?.role);
+  const isReadOnly = user?.role === 'school_admin'; // school_admin ดูได้อย่างเดียว
+  const canAddMember = !isReadOnly && ['admin', 'district_admin', 'group_admin'].includes(user?.role);
+  const canEditMember = !isReadOnly;
   const canDeleteMember = ['admin', 'district_admin', 'group_admin'].includes(user?.role); // School admin ไม่มีสิทธิ์ลบ
 
   useEffect(() => {
@@ -165,6 +167,32 @@ const CommitteeManagement = () => {
     }
   };
 
+  // ดาวน์โหลด PDF สำหรับคณะกรรมการดำเนินงาน
+  const handleDownloadStaffPdf = async (competitionId, competitionName) => {
+    try {
+      toast.info('กำลังสร้าง PDF คณะกรรมการดำเนินงาน...');
+
+      const response = await api.get(`/documents/competitions/${competitionId}/staff-checkin`, {
+        responseType: 'blob'
+      });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ลงทะเบียนคณะกรรมการดำเนินงาน_${competitionId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('ดาวน์โหลด PDF สำเร็จ');
+    } catch (error) {
+      console.error('Download Staff PDF error:', error);
+      toast.error('ไม่สามารถดาวน์โหลด PDF ได้');
+    }
+  };
+
   // รวบรวมกิจกรรมที่มีกรรมการและสามารถพิมพ์ PDF
   const getCompetitionsWithMembers = () => {
     const competitionIds = new Set();
@@ -229,7 +257,7 @@ const CommitteeManagement = () => {
   const getMemberTypeBadge = (type) => {
     const badges = {
       committee: { label: 'คณะกรรมการ', class: 'bg-blue-100 text-blue-700' },
-      staff: { label: 'เจ้าหน้าที่', class: 'bg-green-100 text-green-700' },
+      staff: { label: 'คณะกรรมการดำเนินงาน', class: 'bg-green-100 text-green-700' },
       volunteer: { label: 'อาสาสมัคร', class: 'bg-purple-100 text-purple-700' },
     };
 
@@ -410,7 +438,7 @@ const CommitteeManagement = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">เจ้าหน้าที่</p>
+                <p className="text-sm text-gray-600">คณะกรรมการดำเนินงาน</p>
                 <p className="text-2xl font-bold text-gray-900">{statistics.by_type?.staff || 0}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
@@ -462,7 +490,7 @@ const CommitteeManagement = () => {
             >
               <option value="">ทั้งหมด</option>
               <option value="committee">คณะกรรมการ</option>
-              <option value="staff">เจ้าหน้าที่</option>
+              <option value="staff">คณะกรรมการดำเนินงาน</option>
               <option value="volunteer">อาสาสมัคร</option>
             </select>
           </div>
@@ -593,14 +621,24 @@ const CommitteeManagement = () => {
                             </span>
                           </div>
                           {compData.competition && (
-                            <button
-                              onClick={() => handleDownloadPdf(compData.competition.id, compData.competition.name)}
-                              className="flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded text-sm"
-                              title="ดาวน์โหลดใบลงทะเบียนกรรมการ"
-                            >
-                              <FileText className="w-4 h-4" />
-                              <span className="hidden sm:inline">PDF</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDownloadPdf(compData.competition.id, compData.competition.name)}
+                                className="flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded text-sm"
+                                title="ดาวน์โหลดใบลงทะเบียนกรรมการ"
+                              >
+                                <FileText className="w-4 h-4" />
+                                <span className="hidden sm:inline">กรรมการ</span>
+                              </button>
+                              <button
+                                onClick={() => handleDownloadStaffPdf(compData.competition.id, compData.competition.name)}
+                                className="flex items-center gap-1 px-2 py-1 text-teal-600 hover:bg-teal-50 rounded text-sm"
+                                title="ดาวน์โหลดใบลงทะเบียนคณะกรรมการดำเนินงาน"
+                              >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">ดำเนินงาน</span>
+                              </button>
+                            </div>
                           )}
                         </div>
 
@@ -629,13 +667,15 @@ const CommitteeManagement = () => {
                                   <td className="px-4 py-2">{getStatusBadge(member.is_active)}</td>
                                   <td className="px-4 py-2">
                                     <div className="flex items-center justify-end gap-1">
-                                      <button
-                                        onClick={() => handleEdit(member)}
-                                        className={`p-1.5 ${currentColors.text} hover:bg-blue-100 rounded`}
-                                        title="แก้ไข"
-                                      >
-                                        <Edit2 className="w-4 h-4" />
-                                      </button>
+                                      {canEditMember && (
+                                        <button
+                                          onClick={() => handleEdit(member)}
+                                          className={`p-1.5 ${currentColors.text} hover:bg-blue-100 rounded`}
+                                          title="แก้ไข"
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </button>
+                                      )}
                                       {canDeleteMember && (
                                         <button
                                           onClick={() => handleDelete(member)}

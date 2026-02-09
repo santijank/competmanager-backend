@@ -21,12 +21,7 @@ class CommitteeMemberController extends Controller
         $query = CommitteeMember::with(['schoolGroup', 'competition.category', 'creator'])
             ->orderBy('created_at', 'desc');
 
-        // Role-based filtering
-        if ($user->role === 'group_admin' || $user->role === 'school_admin') {
-            // Group admin และ School admin เห็นเฉพาะกลุ่มของตัวเอง
-            $query->where('school_group_id', $user->school_group_id);
-        }
-        // Admin และ District Admin เห็นทั้งหมด
+        // ทุก Role เห็นข้อมูลทั้งหมด (school_admin ดูได้อย่างเดียว จำกัดสิทธิ์ที่ frontend)
 
         // Apply filters
         if ($request->has('member_type') && $request->member_type !== '') {
@@ -268,10 +263,7 @@ class CommitteeMemberController extends Controller
             )
             ->distinct();
 
-        // Admin และ District Admin เห็นทั้งหมด, Group Admin และ School Admin เห็นเฉพาะกลุ่มตัวเอง
-        if (in_array($user->role, ['group_admin', 'school_admin'])) {
-            $query->where('competitions.school_group_id', $user->school_group_id);
-        }
+        // ทุก Role เห็นกิจกรรมทั้งหมด
 
         $competitions = $query->orderBy('categories.name')
             ->orderBy('competitions.code')
@@ -375,14 +367,10 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        $baseQuery = function() use ($user, $request) {
+        $baseQuery = function() use ($request) {
             $query = CommitteeMember::query();
 
-            // Role-based filtering
-            if (in_array($user->role, ['group_admin', 'school_admin'])) {
-                $query->where('school_group_id', $user->school_group_id);
-            }
-
+            // ทุก Role เห็นสถิติทั้งหมด
             // Filter by level if specified
             if ($request->has('level') && $request->level !== '') {
                 $query->where('level', $request->level);
@@ -396,9 +384,6 @@ class CommitteeMemberController extends Controller
         $inactive = $baseQuery()->where('is_active', false)->count();
 
         $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
-            ->when(in_array($user->role, ['group_admin', 'school_admin']), function($q) use ($user) {
-                return $q->where('school_group_id', $user->school_group_id);
-            })
             ->when($request->has('level') && $request->level !== '', function($q) use ($request) {
                 return $q->where('level', $request->level);
             })
@@ -407,9 +392,6 @@ class CommitteeMemberController extends Controller
             ->pluck('count', 'member_type');
 
         $byLevel = CommitteeMember::select('level', DB::raw('count(*) as count'))
-            ->when(in_array($user->role, ['group_admin', 'school_admin']), function($q) use ($user) {
-                return $q->where('school_group_id', $user->school_group_id);
-            })
             ->groupBy('level')
             ->get()
             ->pluck('count', 'level');

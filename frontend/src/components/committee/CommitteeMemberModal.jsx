@@ -174,7 +174,7 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
                 required
               >
                 <option value="committee">คณะกรรมการ</option>
-                <option value="staff">เจ้าหน้าที่</option>
+                <option value="staff">คณะกรรมการดำเนินงาน</option>
                 <option value="volunteer">อาสาสมัคร</option>
               </select>
             </div>

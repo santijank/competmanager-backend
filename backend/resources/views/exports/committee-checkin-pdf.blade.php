@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>แบบลงทะเบียนกรรมการ</title>
+    <title>{{ $documentTitle ?? 'แบบลงทะเบียนกรรมการ' }}</title>
     <style>
         @font-face {
             font-family: 'THSarabunNew';
@@ -276,7 +276,7 @@
     <table class="doc-info" border="0">
         <tr>
             <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-            <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารลงทะเบียนกรรมการ (DC.03)</span></td>
+            <td style="text-align: right; width: 35%;"><span class="doc-badge">{{ $documentTitle ?? 'เอกสารลงทะเบียนกรรมการ' }} ({{ $documentCode ?? 'DC.03' }})</span></td>
         </tr>
         <tr>
             <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
