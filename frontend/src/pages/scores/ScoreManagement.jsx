@@ -73,9 +73,9 @@ const ScoreManagement = () => {
         ...comp,
         scoreStats: {
           total_registrations: comp.registration_count || 0,
-          total_scored: comp.registrations?.filter(r => r.score?.score !== null).length || 0,
-          total_unscored: (comp.registration_count || 0) - (comp.registrations?.filter(r => r.score?.score !== null).length || 0),
-          finalized: comp.registrations?.filter(r => r.score?.is_finalized).length || 0
+          total_scored: comp.registrations?.filter(r => r.score != null && r.score.score != null).length || 0,
+          total_unscored: (comp.registration_count || 0) - (comp.registrations?.filter(r => r.score != null && r.score.score != null).length || 0),
+          finalized: comp.registrations?.filter(r => r.score != null && r.score.is_finalized).length || 0
         }
       }));
 
