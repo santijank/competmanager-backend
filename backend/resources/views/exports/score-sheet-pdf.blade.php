@@ -18,7 +18,7 @@
             src: url("{{ storage_path('fonts/THSarabunNew/THSarabunNew Bold.ttf') }}") format('truetype');
         }
 
-        html, body, div, span, table, tr, td, th, p, h1, h2, h3, h4, h5, h6, img {
+        div, span, table, tr, td, th, p, h1, h2, h3, h4, h5, h6, img {
             font-family: 'THSarabunNew', sans-serif;
             margin: 0;
             padding: 0;
@@ -26,13 +26,15 @@
         }
 
         @page {
-            margin: 20mm 25mm 20mm 25mm;
+            margin: 0;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
             line-height: 1.0;
+            margin: 0;
+            padding: 20mm 25mm 20mm 25mm;
         }
 
         /* ===== HEADER ===== */
