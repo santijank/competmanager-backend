@@ -20,6 +20,16 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
+        // Debug: log ข้อมูล user และ params
+        Log::info('CommitteeMember index', [
+            'user_role' => $user->role,
+            'user_school_group_id' => $user->school_group_id,
+            'params' => $request->all(),
+            'total_members' => CommitteeMember::count(),
+            'members_with_null_group' => CommitteeMember::whereNull('school_group_id')->count(),
+            'members_in_user_group' => $user->school_group_id ? CommitteeMember::where('school_group_id', $user->school_group_id)->count() : 'N/A',
+        ]);
+
         $query = CommitteeMember::with(['schoolGroup', 'competition.category', 'creator'])
             ->orderBy('created_at', 'desc');
 
@@ -63,13 +73,19 @@ class CommitteeMemberController extends Controller
             $query->where('level', $request->level);
         }
 
-        // Pagination
-        if ($request->get('paginate', true)) {
+        // Pagination - รองรับ string "false" จาก query param
+        $shouldPaginate = filter_var($request->get('paginate', true), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+        if ($shouldPaginate) {
             $perPage = $request->get('per_page', 15);
             $members = $query->paginate($perPage);
         } else {
             $members = $query->get();
         }
+
+        Log::info('CommitteeMember index result', [
+            'paginate' => $shouldPaginate,
+            'count' => $shouldPaginate ? $members->total() : $members->count(),
+        ]);
 
         return response()->json([
             'success' => true,
