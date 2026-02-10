@@ -12,8 +12,8 @@ const PdfDownloadButton = ({ level = 'all', groupId = null, groupName = null }) 
     try {
       setLoading(true);
 
-      // สร้าง URL สำหรับดาวน์โหลด
-      let url = `/api/results/pdf?level=${level}`;
+      // สร้าง URL สำหรับดาวน์โหลด (ใช้ web route เพื่อหลีกเลี่ยง API middleware)
+      let url = `/pdf/results?level=${level}`;
       if (groupId) {
         url += `&school_group_id=${groupId}`;
       }
@@ -290,7 +290,7 @@ const MedalBadge = ({ medal }) => {
 const CompetitionPdfButton = ({ competitionId, competitionName }) => {
   const handleDownload = () => {
     const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
-    const url = `${baseUrl}/api/results/pdf/competition/${competitionId}`;
+    const url = `${baseUrl}/pdf/results/competition/${competitionId}`;
     window.open(url, '_blank');
   };
 

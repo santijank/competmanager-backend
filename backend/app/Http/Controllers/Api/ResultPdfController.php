@@ -128,7 +128,15 @@ class ResultPdfController extends Controller
             }
             $filename .= '_' . date('Ymd_His') . '.pdf';
 
-            return $pdf->download($filename);
+            // Clear any output buffers to prevent Content-Type override
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            return response($pdf->output(), 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
         } catch (\Exception $e) {
             Log::error('ResultPdfController: Error generating PDF', [
@@ -218,7 +226,15 @@ class ResultPdfController extends Controller
             // สร้างชื่อไฟล์
             $filename = 'results_' . $competition->code . '_' . date('Ymd_His') . '.pdf';
 
-            return $pdf->download($filename);
+            // Clear any output buffers to prevent Content-Type override
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            return response($pdf->output(), 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
         } catch (\Exception $e) {
             Log::error('ResultPdfController: Error generating competition PDF', [
@@ -341,7 +357,15 @@ class ResultPdfController extends Controller
             $pdf = Pdf::loadView('pdf.results', $data);
             $pdf->setPaper('A4', 'portrait');
 
-            return $pdf->stream('results_preview.pdf');
+            // Clear any output buffers to prevent Content-Type override
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            return response($pdf->output(), 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="results_preview.pdf"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
         } catch (\Exception $e) {
             Log::error('ResultPdfController: Error previewing PDF', [
