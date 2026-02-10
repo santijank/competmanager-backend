@@ -23,9 +23,18 @@ class CommitteeMemberController extends Controller
         $query = CommitteeMember::with(['schoolGroup', 'competition.category', 'creator'])
             ->orderBy('created_at', 'desc');
 
-        // group_admin เห็นเฉพาะกลุ่มตัวเอง
+        // group_admin เห็นเฉพาะกลุ่มตัวเอง (รวม members ที่ school_group_id เป็น NULL แต่ผูกกิจกรรมในกลุ่ม)
         if ($user->role === 'group_admin' && $user->school_group_id) {
-            $query->where('school_group_id', $user->school_group_id);
+            $groupId = $user->school_group_id;
+            $query->where(function($q) use ($groupId) {
+                $q->where('school_group_id', $groupId)
+                  ->orWhere(function($q2) use ($groupId) {
+                      $q2->whereNull('school_group_id')
+                         ->whereHas('competition', function($q3) use ($groupId) {
+                             $q3->where('school_group_id', $groupId);
+                         });
+                  });
+            });
         }
 
         // Apply filters
@@ -375,13 +384,26 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        $baseQuery = function() use ($request, $user) {
-            $query = CommitteeMember::query();
-
-            // group_admin เห็นเฉพาะกลุ่มตัวเอง
+        // Helper: เพิ่ม group filter สำหรับ group_admin
+        $applyGroupFilter = function($query) use ($user) {
             if ($user->role === 'group_admin' && $user->school_group_id) {
-                $query->where('school_group_id', $user->school_group_id);
+                $groupId = $user->school_group_id;
+                $query->where(function($q) use ($groupId) {
+                    $q->where('school_group_id', $groupId)
+                      ->orWhere(function($q2) use ($groupId) {
+                          $q2->whereNull('school_group_id')
+                             ->whereHas('competition', function($q3) use ($groupId) {
+                                 $q3->where('school_group_id', $groupId);
+                             });
+                      });
+                });
             }
+            return $query;
+        };
+
+        $baseQuery = function() use ($request, $applyGroupFilter) {
+            $query = CommitteeMember::query();
+            $applyGroupFilter($query);
 
             // Filter by level if specified
             if ($request->has('level') && $request->level !== '') {
@@ -395,10 +417,9 @@ class CommitteeMemberController extends Controller
         $active = $baseQuery()->where('is_active', true)->count();
         $inactive = $baseQuery()->where('is_active', false)->count();
 
-        $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
-            ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
-                return $q->where('school_group_id', $user->school_group_id);
-            })
+        $byTypeQuery = CommitteeMember::select('member_type', DB::raw('count(*) as count'));
+        $applyGroupFilter($byTypeQuery);
+        $byType = $byTypeQuery
             ->when($request->has('level') && $request->level !== '', function($q) use ($request) {
                 return $q->where('level', $request->level);
             })
@@ -406,10 +427,9 @@ class CommitteeMemberController extends Controller
             ->get()
             ->pluck('count', 'member_type');
 
-        $byLevel = CommitteeMember::select('level', DB::raw('count(*) as count'))
-            ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
-                return $q->where('school_group_id', $user->school_group_id);
-            })
+        $byLevelQuery = CommitteeMember::select('level', DB::raw('count(*) as count'));
+        $applyGroupFilter($byLevelQuery);
+        $byLevel = $byLevelQuery
             ->groupBy('level')
             ->get()
             ->pluck('count', 'level');
