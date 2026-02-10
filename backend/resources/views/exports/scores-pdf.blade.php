@@ -18,7 +18,7 @@
             src: url("{{ storage_path('fonts/THSarabunNew/THSarabunNew Bold.ttf') }}") format('truetype');
         }
 
-        html, body, div, span, table, tr, td, th, p, h1, h2, h3, h4, h5, h6, img {
+        div, span, table, tr, td, th, p, h1, h2, h3, h4, h5, h6, img {
             font-family: 'THSarabunNew', sans-serif;
             margin: 0;
             padding: 0;
@@ -26,13 +26,15 @@
         }
 
         @page {
-            margin: 20mm 15mm 20mm 18mm;
+            margin: 0;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
             line-height: 1.0;
+            margin: 0;
+            padding: 20mm 15mm 20mm 18mm;
         }
 
         /* ===== HEADER (เหมือนลงทะเบียนนักเรียน) ===== */
@@ -233,6 +235,50 @@
         $groupName = $groupName ?? ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
         $activityName = $competition->name ?? '-';
         $activityCode = $competition->code ?? '-';
+
+        // ดึงสถานที่จาก schedule (เหมือน student-checkin)
+        $venueName = '';
+        if (isset($schedule) && $schedule) {
+            $venueParts = [];
+            if ($schedule->venue) $venueParts[] = $schedule->venue;
+            if ($schedule->room) $venueParts[] = $schedule->room;
+            $venueName = implode(' ', $venueParts);
+        }
+        if (empty($venueName)) {
+            $venueName = $competition->venue ?? '';
+        }
+
+        // Format วันที่แข่งขัน (เหมือน student-checkin)
+        $competitionDateText = '';
+        $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        $dateToUse = null;
+        if (isset($schedule) && $schedule && $schedule->competition_date) {
+            $dateToUse = $schedule->competition_date;
+        } elseif ($competition->competition_date) {
+            $dateToUse = $competition->competition_date;
+        }
+
+        if ($dateToUse) {
+            if (is_string($dateToUse)) {
+                $dateToUse = \Carbon\Carbon::parse($dateToUse);
+            }
+            $day = $dateToUse->format('j');
+            $month = $thaiMonths[(int)$dateToUse->format('n')];
+            $year = $dateToUse->format('Y') + 543;
+            $competitionDateText = "วันที่แข่งขัน วันที่ {$day} {$month} พ.ศ.{$year}";
+        }
+
+        // รวมสถานที่และวันที่
+        $venueAndDate = '';
+        if ($venueName && $competitionDateText) {
+            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
+        } elseif ($venueName) {
+            $venueAndDate = "ณ {$venueName}";
+        } elseif ($competitionDateText) {
+            $venueAndDate = $competitionDateText;
+        }
     @endphp
 
     <!-- HEADER (เหมือนลงทะเบียนนักเรียน) -->
@@ -247,7 +293,9 @@
                 <td class="info-cell">
                     <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $groupName }}</span><br>
                     <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
-                    <span class="header-text-green">เอกสารรายงานผลคะแนนการแข่งขัน</span>
+                    @if($venueAndDate)
+                        <span class="header-text-green">{{ $venueAndDate }}</span>
+                    @endif
                 </td>
             </tr>
         </table>
@@ -307,9 +355,12 @@
                     <td class="col-school">{{ $registration->school->name ?? '-' }}</td>
                     <td class="col-team">{{ $registration->team_name ?? '-' }}</td>
                     <td class="col-students">
-                        @if($registration->students && $registration->students->count() > 0)
-                            @foreach($registration->students as $student)
-                                {{ $loop->iteration }}. {{ $student->name }}@if(!$loop->last)<br>@endif
+                        @php
+                            $studentNames = $registration->getStudentNamesList();
+                        @endphp
+                        @if(count($studentNames) > 0)
+                            @foreach($studentNames as $index => $studentName)
+                                {{ ($index + 1) }}. {{ $studentName }}@if(!$loop->last)<br>@endif
                             @endforeach
                         @else
                             -

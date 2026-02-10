@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
+use App\Models\CompetitionSchedule;
 use App\Models\Registration;
 use App\Models\Score;
 use Illuminate\Http\Request;
@@ -46,11 +47,15 @@ class ScoreExportController extends Controller
             // ข้อมูลสำหรับหัวเอกสาร
             $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
 
+            // ดึงข้อมูล schedule สำหรับสถานที่และวันที่แข่งขัน
+            $schedule = CompetitionSchedule::where('competition_id', $competitionId)->first();
+
             $data = [
                 'competition' => $competition,
                 'registrations' => $sorted,
                 'stats' => $stats,
                 'groupName' => $groupName,
+                'schedule' => $schedule,
                 'generated_at' => now()->format('d/m/Y H:i:s'),
                 'generated_by' => $user->name,
             ];
