@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
+use App\Models\CompetitionSchedule;
 use App\Models\SchoolGroup;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Dompdf\Dompdf;
@@ -202,16 +203,12 @@ class ResultPdfController extends Controller
                 $subtitle .= "\n" . $competition->schoolGroup->name;
             }
 
+            // ดึง schedule สำหรับสถานที่และวันที่
+            $schedule = CompetitionSchedule::where('competition_id', $competitionId)->first();
+
             $data = [
-                'competition' => [
-                    'id' => $competition->id,
-                    'name' => $competition->name,
-                    'code' => $competition->code,
-                    'level' => $competition->level,
-                    'competition_level' => $competition->competition_level,
-                    'category_name' => $competition->category->name ?? 'อื่นๆ',
-                    'school_group_name' => $competition->schoolGroup->name ?? null,
-                ],
+                'competition' => $competition,
+                'schedule' => $schedule,
                 'results' => $results,
                 'levelText' => $levelText,
                 'subtitle' => $subtitle,

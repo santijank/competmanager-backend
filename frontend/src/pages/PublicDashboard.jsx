@@ -19,7 +19,8 @@ const PdfDownloadButton = ({ level = 'all', groupId = null, groupName = null }) 
       }
 
       // เปิดลิงก์ดาวน์โหลดในแท็บใหม่
-      window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`, '_blank');
+      const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
+      window.open(`${baseUrl}${url}`, '_blank');
 
     } catch (error) {
       console.error('Error downloading PDF:', error);
@@ -288,8 +289,7 @@ const MedalBadge = ({ medal }) => {
 // Competition PDF Download Button - ปุ่มดาวน์โหลด PDF สำหรับแต่ละกิจกรรม
 const CompetitionPdfButton = ({ competitionId, competitionName }) => {
   const handleDownload = () => {
-    // ใช้ VITE_API_BASE_URL เพื่อหลีกเลี่ยง /api ซ้ำ
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/api\/?$/, '');
     const url = `${baseUrl}/api/results/pdf/competition/${competitionId}`;
     window.open(url, '_blank');
   };
