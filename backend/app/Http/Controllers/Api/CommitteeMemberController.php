@@ -71,15 +71,6 @@ class CommitteeMemberController extends Controller
             $query->where('level', $request->level);
         }
 
-        // Debug: log raw SQL query
-        Log::info('CommitteeMember index SQL', [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-            'user_role' => $user->role,
-            'user_school_group_id' => $user->school_group_id,
-            'params' => $request->all(),
-        ]);
-
         // Pagination - รองรับ string "false" จาก query param
         $shouldPaginate = filter_var($request->get('paginate', true), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
         if ($shouldPaginate) {
@@ -89,19 +80,9 @@ class CommitteeMemberController extends Controller
             $members = $query->get();
         }
 
-        Log::info('CommitteeMember index result', [
-            'count' => $shouldPaginate ? $members->total() : $members->count(),
-        ]);
-
         return response()->json([
             'success' => true,
-            'data' => $members,
-            'debug' => [
-                'count' => $shouldPaginate ? $members->total() : $members->count(),
-                'user_role' => $user->role,
-                'user_school_group_id' => $user->school_group_id,
-                'params' => $request->all(),
-            ]
+            'data' => $members
         ]);
     }
 
@@ -434,16 +415,6 @@ class CommitteeMemberController extends Controller
         $total = $baseQuery()->count();
         $active = $baseQuery()->where('is_active', true)->count();
         $inactive = $baseQuery()->where('is_active', false)->count();
-
-        // Debug: log SQL
-        $debugQuery = $baseQuery();
-        Log::info('CommitteeMember statistics SQL', [
-            'sql' => $debugQuery->toSql(),
-            'bindings' => $debugQuery->getBindings(),
-            'total' => $total,
-            'user_role' => $user->role,
-            'user_school_group_id' => $user->school_group_id,
-        ]);
 
         $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
             ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
