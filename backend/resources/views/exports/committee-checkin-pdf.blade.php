@@ -275,13 +275,19 @@
     <!-- DOCUMENT INFO -->
     <table class="doc-info" border="0">
         <tr>
-            <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
+            @if($activityCode !== 'STAFF')
+                <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
+            @else
+                <td style="text-align: left; width: 65%;"></td>
+            @endif
             <td style="text-align: right; width: 35%;"><span class="doc-badge">{{ $documentTitle ?? 'เอกสารลงทะเบียนกรรมการ' }} ({{ $documentCode ?? 'DC.03' }})</span></td>
         </tr>
+        @if($activityCode !== 'STAFF')
         <tr>
             <td style="text-align: left;"><strong>รหัสกิจกรรม :</strong> {{ $activityCode }}</td>
             <td style="text-align: right;"></td>
         </tr>
+        @endif
     </table>
 
     <!-- DATA TABLE -->

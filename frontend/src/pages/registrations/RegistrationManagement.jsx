@@ -53,6 +53,7 @@ const RegistrationManagement = () => {
   const [competitionsByCategory, setCompetitionsByCategory] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCompetitionForDoc, setSelectedCompetitionForDoc] = useState(null);
+  const [loadingStaffPdf, setLoadingStaffPdf] = useState(false);
   const [showDocumentSection, setShowDocumentSection] = useState(false);
 
   const [filters, setFilters] = useState({
@@ -134,6 +135,35 @@ const RegistrationManagement = () => {
   };
 
   // โหลด competitions ที่มี approved registrations เท่านั้น
+  // ดาวน์โหลด PDF คณะกรรมการดำเนินงาน (ทั้งหมดในกลุ่ม ไม่ต้องเลือกกิจกรรม)
+  const handleDownloadStaffPdf = async () => {
+    try {
+      setLoadingStaffPdf(true);
+      toast.info('กำลังสร้าง PDF คณะกรรมการดำเนินงาน...');
+
+      const response = await api.get('/committee-members/staff-pdf', {
+        responseType: 'blob'
+      });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ลงทะเบียนคณะกรรมการดำเนินงาน_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('ดาวน์โหลด PDF สำเร็จ');
+    } catch (error) {
+      console.error('Download Staff PDF error:', error);
+      toast.error('ไม่สามารถดาวน์โหลด PDF ได้');
+    } finally {
+      setLoadingStaffPdf(false);
+    }
+  };
+
   const loadCompetitionsWithApprovedRegistrations = async () => {
     try {
       const params = { paginate: false };
@@ -651,6 +681,28 @@ const RegistrationManagement = () => {
                 <p>ไม่มีกิจกรรมที่มีการลงทะเบียนอนุมัติแล้ว</p>
               </div>
             )}
+
+            {/* ปุ่มออกเอกสารคณะกรรมการดำเนินงาน (ไม่ต้องเลือกกิจกรรม) */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">เอกสารอื่นๆ (ไม่ต้องเลือกกิจกรรม)</h3>
+              <button
+                onClick={handleDownloadStaffPdf}
+                disabled={loadingStaffPdf}
+                className="inline-flex items-center px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loadingStaffPdf ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    กำลังสร้าง...
+                  </>
+                ) : (
+                  <>
+                    <Users className="w-4 h-4 mr-2" />
+                    ลงทะเบียนคณะกรรมการดำเนินงาน
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
