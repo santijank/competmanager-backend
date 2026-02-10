@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pin, Edit, Trash2, AlertCircle, Link as LinkIcon, ExternalLink, X } from 'lucide-react';
+import { Plus, Pin, Edit, Trash2, AlertCircle, Link as LinkIcon, ExternalLink, X, ImageIcon, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 
@@ -196,6 +196,18 @@ const AnnouncementCard = ({ announcement, onEdit, onDelete, onTogglePin }) => {
             {announcement.content}
           </p>
 
+          {/* แสดงรูปภาพ */}
+          {announcement.image_url && (
+            <div className="mb-3">
+              <img
+                src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}${announcement.image_url}`}
+                alt={announcement.title}
+                className="max-w-md max-h-48 rounded-lg border border-gray-200 object-cover cursor-pointer hover:opacity-90"
+                onClick={() => window.open(`${import.meta.env.VITE_API_URL?.replace('/api', '')}${announcement.image_url}`, '_blank')}
+              />
+            </div>
+          )}
+
           {/* แสดงลิงก์ Google Drive หรือลิงก์อื่นๆ */}
           {announcement.link_url && (
             <div className="mb-3">
@@ -267,6 +279,10 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [schoolGroups, setSchoolGroups] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [existingImage, setExistingImage] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -335,10 +351,33 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
         link_url: data.link_url || '',
         link_title: data.link_title || '',
       });
+      if (data.image_url) {
+        setExistingImage(data.image_url);
+      }
     } catch (error) {
       console.error('Error fetching announcement:', error);
       toast.error('ไม่สามารถโหลดข้อมูลได้');
     }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('ไฟล์รูปภาพต้องไม่เกิน 5MB');
+        return;
+      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setRemoveImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setExistingImage(null);
+    setRemoveImage(true);
   };
 
   const handleSubmit = async (e) => {
@@ -346,30 +385,38 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
     setLoading(true);
 
     try {
-      const submitData = { ...formData };
-
-      // แปลงค่า boolean
-      submitData.is_pinned = formData.is_pinned ? 1 : 0;
-
-      // ลบค่าว่าง
-      if (!submitData.expired_at) delete submitData.expired_at;
-      if (!submitData.link_url) delete submitData.link_url;
-      if (!submitData.link_title) delete submitData.link_title;
+      // ใช้ FormData เพื่อรองรับ file upload
+      const fd = new FormData();
+      fd.append('title', formData.title);
+      fd.append('content', formData.content);
+      fd.append('type', formData.type);
+      fd.append('scope', formData.scope);
+      fd.append('priority', formData.priority);
+      fd.append('is_pinned', formData.is_pinned ? 1 : 0);
+      if (formData.published_at) fd.append('published_at', formData.published_at);
+      if (formData.expired_at) fd.append('expired_at', formData.expired_at);
+      if (formData.link_url) fd.append('link_url', formData.link_url);
+      if (formData.link_title) fd.append('link_title', formData.link_title);
+      if (formData.school_group_id) fd.append('school_group_id', formData.school_group_id);
+      if (imageFile) fd.append('image', imageFile);
+      if (removeImage) fd.append('remove_image', 1);
 
       if (announcementId) {
-        // แก้ไข - ไม่รองรับ "all"
-        if (!submitData.school_group_id || submitData.school_group_id === 'all') delete submitData.school_group_id;
-        await api.put(`/announcements/${announcementId}`, submitData);
+        // แก้ไข - ใช้ POST + _method=PUT เพราะ FormData ไม่รองรับ PUT
+        fd.append('_method', 'PUT');
+        await api.post(`/announcements/${announcementId}`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
         toast.success('แก้ไขประกาศสำเร็จ');
       } else {
-        // สร้างใหม่ - รองรับ "ทุกกลุ่ม"
-        if (submitData.school_group_id === 'all') {
-          // ส่ง school_group_id = 'all' ไปให้ backend จัดการ
-          await api.post('/announcements', submitData);
+        // สร้างใหม่
+        const isAll = formData.school_group_id === 'all';
+        await api.post('/announcements', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        if (isAll) {
           toast.success(`สร้างประกาศไปยังทุกกลุ่มโรงเรียนสำเร็จ (${schoolGroups.length} กลุ่ม)`);
         } else {
-          if (!submitData.school_group_id) delete submitData.school_group_id;
-          await api.post('/announcements', submitData);
           toast.success('สร้างประกาศสำเร็จ');
         }
       }
@@ -473,6 +520,41 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
                 💡 วิธีใช้งาน: คัดลอกลิงก์จาก Google Drive แล้ววางที่นี่
                 (ตรวจสอบว่าได้แชร์ไฟล์เป็น "ทุกคนที่มีลิงก์" แล้ว)
               </p>
+            </div>
+
+            {/* รูปภาพ */}
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <ImageIcon className="w-5 h-5 text-green-600" />
+                <h3 className="font-medium text-green-900">รูปภาพประกอบ (ไม่บังคับ)</h3>
+              </div>
+
+              {/* แสดง preview รูปภาพ */}
+              {(imagePreview || (existingImage && !removeImage)) && (
+                <div className="relative inline-block mb-3">
+                  <img
+                    src={imagePreview || `${import.meta.env.VITE_API_URL?.replace('/api', '')}${existingImage}`}
+                    alt="Preview"
+                    className="max-w-full max-h-48 rounded-lg border border-gray-200 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow"
+                    title="ลบรูปภาพ"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                onChange={handleImageChange}
+                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-100 file:text-green-700 hover:file:bg-green-200"
+              />
+              <p className="text-xs text-green-700 mt-1">รองรับ JPG, PNG, GIF, WebP ขนาดไม่เกิน 5MB</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class AnnouncementController extends Controller
 {
@@ -32,6 +33,7 @@ class AnnouncementController extends Controller
                     'a.expired_at',
                     'a.link_url',
                     'a.link_title',
+                    'a.image_url',
                     'sg.name as school_group_name',
                     'c.name as competition_name',
                     'a.created_at'
@@ -90,6 +92,7 @@ class AnnouncementController extends Controller
                     'a.expired_at',
                     'a.link_url',
                     'a.link_title',
+                    'a.image_url',
                     'a.created_by',
                     'sg.name as school_group_name',
                     'c.name as competition_name',
@@ -172,6 +175,13 @@ class AnnouncementController extends Controller
             }
 
             $data = $request->validate($rules);
+
+            // จัดการอัปโหลดรูปภาพ
+            if ($request->hasFile('image')) {
+                $request->validate(['image' => 'image|mimes:jpeg,jpg,png,gif,webp|max:5120']);
+                $path = $request->file('image')->store('announcements', 'public');
+                $data['image_url'] = '/storage/' . $path;
+            }
 
             // Group Admin สามารถสร้างได้เฉพาะกลุ่มตนเอง
             if ($user->role === 'group_admin') {
@@ -341,8 +351,36 @@ class AnnouncementController extends Controller
                 'link_title' => 'nullable|string|max:255',
             ]);
 
+            // จัดการอัปโหลดรูปภาพ
+            if ($request->hasFile('image')) {
+                $request->validate(['image' => 'image|mimes:jpeg,jpg,png,gif,webp|max:5120']);
+
+                // ลบรูปเก่า
+                if ($announcement->image_url) {
+                    $oldPath = str_replace('/storage/', '', $announcement->image_url);
+                    Storage::disk('public')->delete($oldPath);
+                }
+
+                $path = $request->file('image')->store('announcements', 'public');
+                $data['image_url'] = '/storage/' . $path;
+            }
+
+            // ลบรูปภาพ ถ้าส่ง remove_image=1
+            if ($request->boolean('remove_image')) {
+                if ($announcement->image_url) {
+                    $oldPath = str_replace('/storage/', '', $announcement->image_url);
+                    Storage::disk('public')->delete($oldPath);
+                }
+                $data['image_url'] = null;
+            }
+
             // กรองเฉพาะข้อมูลที่ส่งมา
             $updateData = array_filter($data, fn($v) => $v !== null);
+
+            // ถ้าลบรูปภาพ ต้องใส่ null กลับ
+            if ($request->boolean('remove_image')) {
+                $updateData['image_url'] = null;
+            }
 
             // แปลง is_pinned
             if (isset($updateData['is_pinned'])) {
