@@ -11,7 +11,6 @@ const DocumentButtons = ({ competition }) => {
     teacher: false,
     summary: false,
     committee: false,
-    staff: false,
     scoreSheet: false,
     coverSheet: false,
   });
@@ -42,11 +41,6 @@ const DocumentButtons = ({ competition }) => {
         case 'committee':
           blob = await documentService.generateCommitteeSignin(competition.id);
           filename = `ลงทะเบียนกรรมการ_${competition.code}.pdf`;
-          break;
-
-        case 'staff':
-          blob = await documentService.generateStaffCheckin(competition.id);
-          filename = `ลงทะเบียนคณะกรรมการดำเนินงาน_${competition.code}.pdf`;
           break;
 
         case 'scoreSheet':
@@ -172,30 +166,6 @@ const DocumentButtons = ({ competition }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
             ลงทะเบียนกรรมการ
-          </>
-        )}
-      </button>
-
-      {/* ปุ่มลงทะเบียนคณะกรรมการดำเนินงาน */}
-      <button
-        onClick={() => handleGenerateDocument('staff')}
-        disabled={loading.staff}
-        className="inline-flex items-center px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        {loading.staff ? (
-          <>
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            กำลังสร้าง...
-          </>
-        ) : (
-          <>
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            ลงทะเบียนคณะกรรมการดำเนินงาน
           </>
         )}
       </button>

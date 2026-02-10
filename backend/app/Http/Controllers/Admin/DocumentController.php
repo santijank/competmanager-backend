@@ -262,10 +262,17 @@ class DocumentController extends Controller
             $schedule = CompetitionSchedule::where('competition_id', $competition)
                 ->first();
 
-            // ดึงเฉพาะคณะกรรมการดำเนินงาน (member_type = 'staff')
-            $committees = CommitteeMember::where('competition_id', $competition)
-                ->where('is_active', true)
+            // ดึงคณะกรรมการดำเนินงาน (member_type = 'staff')
+            // รวมทั้งที่ผูกกับกิจกรรมนี้ และที่ไม่ได้ผูกกิจกรรม (ทั่วไป) ในกลุ่มเดียวกัน
+            $committees = CommitteeMember::where('is_active', true)
                 ->where('member_type', 'staff')
+                ->where(function($q) use ($competition, $competitionData) {
+                    $q->where('competition_id', $competition)
+                      ->orWhere(function($q2) use ($competitionData) {
+                          $q2->whereNull('competition_id')
+                             ->where('school_group_id', $competitionData->school_group_id);
+                      });
+                })
                 ->orderBy('id', 'asc')
                 ->get();
 

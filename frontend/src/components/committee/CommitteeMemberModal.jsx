@@ -169,7 +169,15 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
               </label>
               <select
                 value={formData.member_type}
-                onChange={(e) => setFormData({ ...formData, member_type: e.target.value })}
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  setFormData({
+                    ...formData,
+                    member_type: newType,
+                    // เคลียร์ competition_id เมื่อเลือกคณะกรรมการดำเนินงาน
+                    competition_id: newType === 'staff' ? '' : formData.competition_id,
+                  });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 required
               >
@@ -231,20 +239,22 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
               )}
             </div>
 
-            {/* Competition */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                การแข่งขัน (ถ้ามี)
-              </label>
-              <TwoStepCompetitionSelect
-                value={formData.competition_id}
-                onChange={(value) => setFormData({ ...formData, competition_id: value })}
-                competitions={competitions}
-              />
-              <p className="mt-2 text-xs text-gray-500">
-                เลือกหมวดหมู่ก่อน แล้วค่อยเลือกการแข่งขัน หรือเว้นว่างสำหรับคณะทำงานทั่วไป
-              </p>
-            </div>
+            {/* Competition - ซ่อนเมื่อเป็นคณะกรรมการดำเนินงาน */}
+            {formData.member_type !== 'staff' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  การแข่งขัน (ถ้ามี)
+                </label>
+                <TwoStepCompetitionSelect
+                  value={formData.competition_id}
+                  onChange={(value) => setFormData({ ...formData, competition_id: value })}
+                  competitions={competitions}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  เลือกหมวดหมู่ก่อน แล้วค่อยเลือกการแข่งขัน หรือเว้นว่างสำหรับคณะทำงานทั่วไป
+                </p>
+              </div>
+            )}
 
             {/* Note */}
             <div>

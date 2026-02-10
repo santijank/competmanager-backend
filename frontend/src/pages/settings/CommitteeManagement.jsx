@@ -167,12 +167,12 @@ const CommitteeManagement = () => {
     }
   };
 
-  // ดาวน์โหลด PDF สำหรับคณะกรรมการดำเนินงาน
-  const handleDownloadStaffPdf = async (competitionId, competitionName) => {
+  // ดาวน์โหลด PDF สำหรับคณะกรรมการดำเนินงาน (ทั้งหมดในกลุ่ม)
+  const handleDownloadStaffPdf = async () => {
     try {
       toast.info('กำลังสร้าง PDF คณะกรรมการดำเนินงาน...');
 
-      const response = await api.get(`/documents/competitions/${competitionId}/staff-checkin`, {
+      const response = await api.get('/committee-members/staff-pdf', {
         responseType: 'blob'
       });
 
@@ -180,7 +180,7 @@ const CommitteeManagement = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `ลงทะเบียนคณะกรรมการดำเนินงาน_${competitionId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      link.download = `ลงทะเบียนคณะกรรมการดำเนินงาน_${new Date().toISOString().slice(0, 10)}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -336,6 +336,13 @@ const CommitteeManagement = () => {
           <p className="text-gray-600 mt-1">จัดการคณะทำงาน เจ้าหน้าที่ และอาสาสมัคร</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadStaffPdf}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            <Download className="w-5 h-5" />
+            เอกสารดำเนินงาน
+          </button>
           {canAddMember && (
             <button
               onClick={handleAdd}
@@ -629,14 +636,6 @@ const CommitteeManagement = () => {
                               >
                                 <FileText className="w-4 h-4" />
                                 <span className="hidden sm:inline">กรรมการ</span>
-                              </button>
-                              <button
-                                onClick={() => handleDownloadStaffPdf(compData.competition.id, compData.competition.name)}
-                                className="flex items-center gap-1 px-2 py-1 text-teal-600 hover:bg-teal-50 rounded text-sm"
-                                title="ดาวน์โหลดใบลงทะเบียนคณะกรรมการดำเนินงาน"
-                              >
-                                <Download className="w-4 h-4" />
-                                <span className="hidden sm:inline">ดำเนินงาน</span>
                               </button>
                             </div>
                           )}

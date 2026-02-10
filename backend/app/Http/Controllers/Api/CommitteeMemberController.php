@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\SchoolGroup;
 
 class CommitteeMemberController extends Controller
 {
@@ -21,7 +23,10 @@ class CommitteeMemberController extends Controller
         $query = CommitteeMember::with(['schoolGroup', 'competition.category', 'creator'])
             ->orderBy('created_at', 'desc');
 
-        // ทุก Role เห็นข้อมูลทั้งหมด (school_admin ดูได้อย่างเดียว จำกัดสิทธิ์ที่ frontend)
+        // group_admin เห็นเฉพาะกลุ่มตัวเอง
+        if ($user->role === 'group_admin' && $user->school_group_id) {
+            $query->where('school_group_id', $user->school_group_id);
+        }
 
         // Apply filters
         if ($request->has('member_type') && $request->member_type !== '') {
@@ -263,7 +268,10 @@ class CommitteeMemberController extends Controller
             )
             ->distinct();
 
-        // ทุก Role เห็นกิจกรรมทั้งหมด
+        // group_admin เห็นเฉพาะกิจกรรมในกลุ่มตัวเอง
+        if ($user->role === 'group_admin' && $user->school_group_id) {
+            $query->where('competitions.school_group_id', $user->school_group_id);
+        }
 
         $competitions = $query->orderBy('categories.name')
             ->orderBy('competitions.code')
@@ -367,10 +375,14 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        $baseQuery = function() use ($request) {
+        $baseQuery = function() use ($request, $user) {
             $query = CommitteeMember::query();
 
-            // ทุก Role เห็นสถิติทั้งหมด
+            // group_admin เห็นเฉพาะกลุ่มตัวเอง
+            if ($user->role === 'group_admin' && $user->school_group_id) {
+                $query->where('school_group_id', $user->school_group_id);
+            }
+
             // Filter by level if specified
             if ($request->has('level') && $request->level !== '') {
                 $query->where('level', $request->level);
@@ -384,6 +396,9 @@ class CommitteeMemberController extends Controller
         $inactive = $baseQuery()->where('is_active', false)->count();
 
         $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
+            ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
+                return $q->where('school_group_id', $user->school_group_id);
+            })
             ->when($request->has('level') && $request->level !== '', function($q) use ($request) {
                 return $q->where('level', $request->level);
             })
@@ -392,6 +407,9 @@ class CommitteeMemberController extends Controller
             ->pluck('count', 'member_type');
 
         $byLevel = CommitteeMember::select('level', DB::raw('count(*) as count'))
+            ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
+                return $q->where('school_group_id', $user->school_group_id);
+            })
             ->groupBy('level')
             ->get()
             ->pluck('count', 'level');
@@ -406,5 +424,78 @@ class CommitteeMemberController extends Controller
                 'by_level' => $byLevel,
             ]
         ]);
+    }
+
+    /**
+     * Generate PDF for staff members (คณะกรรมการดำเนินงาน)
+     * ดึงรายชื่อคณะกรรมการดำเนินงานทั้งหมดในกลุ่ม
+     */
+    public function generateStaffPdf(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'คุณไม่มีสิทธิ์ดาวน์โหลดเอกสารนี้'
+            ], 403);
+        }
+
+        try {
+            // ดึง school_group ของ user
+            $schoolGroupId = $request->get('school_group_id', $user->school_group_id);
+
+            // group_admin ใช้ได้เฉพาะกลุ่มตัวเอง
+            if ($user->role === 'group_admin') {
+                $schoolGroupId = $user->school_group_id;
+            }
+
+            $schoolGroup = SchoolGroup::find($schoolGroupId);
+            $groupName = $schoolGroup->name ?? 'กลุ่มโรงเรียน';
+
+            // ดึงคณะกรรมการดำเนินงานทั้งหมดในกลุ่ม
+            $query = CommitteeMember::where('is_active', true)
+                ->where('member_type', 'staff');
+
+            if ($schoolGroupId) {
+                $query->where('school_group_id', $schoolGroupId);
+            }
+
+            $committees = $query->orderByRaw("CASE WHEN position LIKE '%ประธาน%' THEN 1 ELSE 2 END")
+                ->orderBy('name')
+                ->get();
+
+            // ข้อมูลสำหรับ PDF
+            $data = [
+                'competition' => (object)[
+                    'name' => 'คณะกรรมการดำเนินงานทั้งหมด',
+                    'code' => 'STAFF',
+                    'schoolGroup' => $schoolGroup,
+                    'venue' => null,
+                    'competition_date' => null,
+                ],
+                'schedule' => null,
+                'committees' => $committees,
+                'documentTitle' => 'แบบลงทะเบียนคณะกรรมการดำเนินงาน',
+                'documentCode' => 'DC.05',
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            $pdf = Pdf::loadView('exports.committee-checkin-pdf', $data)
+                ->setPaper('a4', 'landscape')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $filename = 'DOC5-แบบลงทะเบียนคณะกรรมการดำเนินงาน-' . ($groupName) . '-' . now()->format('YmdHis') . '.pdf';
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("GenerateStaffPdf Error: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสาร',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
