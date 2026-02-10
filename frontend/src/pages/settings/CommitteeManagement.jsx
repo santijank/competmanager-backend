@@ -643,6 +643,7 @@ const CommitteeManagement = () => {
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">ชื่อ-นามสกุล</th>
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">ตำแหน่ง</th>
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">สังกัด</th>
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">หน้าที่รับผิดชอบ</th>
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">ประเภท</th>
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">สถานะ</th>
                                 <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">จัดการ</th>
@@ -655,6 +656,7 @@ const CommitteeManagement = () => {
                                   <td className="px-4 py-2 font-medium text-gray-900">{member.name}</td>
                                   <td className="px-4 py-2 text-gray-600">{member.position || '-'}</td>
                                   <td className="px-4 py-2 text-gray-600">{member.organization || '-'}</td>
+                                  <td className="px-4 py-2 text-gray-600">{member.responsibility || '-'}</td>
                                   <td className="px-4 py-2">{getMemberTypeBadge(member.member_type)}</td>
                                   <td className="px-4 py-2">{getStatusBadge(member.is_active)}</td>
                                   <td className="px-4 py-2">

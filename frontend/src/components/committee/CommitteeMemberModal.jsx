@@ -11,6 +11,7 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
     name: '',
     position: '',
     organization: '',
+    responsibility: '',
     member_type: 'committee',
     level: 'group',           // ระดับกลุ่ม หรือ เขต
     competition_id: '',
@@ -30,6 +31,7 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
           name: member.name || '',
           position: member.position || '',
           organization: member.organization || '',
+          responsibility: member.responsibility || '',
           member_type: member.member_type || 'committee',
           level: member.level || 'group',
           competition_id: member.competition_id || '',
@@ -41,6 +43,7 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
           name: '',
           position: '',
           organization: '',
+          responsibility: '',
           member_type: 'committee',
           level: defaultLevel, // ใช้ค่าจาก prop
           competition_id: '',
@@ -160,6 +163,23 @@ const CommitteeMemberModal = ({ isOpen, member, defaultLevel = 'group', onClose,
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 placeholder="เช่น สพป.นครปฐม เขต 1, โรงเรียนวัดดอนยายหอม"
               />
+            </div>
+
+            {/* Responsibility - หน้าที่รับผิดชอบ */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                หน้าที่รับผิดชอบ
+              </label>
+              <input
+                type="text"
+                value={formData.responsibility}
+                onChange={(e) => setFormData({ ...formData, responsibility: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="เช่น ตัดสินกิจกรรม, ประสานงาน, ดูแลสถานที่"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                ข้อมูลนี้จะถูกใช้ในการออกเกียรติบัตร
+              </p>
             </div>
 
             {/* Member Type */}

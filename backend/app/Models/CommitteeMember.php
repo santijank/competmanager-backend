@@ -13,6 +13,7 @@ class CommitteeMember extends Model
         'name',
         'position',
         'organization',
+        'responsibility',
         'member_type',
         'level',           // group หรือ district
         'note',
