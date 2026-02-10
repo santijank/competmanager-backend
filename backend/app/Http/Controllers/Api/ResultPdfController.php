@@ -123,14 +123,17 @@ class ResultPdfController extends Controller
 
             // สร้างชื่อไฟล์
             $filename = 'results';
-            if ($level === 'group' && $groupName) {
-                $filename .= '_group_' . preg_replace('/[^a-zA-Z0-9ก-๙]/u', '', $groupName);
+            if ($level === 'group') {
+                $filename .= '_group';
             } elseif ($level === 'district') {
                 $filename .= '_district';
             }
             $filename .= '_' . date('Ymd_His') . '.pdf';
 
-            return $pdf->download($filename);
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
 
         } catch (\Exception $e) {
             Log::error('ResultPdfController: Error generating PDF', [
@@ -218,9 +221,12 @@ class ResultPdfController extends Controller
             $pdf->setPaper('A4', 'portrait');
 
             // สร้างชื่อไฟล์
-            $filename = 'ผลการแข่งขัน_' . $competition->code . '_' . date('Ymd_His') . '.pdf';
+            $filename = 'results_' . $competition->code . '_' . date('Ymd_His') . '.pdf';
 
-            return $pdf->download($filename);
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
 
         } catch (\Exception $e) {
             Log::error('ResultPdfController: Error generating competition PDF', [
@@ -343,7 +349,10 @@ class ResultPdfController extends Controller
             $pdf = Pdf::loadView('pdf.results', $data);
             $pdf->setPaper('A4', 'portrait');
 
-            return $pdf->stream('results_preview.pdf');
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="results_preview.pdf"',
+            ]);
 
         } catch (\Exception $e) {
             Log::error('ResultPdfController: Error previewing PDF', [
