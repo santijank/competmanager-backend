@@ -355,14 +355,23 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
       if (!submitData.expired_at) delete submitData.expired_at;
       if (!submitData.link_url) delete submitData.link_url;
       if (!submitData.link_title) delete submitData.link_title;
-      if (!submitData.school_group_id) delete submitData.school_group_id;
 
       if (announcementId) {
+        // แก้ไข - ไม่รองรับ "all"
+        if (!submitData.school_group_id || submitData.school_group_id === 'all') delete submitData.school_group_id;
         await api.put(`/announcements/${announcementId}`, submitData);
         toast.success('แก้ไขประกาศสำเร็จ');
       } else {
-        await api.post('/announcements', submitData);
-        toast.success('สร้างประกาศสำเร็จ');
+        // สร้างใหม่ - รองรับ "ทุกกลุ่ม"
+        if (submitData.school_group_id === 'all') {
+          // ส่ง school_group_id = 'all' ไปให้ backend จัดการ
+          await api.post('/announcements', submitData);
+          toast.success(`สร้างประกาศไปยังทุกกลุ่มโรงเรียนสำเร็จ (${schoolGroups.length} กลุ่ม)`);
+        } else {
+          if (!submitData.school_group_id) delete submitData.school_group_id;
+          await api.post('/announcements', submitData);
+          toast.success('สร้างประกาศสำเร็จ');
+        }
       }
       onSuccess();
     } catch (error) {
@@ -511,12 +520,18 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
                   required
                 >
                   <option value="">-- เลือกกลุ่มโรงเรียน --</option>
+                  <option value="all">📢 ทุกกลุ่มโรงเรียน (ส่งประกาศไปทุกกลุ่ม)</option>
                   {schoolGroups.map((group) => (
                     <option key={group.id} value={group.id}>
                       {group.name}
                     </option>
                   ))}
                 </select>
+                {formData.school_group_id === 'all' && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    📢 ระบบจะสร้างประกาศไปยังทุกกลุ่มโรงเรียน ({schoolGroups.length} กลุ่ม) ในครั้งเดียว
+                  </p>
+                )}
               </div>
             )}
 

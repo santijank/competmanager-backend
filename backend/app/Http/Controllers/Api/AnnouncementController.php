@@ -149,12 +149,15 @@ class AnnouncementController extends Controller
                 ], 403);
             }
 
-            $data = $request->validate([
+            // ตรวจสอบว่าเป็นการส่งไปทุกกลุ่มหรือไม่
+            $sendToAllGroups = $request->school_group_id === 'all';
+
+            // Validate - ถ้าส่งทุกกลุ่ม ให้ข้าม school_group_id validation
+            $rules = [
                 'title' => 'required|string|max:255',
                 'content' => 'required|string',
                 'type' => 'required|in:general,competition,result,urgent',
                 'scope' => 'required|in:district,group',
-                'school_group_id' => 'nullable|exists:school_groups,id',
                 'competition_id' => 'nullable|exists:competitions,id',
                 'priority' => 'required|in:normal,high,urgent',
                 'is_pinned' => 'nullable',
@@ -162,17 +165,25 @@ class AnnouncementController extends Controller
                 'expired_at' => 'nullable|date',
                 'link_url' => 'nullable|url|max:500',
                 'link_title' => 'nullable|string|max:255',
-            ]);
+            ];
+
+            if (!$sendToAllGroups) {
+                $rules['school_group_id'] = 'nullable|exists:school_groups,id';
+            }
+
+            $data = $request->validate($rules);
 
             // Group Admin สามารถสร้างได้เฉพาะกลุ่มตนเอง
             if ($user->role === 'group_admin') {
                 $data['school_group_id'] = $user->school_group_id;
                 $data['scope'] = 'group';
+                $sendToAllGroups = false; // Group admin ไม่สามารถส่งทุกกลุ่ม
             }
 
             // ถ้าเป็น district scope ให้ล้าง school_group_id
             if ($data['scope'] === 'district') {
                 $data['school_group_id'] = null;
+                $sendToAllGroups = false;
             }
 
             $data['created_by'] = $user->id;
@@ -180,6 +191,34 @@ class AnnouncementController extends Controller
             $data['is_pinned'] = filter_var($data['is_pinned'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
             $data['created_at'] = now();
             $data['updated_at'] = now();
+
+            // ส่งประกาศไปทุกกลุ่ม (เฉพาะ district_admin/admin)
+            if ($sendToAllGroups && in_array($user->role, ['district_admin', 'admin'])) {
+                $schoolGroups = DB::table('school_groups')->pluck('id');
+                $createdIds = [];
+
+                // ลบ school_group_id ออกจาก data เพราะจะใส่ทีละกลุ่ม
+                unset($data['school_group_id']);
+
+                foreach ($schoolGroups as $groupId) {
+                    $insertData = array_merge($data, [
+                        'school_group_id' => $groupId,
+                        'scope' => 'group',
+                    ]);
+                    $createdIds[] = DB::table('announcements')->insertGetId($insertData);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "สร้างประกาศไปยังทุกกลุ่มสำเร็จ ({$schoolGroups->count()} กลุ่ม)",
+                    'data' => ['ids' => $createdIds, 'count' => count($createdIds)]
+                ]);
+            }
+
+            // สร้างประกาศปกติ (กลุ่มเดียว)
+            if (isset($data['school_group_id']) && $data['school_group_id'] === 'all') {
+                unset($data['school_group_id']);
+            }
 
             $announcementId = DB::table('announcements')->insertGetId($data);
 
