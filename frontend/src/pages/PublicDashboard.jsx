@@ -605,57 +605,100 @@ const SchoolRankingSection = ({ results, schools, title, level = 'group', groupI
 };
 
 const AnnouncementCard = ({ announcement }) => {
+  const [expanded, setExpanded] = useState(false);
+
   // ตรวจสอบว่าเป็น Google Drive link หรือไม่
   const isGoogleDriveLink = (url) => {
     if (!url) return false;
     return url.includes('drive.google.com') || url.includes('docs.google.com');
   };
 
+  const hasDetails = announcement.content || announcement.link_url || announcement.image_url;
+  const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '');
+
   return (
-    <div className="border rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="font-semibold text-gray-900">{announcement.title}</div>
-          {announcement.content && (
-            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{announcement.content}</p>
-          )}
-          <div className="text-sm text-gray-500 mt-2">
-            📅 {new Date(announcement.published_at).toLocaleDateString('th-TH')}
+    <div className="border rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      <div
+        className={`p-4 ${hasDetails ? 'cursor-pointer' : ''}`}
+        onClick={() => hasDetails && setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">{announcement.title}</div>
+            {!expanded && announcement.content && (
+              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{announcement.content}</p>
+            )}
+            <div className="text-sm text-gray-500 mt-2">
+              📅 {new Date(announcement.published_at).toLocaleDateString('th-TH')}
+            </div>
+          </div>
+          <div className="ml-3 flex-shrink-0 flex items-center gap-2">
+            {announcement.link_url && (
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-700">
+                <LinkIcon className="w-3 h-3 mr-1" />
+                ไฟล์แนบ
+              </span>
+            )}
+            {announcement.image_url && (
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-700">
+                🖼️ รูปภาพ
+              </span>
+            )}
+            {hasDetails && (
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            )}
           </div>
         </div>
-        {announcement.link_url && (
-          <div className="ml-3 flex-shrink-0">
-            <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-700">
-              <LinkIcon className="w-3 h-3 mr-1" />
-              ไฟล์แนบ
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* แสดงลิงก์ Google Drive หรือลิงก์อื่นๆ */}
-      {announcement.link_url && (
-        <div className="mt-3 pt-3 border-t">
-          <a
-            href={announcement.link_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-          >
-            {isGoogleDriveLink(announcement.link_url) ? (
-              <>
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7.71 3.5L1.15 15l4.58 7.5h13.54l4.58-7.5L17.29 3.5H7.71zM8.72 5h6.56l3.29 5.4H5.43l3.29-5.4zm-3.56 6.9h13.68l-3.43 5.6H8.59l-3.43-5.6zM5.86 18l1.72-2.8h8.84l1.72 2.8H5.86z"/>
-                </svg>
-                {announcement.link_title || 'เปิดไฟล์ใน Google Drive'}
-              </>
-            ) : (
-              <>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                {announcement.link_title || 'เปิดลิงก์'}
-              </>
-            )}
-          </a>
+      {/* Expanded content */}
+      {expanded && (
+        <div className="px-4 pb-4 border-t pt-3 space-y-3">
+          {announcement.content && (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
+          )}
+
+          {/* แสดงรูปภาพ */}
+          {announcement.image_url && (
+            <div>
+              <img
+                src={`${apiBase}${announcement.image_url}`}
+                alt={announcement.title}
+                className="max-w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(`${apiBase}${announcement.image_url}`, '_blank');
+                }}
+              />
+            </div>
+          )}
+
+          {/* แสดงลิงก์ Google Drive หรือลิงก์อื่นๆ */}
+          {announcement.link_url && (
+            <div>
+              <a
+                href={announcement.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+              >
+                {isGoogleDriveLink(announcement.link_url) ? (
+                  <>
+                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7.71 3.5L1.15 15l4.58 7.5h13.54l4.58-7.5L17.29 3.5H7.71zM8.72 5h6.56l3.29 5.4H5.43l3.29-5.4zm-3.56 6.9h13.68l-3.43 5.6H8.59l-3.43-5.6zM5.86 18l1.72-2.8h8.84l1.72 2.8H5.86z"/>
+                    </svg>
+                    {announcement.link_title || 'เปิดไฟล์ใน Google Drive'}
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    {announcement.link_title || 'เปิดลิงก์'}
+                  </>
+                )}
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
