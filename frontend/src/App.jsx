@@ -79,6 +79,7 @@ import SchoolSchedules from '@/pages/school/SchoolSchedules';
 import SchoolResults from '@/pages/school/SchoolResults';
 import SchoolGroupCompetitions from '@/pages/school/SchoolGroupCompetitions';
 import DistrictCompetitions from '@/pages/school/DistrictCompetitions';
+import SchoolProfile from '@/pages/school/SchoolProfile';
 
 // Components
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -176,6 +177,7 @@ function App() {
             <Route path="/school/results" element={<SchoolResults />} />
             <Route path="/school/group-competitions" element={<SchoolGroupCompetitions />} />
             <Route path="/school/district-competitions" element={<DistrictCompetitions />} />
+            <Route path="/school/profile" element={<SchoolProfile />} />
             
             {/* Old Registration Routes (kept for compatibility) */}
             <Route path="/registrations" element={<RegistrationList />} />

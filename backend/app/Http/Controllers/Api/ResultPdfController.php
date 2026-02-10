@@ -119,8 +119,7 @@ class ResultPdfController extends Controller
             ];
 
             $pdf = Pdf::loadView('pdf.results', $data);
-            $pdf->setPaper('a4', 'portrait');
-            $pdf->setOption('defaultFont', 'THSarabunNew');
+            $pdf->setPaper('A4', 'portrait');
 
             // สร้างชื่อไฟล์
             $filename = 'results';
@@ -216,14 +215,10 @@ class ResultPdfController extends Controller
             ];
 
             $pdf = Pdf::loadView('pdf.competition-results', $data);
-            $pdf->setPaper('a4', 'portrait');
-
-            // Set default font for Thai support
-            $pdf->setOption('defaultFont', 'thsarabunnew');
-            $pdf->setOption('isRemoteEnabled', true);
+            $pdf->setPaper('A4', 'portrait');
 
             // สร้างชื่อไฟล์
-            $filename = 'results_' . preg_replace('/[^a-zA-Z0-9ก-๙]/u', '_', $competition->name) . '_' . date('Ymd') . '.pdf';
+            $filename = 'ผลการแข่งขัน_' . $competition->code . '_' . date('Ymd_His') . '.pdf';
 
             return $pdf->download($filename);
 
@@ -346,7 +341,7 @@ class ResultPdfController extends Controller
             ];
 
             $pdf = Pdf::loadView('pdf.results', $data);
-            $pdf->setPaper('a4', 'portrait');
+            $pdf->setPaper('A4', 'portrait');
 
             return $pdf->stream('results_preview.pdf');
 
