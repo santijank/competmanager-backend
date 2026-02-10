@@ -23,9 +23,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'log.activity' => \App\Http\Middleware\LogActivity::class,
         ]);
 
-        // Append LogActivity to api middleware group
+        // Append LogActivity and TrackUserActivity to api middleware group
         $middleware->api(append: [
             \App\Http\Middleware\LogActivity::class,
+            \App\Http\Middleware\TrackUserActivity::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

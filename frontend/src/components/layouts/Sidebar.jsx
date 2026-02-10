@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
+import OnlineUsersIndicator from '@/components/common/OnlineUsersIndicator';
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, hasRole, logout } = useAuthStore();
@@ -117,7 +118,7 @@ export default function Sidebar({ isOpen, onClose }) {
           roles: ['group_admin'],
         },
         {
-          label: 'กิจกรรมระดับเขต',
+          label: 'รายชื่อตัวแทนระดับเขต',
           icon: Award,
           path: '/school/district-competitions',
           roles: ['group_admin'],
@@ -127,6 +128,12 @@ export default function Sidebar({ isOpen, onClose }) {
     // ===== เมนูสำหรับ Teacher / School Admin =====
     else if (hasRole(['teacher', 'school_admin'])) {
       items.push(
+        {
+          label: 'ข้อมูลโรงเรียน',
+          icon: Building2,
+          path: '/school/profile',
+          roles: ['school_admin'],
+        },
         {
           label: 'เลือกการแข่งขัน',
           icon: PlusCircle,
@@ -146,7 +153,7 @@ export default function Sidebar({ isOpen, onClose }) {
           roles: ['teacher', 'school_admin'],
         },
         {
-          label: 'กิจกรรมระดับเขต',
+          label: 'รายชื่อตัวแทนระดับเขต',
           icon: Award,
           path: '/school/district-competitions',
           roles: ['teacher', 'school_admin'],
@@ -373,6 +380,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
           {/* User Info */}
           <div className="p-4 border-t border-gray-200 flex-shrink-0">
+            {/* Online Users Indicator */}
+            <div className="mb-3">
+              <OnlineUsersIndicator variant="compact" />
+            </div>
+
             <div className="flex items-center space-x-3 mb-4">
               <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary-600 text-white flex-shrink-0">
                 <span className="text-base font-medium">

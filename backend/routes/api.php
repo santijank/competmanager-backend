@@ -77,6 +77,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Dashboard - ✅ เพิ่ม /stats ที่หายไป
     Route::get('dashboard', [DashboardController::class, 'index']);
     Route::get('dashboard/stats', [DashboardController::class, 'stats']); // ← แก้ไข: เพิ่มนี้
+
+    // Online Users - แสดงจำนวนผู้ใช้งานออนไลน์
+    Route::get('online-users', [\App\Http\Controllers\Api\OnlineUsersController::class, 'index']);
     Route::get('dashboard/school-admin', [DashboardController::class, 'schoolAdmin']);
     Route::get('dashboard/group-admin', [DashboardController::class, 'groupAdmin']);
     Route::get('dashboard/district-admin', [DashboardController::class, 'districtAdmin']);

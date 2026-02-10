@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
+import OnlineUsersCard from '@/components/common/OnlineUsersCard';
 
 const DashboardHome = () => {
   const navigate = useNavigate();
@@ -187,12 +188,17 @@ const DashboardHome = () => {
             </div>
           </div>
 
+          {/* Online Users */}
+          <div className="mb-8">
+            <OnlineUsersCard />
+          </div>
+
           {/* Quick Actions */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               เมนูด่วน
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <button
                 onClick={() => navigate('/competitions')}
@@ -208,7 +214,7 @@ const DashboardHome = () => {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => navigate('/schools')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -223,7 +229,7 @@ const DashboardHome = () => {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => navigate('/results')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -307,12 +313,17 @@ const DashboardHome = () => {
             />
           </div>
 
+          {/* Online Users */}
+          <div className="mb-8">
+            <OnlineUsersCard />
+          </div>
+
           {/* Quick Actions */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               เมนูด่วน
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <button
                 onClick={() => navigate('/registrations/manage')}
@@ -328,7 +339,7 @@ const DashboardHome = () => {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => navigate('/competitions/group/dashboard')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -343,7 +354,7 @@ const DashboardHome = () => {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => navigate('/results')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -440,7 +451,7 @@ const DashboardHome = () => {
               color="bg-green-500"
               onClick={() => navigate('/registrations/browse')}
             />
-            
+
             <StatCard
               icon={Trophy}
               title="การแข่งขันที่เข้าร่วม"
@@ -449,12 +460,17 @@ const DashboardHome = () => {
             />
           </div>
 
+          {/* Online Users */}
+          <div className="mb-8">
+            <OnlineUsersCard />
+          </div>
+
           {/* Quick Actions */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               เมนูด่วน
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <button
                 onClick={() => navigate('/registrations/browse')}
@@ -470,7 +486,7 @@ const DashboardHome = () => {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => navigate('/registrations/my')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -485,7 +501,7 @@ const DashboardHome = () => {
                   </div>
                 </div>
               </button>
-              
+
               <button
                 onClick={() => navigate('/school/results')}
                 className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"

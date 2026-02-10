@@ -27,6 +27,7 @@ class User extends Authenticatable
         'school_group_id',
         'is_active',
         'committee_level',
+        'last_activity_at',
     ];
 
     /**
@@ -48,6 +49,7 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'is_active' => 'boolean',
+        'last_activity_at' => 'datetime',
     ];
 
     /**
