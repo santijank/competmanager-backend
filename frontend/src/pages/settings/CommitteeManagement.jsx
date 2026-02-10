@@ -485,7 +485,7 @@ const CommitteeManagement = () => {
             </label>
             <select
               value={filters.member_type}
-              onChange={(e) => setFilters({ ...filters, member_type: e.target.value })}
+              onChange={(e) => setFilters({ ...filters, member_type: e.target.value, competition_id: '' })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
               <option value="">ทั้งหมด</option>
