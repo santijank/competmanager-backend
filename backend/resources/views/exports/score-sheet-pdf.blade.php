@@ -239,7 +239,8 @@
         if ($dateToUse) {
             $day = $dateToUse->format('j');
             $month = $thaiMonths[(int)$dateToUse->format('n')];
-            $year = $dateToUse->format('Y') + 543;
+            $rawYear = (int) $dateToUse->format('Y');
+            $year = $rawYear > 2400 ? $rawYear : $rawYear + 543;
             $competitionDateText = "วันที่แข่งขัน วันที่ {$day} {$month} พ.ศ.{$year}";
         }
 
