@@ -20,34 +20,32 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        // Debug: log ข้อมูล user และ params
-        Log::info('CommitteeMember index', [
-            'user_role' => $user->role,
-            'user_school_group_id' => $user->school_group_id,
-            'params' => $request->all(),
-            'total_members' => CommitteeMember::count(),
-            'members_with_null_group' => CommitteeMember::whereNull('school_group_id')->count(),
-            'members_in_user_group' => $user->school_group_id ? CommitteeMember::where('school_group_id', $user->school_group_id)->count() : 'N/A',
-        ]);
-
         $query = CommitteeMember::with(['schoolGroup', 'competition.category', 'creator'])
             ->orderBy('created_at', 'desc');
 
         // group_admin เห็นเฉพาะกลุ่มตัวเอง
         if ($user->role === 'group_admin' && $user->school_group_id) {
-            $query->where('school_group_id', $user->school_group_id);
+            $groupId = $user->school_group_id;
+            $query->where(function($q) use ($groupId) {
+                $q->where('committee_members.school_group_id', $groupId)
+                  ->orWhereIn('committee_members.competition_id', function($sub) use ($groupId) {
+                      $sub->select('id')
+                          ->from('competitions')
+                          ->where('school_group_id', $groupId);
+                  });
+            });
         }
 
         // Apply filters
-        if ($request->has('member_type') && $request->member_type !== '') {
+        if ($request->filled('member_type')) {
             $query->where('member_type', $request->member_type);
         }
 
-        if ($request->has('is_active') && $request->is_active !== '') {
+        if ($request->filled('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
 
-        if ($request->has('competition_id') && $request->competition_id !== '') {
+        if ($request->filled('competition_id')) {
             if ($request->competition_id === 'null') {
                 $query->whereNull('competition_id');
             } else {
@@ -55,7 +53,7 @@ class CommitteeMemberController extends Controller
             }
         }
 
-        if ($request->has('search') && $request->search !== '') {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -64,14 +62,23 @@ class CommitteeMemberController extends Controller
             });
         }
 
-        if ($request->has('school_group_id') && $request->school_group_id !== '') {
+        if ($request->filled('school_group_id')) {
             $query->where('school_group_id', $request->school_group_id);
         }
 
         // Filter by level (group/district)
-        if ($request->has('level') && $request->level !== '') {
+        if ($request->filled('level')) {
             $query->where('level', $request->level);
         }
+
+        // Debug: log raw SQL query
+        Log::info('CommitteeMember index SQL', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+            'user_role' => $user->role,
+            'user_school_group_id' => $user->school_group_id,
+            'params' => $request->all(),
+        ]);
 
         // Pagination - รองรับ string "false" จาก query param
         $shouldPaginate = filter_var($request->get('paginate', true), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
@@ -83,13 +90,18 @@ class CommitteeMemberController extends Controller
         }
 
         Log::info('CommitteeMember index result', [
-            'paginate' => $shouldPaginate,
             'count' => $shouldPaginate ? $members->total() : $members->count(),
         ]);
 
         return response()->json([
             'success' => true,
-            'data' => $members
+            'data' => $members,
+            'debug' => [
+                'count' => $shouldPaginate ? $members->total() : $members->count(),
+                'user_role' => $user->role,
+                'user_school_group_id' => $user->school_group_id,
+                'params' => $request->all(),
+            ]
         ]);
     }
 
@@ -398,13 +410,21 @@ class CommitteeMemberController extends Controller
         $baseQuery = function() use ($request, $user) {
             $query = CommitteeMember::query();
 
-            // group_admin เห็นเฉพาะกลุ่มตัวเอง
+            // group_admin เห็นเฉพาะกลุ่มตัวเอง - ใช้ logic เดียวกับ index
             if ($user->role === 'group_admin' && $user->school_group_id) {
-                $query->where('school_group_id', $user->school_group_id);
+                $groupId = $user->school_group_id;
+                $query->where(function($q) use ($groupId) {
+                    $q->where('committee_members.school_group_id', $groupId)
+                      ->orWhereIn('committee_members.competition_id', function($sub) use ($groupId) {
+                          $sub->select('id')
+                              ->from('competitions')
+                              ->where('school_group_id', $groupId);
+                      });
+                });
             }
 
             // Filter by level if specified
-            if ($request->has('level') && $request->level !== '') {
+            if ($request->filled('level')) {
                 $query->where('level', $request->level);
             }
 
@@ -415,11 +435,29 @@ class CommitteeMemberController extends Controller
         $active = $baseQuery()->where('is_active', true)->count();
         $inactive = $baseQuery()->where('is_active', false)->count();
 
+        // Debug: log SQL
+        $debugQuery = $baseQuery();
+        Log::info('CommitteeMember statistics SQL', [
+            'sql' => $debugQuery->toSql(),
+            'bindings' => $debugQuery->getBindings(),
+            'total' => $total,
+            'user_role' => $user->role,
+            'user_school_group_id' => $user->school_group_id,
+        ]);
+
         $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
             ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
-                return $q->where('school_group_id', $user->school_group_id);
+                $groupId = $user->school_group_id;
+                return $q->where(function($q2) use ($groupId) {
+                    $q2->where('committee_members.school_group_id', $groupId)
+                       ->orWhereIn('committee_members.competition_id', function($sub) use ($groupId) {
+                           $sub->select('id')
+                               ->from('competitions')
+                               ->where('school_group_id', $groupId);
+                       });
+                });
             })
-            ->when($request->has('level') && $request->level !== '', function($q) use ($request) {
+            ->when($request->filled('level'), function($q) use ($request) {
                 return $q->where('level', $request->level);
             })
             ->groupBy('member_type')
@@ -428,7 +466,15 @@ class CommitteeMemberController extends Controller
 
         $byLevel = CommitteeMember::select('level', DB::raw('count(*) as count'))
             ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
-                return $q->where('school_group_id', $user->school_group_id);
+                $groupId = $user->school_group_id;
+                return $q->where(function($q2) use ($groupId) {
+                    $q2->where('committee_members.school_group_id', $groupId)
+                       ->orWhereIn('committee_members.competition_id', function($sub) use ($groupId) {
+                           $sub->select('id')
+                               ->from('competitions')
+                               ->where('school_group_id', $groupId);
+                       });
+                });
             })
             ->groupBy('level')
             ->get()

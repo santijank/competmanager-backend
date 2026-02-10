@@ -99,6 +99,15 @@ const CommitteeManagement = () => {
       setMembers(Array.isArray(membersData) ? membersData : []);
       setStatistics(statsRes.data.data);
 
+      // Debug: log API response details
+      console.log('=== COMMITTEE DEBUG ===');
+      console.log('Members response:', membersRes.data);
+      console.log('Members debug:', membersRes.data.debug);
+      console.log('Members data:', membersData);
+      console.log('Members count:', Array.isArray(membersData) ? membersData.length : 'not array');
+      console.log('Statistics:', statsRes.data.data);
+      console.log('======================');
+
     } catch (error) {
       console.error('Load data error:', error);
       toast.error('ไม่สามารถโหลดข้อมูลได้');
