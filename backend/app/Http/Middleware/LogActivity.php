@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\ActivityLog;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class LogActivity
@@ -25,6 +26,7 @@ class LogActivity
     protected array $excludedRoutes = [
         'api/activity-logs',
         'api/sanctum/csrf-cookie',
+        'api/online-users',
     ];
 
     /**
@@ -42,6 +44,7 @@ class LogActivity
 
     /**
      * บันทึก Activity Log
+     * ใช้ throttle เพื่อลด DB writes - ไม่ log ซ้ำสำหรับ user/action เดิมภายใน 10 วินาที
      */
     protected function logActivity(Request $request, Response $response): void
     {
@@ -61,6 +64,13 @@ class LogActivity
         if (!$user) {
             return;
         }
+
+        // Throttle: ไม่ log ซ้ำสำหรับ user + path เดิมภายใน 10 วินาที
+        $throttleKey = 'activity_log_' . $user->id . '_' . md5($method . $request->path());
+        if (Cache::has($throttleKey)) {
+            return;
+        }
+        Cache::put($throttleKey, true, 10);
 
         // กำหนด action และ module
         $action = $this->determineAction($request, $method);

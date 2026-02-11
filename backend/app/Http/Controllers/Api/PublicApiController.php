@@ -28,26 +28,23 @@ class PublicApiController extends Controller
     {
         try {
             $data = Cache::remember('public_dashboard_overview', 300, function () {
-                // นับการแข่งขันทั้งหมด
-                $totalCompetitions = Competition::count();
+                // Query 1: นับ competitions, registrations, groups ใน query เดียว
+                $counts = DB::selectOne("
+                    SELECT
+                        (SELECT COUNT(*) FROM competitions) as total_competitions,
+                        (SELECT COUNT(*) FROM registrations) as total_registrations,
+                        (SELECT COUNT(DISTINCT competition_id) FROM scores) as completed_competitions,
+                        (SELECT COUNT(*) FROM school_groups WHERE is_active = 1) as total_groups
+                ");
 
-                // นับการลงทะเบียนทั้งหมด
-                $totalRegistrations = Registration::count();
-
-                // นับการแข่งขันที่เสร็จสิ้น (มีคะแนนแล้ว)
-                $completedCompetitions = Competition::whereHas('scores')->distinct()->count();
-
-                // นับกลุ่มโรงเรียนทั้งหมด
-                $totalGroups = SchoolGroup::where('is_active', true)->count();
-
-                // นับเหรียญรางวัลทั้งหมด
+                // Query 2: นับเหรียญรางวัลทั้งหมด (1 query)
                 $medals = $this->calculateTotalMedals();
 
                 return [
-                    'total_competitions' => $totalCompetitions,
-                    'total_registrations' => $totalRegistrations,
-                    'completed_competitions' => $completedCompetitions,
-                    'total_groups' => $totalGroups,
+                    'total_competitions' => (int) $counts->total_competitions,
+                    'total_registrations' => (int) $counts->total_registrations,
+                    'completed_competitions' => (int) $counts->completed_competitions,
+                    'total_groups' => (int) $counts->total_groups,
                     'total_gold' => $medals['gold'],
                     'total_silver' => $medals['silver'],
                     'total_bronze' => $medals['bronze'],
@@ -112,21 +109,22 @@ class PublicApiController extends Controller
     }
 
     /**
-     * คำนวณเหรียญรางวัลทั้งหมด (ใช้ medal field)
+     * คำนวณเหรียญรางวัลทั้งหมด (ใช้ medal field) - 1 query แทน 4
      */
     private function calculateTotalMedals()
     {
         try {
-            $gold = Score::where('medal', 'gold')->where('is_finalized', true)->count();
-            $silver = Score::where('medal', 'silver')->where('is_finalized', true)->count();
-            $bronze = Score::where('medal', 'bronze')->where('is_finalized', true)->count();
-            $participant = Score::where('medal', 'participant')->where('is_finalized', true)->count();
+            $medals = Score::where('is_finalized', true)
+                ->whereIn('medal', ['gold', 'silver', 'bronze', 'participant'])
+                ->select('medal', DB::raw('count(*) as count'))
+                ->groupBy('medal')
+                ->pluck('count', 'medal');
 
             return [
-                'gold' => $gold,
-                'silver' => $silver,
-                'bronze' => $bronze,
-                'participant' => $participant,
+                'gold' => $medals['gold'] ?? 0,
+                'silver' => $medals['silver'] ?? 0,
+                'bronze' => $medals['bronze'] ?? 0,
+                'participant' => $medals['participant'] ?? 0,
             ];
         } catch (\Exception $e) {
             return ['gold' => 0, 'silver' => 0, 'bronze' => 0, 'participant' => 0];
@@ -134,25 +132,26 @@ class PublicApiController extends Controller
     }
 
     /**
-     * คำนวณเหรียญรางวัลของกลุ่ม (ใช้ medal field)
+     * คำนวณเหรียญรางวัลของกลุ่ม (ใช้ medal field) - 1 query แทน 4
      */
     private function calculateGroupMedals($groupId)
     {
         try {
-            $query = Score::whereHas('registration.school', function ($q) use ($groupId) {
-                $q->where('school_group_id', $groupId);
-            })->where('is_finalized', true);
-
-            $gold = (clone $query)->where('medal', 'gold')->count();
-            $silver = (clone $query)->where('medal', 'silver')->count();
-            $bronze = (clone $query)->where('medal', 'bronze')->count();
-            $participant = (clone $query)->where('medal', 'participant')->count();
+            $medals = DB::table('scores')
+                ->join('registrations', 'scores.registration_id', '=', 'registrations.id')
+                ->join('schools', 'registrations.school_id', '=', 'schools.id')
+                ->where('schools.school_group_id', $groupId)
+                ->where('scores.is_finalized', true)
+                ->whereIn('scores.medal', ['gold', 'silver', 'bronze', 'participant'])
+                ->select('scores.medal', DB::raw('count(*) as count'))
+                ->groupBy('scores.medal')
+                ->pluck('count', 'medal');
 
             return [
-                'gold' => $gold,
-                'silver' => $silver,
-                'bronze' => $bronze,
-                'participant' => $participant,
+                'gold' => $medals['gold'] ?? 0,
+                'silver' => $medals['silver'] ?? 0,
+                'bronze' => $medals['bronze'] ?? 0,
+                'participant' => $medals['participant'] ?? 0,
             ];
         } catch (\Exception $e) {
             return ['gold' => 0, 'silver' => 0, 'bronze' => 0, 'participant' => 0];
@@ -213,84 +212,50 @@ class PublicApiController extends Controller
     }
 
     /**
-     * คำนวณสถิติของกลุ่ม (Safe Version)
-     * ป้องกัน Error จาก Column ที่ไม่มี
+     * คำนวณสถิติของกลุ่ม - Optimized
+     * ใช้ raw query รวมเพื่อลด DB round-trips
      */
     private function calculateGroupStatsSafe($groupId)
     {
         try {
-            // 1. นับโรงเรียน
+            // Query 1: นับโรงเรียน + นับ registrations ของกลุ่ม
             $totalSchools = School::where('school_group_id', $groupId)->count();
-            
-            // 2. นับนักเรียน (จาก registrations)
-            $totalStudents = 0;
-            try {
-                $totalStudents = Registration::whereHas('school', function ($query) use ($groupId) {
-                    $query->where('school_group_id', $groupId);
-                })->count();
-            } catch (\Exception $e) {
-                Log::warning("Error counting students: " . $e->getMessage());
-            }
-            
-            // 3. กิจกรรมที่เปิดลงทะเบียน (Safe)
-            $openCompetitions = 0;
-            try {
-                $query = Competition::where('competition_level', 'group')
-                    ->where('school_group_id', $groupId);
-                
-                // เช็คว่ามี column registration_open หรือไม่
-                if (Schema::hasColumn('competitions', 'registration_open')) {
-                    $query->where('registration_open', true);
-                } elseif (Schema::hasColumn('competitions', 'registration_start_date') && 
-                          Schema::hasColumn('competitions', 'registration_end_date')) {
-                    $query->where('registration_start_date', '<=', now())
-                          ->where('registration_end_date', '>=', now());
-                }
-                
-                $openCompetitions = $query->count();
-            } catch (\Exception $e) {
-                Log::warning("Error counting open competitions: " . $e->getMessage());
-            }
-            
-            // 4. กิจกรรมที่มีการลงทะเบียนแล้ว (Safe)
-            $registeredCompetitions = 0;
-            try {
-                $registeredCompetitions = DB::table('registrations')
-                    ->join('schools', 'registrations.school_id', '=', 'schools.id')
-                    ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
-                    ->where('schools.school_group_id', $groupId)
-                    ->where('competitions.school_group_id', $groupId)
-                    ->distinct('registrations.competition_id')
-                    ->count('registrations.competition_id');
-            } catch (\Exception $e) {
-                Log::warning("Error counting registered competitions: " . $e->getMessage());
-            }
-            
-            // 5. กิจกรรมที่แข่งขันแล้ว (มีคะแนนแล้ว) (Safe)
-            $completedCompetitions = 0;
-            try {
-                $completedCompetitions = DB::table('scores')
-                    ->join('registrations', 'scores.registration_id', '=', 'registrations.id')
-                    ->join('schools', 'registrations.school_id', '=', 'schools.id')
-                    ->join('competitions', 'scores.competition_id', '=', 'competitions.id')
-                    ->where('schools.school_group_id', $groupId)
-                    ->where('competitions.school_group_id', $groupId)
-                    ->distinct('scores.competition_id')
-                    ->count('scores.competition_id');
-            } catch (\Exception $e) {
-                Log::warning("Error counting completed competitions: " . $e->getMessage());
-            }
+
+            $totalStudents = DB::table('registrations')
+                ->join('schools', 'registrations.school_id', '=', 'schools.id')
+                ->where('schools.school_group_id', $groupId)
+                ->count();
+
+            // Query 2: สถิติ competitions ทั้ง 3 ตัว ใน query เดียว
+            $compStats = DB::table('competitions')
+                ->where('school_group_id', $groupId)
+                ->where('competition_level', 'group')
+                ->selectRaw("
+                    SUM(CASE WHEN registration_status = 'open' THEN 1 ELSE 0 END) as open_competitions,
+                    COUNT(DISTINCT CASE WHEN id IN (
+                        SELECT competition_id FROM registrations r
+                        JOIN schools s ON r.school_id = s.id
+                        WHERE s.school_group_id = ?
+                    ) THEN id END) as registered_competitions,
+                    COUNT(DISTINCT CASE WHEN id IN (
+                        SELECT competition_id FROM scores sc
+                        JOIN registrations r ON sc.registration_id = r.id
+                        JOIN schools s ON r.school_id = s.id
+                        WHERE s.school_group_id = ?
+                    ) THEN id END) as completed_competitions
+                ", [$groupId, $groupId])
+                ->first();
 
             return [
                 'total_schools' => $totalSchools,
                 'total_students' => $totalStudents,
-                'open_competitions' => $openCompetitions,
-                'registered_competitions' => $registeredCompetitions,
-                'completed_competitions' => $completedCompetitions,
+                'open_competitions' => (int) ($compStats->open_competitions ?? 0),
+                'registered_competitions' => (int) ($compStats->registered_competitions ?? 0),
+                'completed_competitions' => (int) ($compStats->completed_competitions ?? 0),
             ];
         } catch (\Exception $e) {
             Log::error("calculateGroupStatsSafe Error: " . $e->getMessage());
-            
+
             return [
                 'total_schools' => 0,
                 'total_students' => 0,

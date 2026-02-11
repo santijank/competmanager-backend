@@ -414,44 +414,15 @@ class CommitteeMemberController extends Controller
             return $query;
         };
 
-        $total = $baseQuery()->count();
-        $active = $baseQuery()->where('is_active', true)->count();
-        $inactive = $baseQuery()->where('is_active', false)->count();
+        // ดึงข้อมูลทั้งหมดใน 1 query แล้วคำนวณใน PHP
+        $allMembers = $baseQuery()->select('is_active', 'member_type', 'level')->get();
 
-        $byType = CommitteeMember::select('member_type', DB::raw('count(*) as count'))
-            ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
-                $groupId = $user->school_group_id;
-                return $q->where(function($q2) use ($groupId) {
-                    $q2->where('committee_members.school_group_id', $groupId)
-                       ->orWhereIn('committee_members.competition_id', function($sub) use ($groupId) {
-                           $sub->select('id')
-                               ->from('competitions')
-                               ->where('school_group_id', $groupId);
-                       });
-                });
-            })
-            ->when($request->filled('level'), function($q) use ($request) {
-                return $q->where('level', $request->level);
-            })
-            ->groupBy('member_type')
-            ->get()
-            ->pluck('count', 'member_type');
+        $total = $allMembers->count();
+        $active = $allMembers->where('is_active', true)->count();
+        $inactive = $total - $active;
 
-        $byLevel = CommitteeMember::select('level', DB::raw('count(*) as count'))
-            ->when($user->role === 'group_admin' && $user->school_group_id, function($q) use ($user) {
-                $groupId = $user->school_group_id;
-                return $q->where(function($q2) use ($groupId) {
-                    $q2->where('committee_members.school_group_id', $groupId)
-                       ->orWhereIn('committee_members.competition_id', function($sub) use ($groupId) {
-                           $sub->select('id')
-                               ->from('competitions')
-                               ->where('school_group_id', $groupId);
-                       });
-                });
-            })
-            ->groupBy('level')
-            ->get()
-            ->pluck('count', 'level');
+        $byType = $allMembers->groupBy('member_type')->map->count();
+        $byLevel = $allMembers->groupBy('level')->map->count();
 
         return response()->json([
             'success' => true,
