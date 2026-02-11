@@ -1,37 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
-import { Users, Wifi } from 'lucide-react';
-import api from '@/lib/api';
+import { useEffect } from 'react';
+import { Wifi } from 'lucide-react';
+import useOnlineUsersStore from '@/stores/onlineUsersStore';
 
 /**
  * OnlineUsersCard - แสดงรายละเอียดผู้ใช้งานออนไลน์ สำหรับหน้า Dashboard
  */
 const OnlineUsersCard = () => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const intervalRef = useRef(null);
-
-  const fetchOnlineUsers = async () => {
-    try {
-      const response = await api.get('/online-users');
-      setData(response.data?.data || null);
-    } catch (error) {
-      console.debug('Online users fetch error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, loading, subscribe, unsubscribe } = useOnlineUsersStore();
 
   useEffect(() => {
-    fetchOnlineUsers();
-
-    // Polling ทุก 30 วินาที
-    intervalRef.current = setInterval(fetchOnlineUsers, 30000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
+    subscribe();
+    return () => unsubscribe();
   }, []);
 
   const getRoleBadgeColor = (role) => {

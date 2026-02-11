@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class OnlineUsersController extends Controller
@@ -16,33 +17,26 @@ class OnlineUsersController extends Controller
 
     /**
      * ดึงจำนวน active users (ใช้ last_activity_at ภายใน 5 นาที)
+     * Cache ผลลัพธ์ 30 วินาที เพื่อลด DB load
      */
     public function index(Request $request): JsonResponse
     {
-        $threshold = now()->subMinutes($this->activeMinutes);
+        $data = Cache::remember('online_users_data', 30, function () {
+            $threshold = now()->subMinutes($this->activeMinutes);
 
-        // นับรวมทั้งหมด
-        $totalOnline = DB::table('users')
-            ->where('is_active', true)
-            ->where('last_activity_at', '>=', $threshold)
-            ->count();
+            // ใช้ query เดียว ดึง users ที่ online ทั้งหมด
+            $onlineUsers = DB::table('users')
+                ->select('id', 'name', 'role', 'last_activity_at')
+                ->where('is_active', true)
+                ->where('last_activity_at', '>=', $threshold)
+                ->orderBy('last_activity_at', 'desc')
+                ->get();
 
-        // นับแยกตาม role
-        $byRole = DB::table('users')
-            ->select('role', DB::raw('count(*) as count'))
-            ->where('is_active', true)
-            ->where('last_activity_at', '>=', $threshold)
-            ->groupBy('role')
-            ->pluck('count', 'role');
+            // คำนวณ total และ byRole จาก collection (ไม่ต้อง query DB เพิ่ม)
+            $totalOnline = $onlineUsers->count();
+            $byRole = $onlineUsers->groupBy('role')->map->count();
 
-        // รายชื่อ user ที่ online (สำหรับแสดงใน Dashboard)
-        $onlineUsers = DB::table('users')
-            ->select('id', 'name', 'role', 'last_activity_at')
-            ->where('is_active', true)
-            ->where('last_activity_at', '>=', $threshold)
-            ->orderBy('last_activity_at', 'desc')
-            ->get()
-            ->map(function ($user) {
+            $users = $onlineUsers->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -52,13 +46,16 @@ class OnlineUsersController extends Controller
                 ];
             });
 
-        return response()->json([
-            'success' => true,
-            'data' => [
+            return [
                 'total_online' => $totalOnline,
                 'by_role' => $byRole,
-                'users' => $onlineUsers,
-            ]
+                'users' => $users,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
         ]);
     }
 
