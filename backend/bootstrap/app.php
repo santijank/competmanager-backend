@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
        $middleware->redirectGuestsTo('/api/auth/login');
 
+        // Trust all proxies (Railway reverse proxy)
+        $middleware->trustProxies(at: '*');
+
         // Add custom CORS middleware as first middleware (handles preflight)
         $middleware->prepend(\App\Http\Middleware\CorsMiddleware::class);
 
