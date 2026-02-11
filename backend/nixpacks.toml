@@ -1,10 +1,11 @@
 [phases.setup]
-nixPkgs = ["php82", "php82Packages.composer", "php82Extensions.pdo_mysql", "php82Extensions.mbstring", "php82Extensions.gd", "php82Extensions.zip", "php82Extensions.sodium", "php82Extensions.bcmath", "php82Extensions.xml", "php82Extensions.curl", "php82Extensions.swoole", "php82Extensions.pcntl", "php82Extensions.posix"]
+nixPkgs = ["php82", "php82Packages.composer", "php82Extensions.pdo_mysql", "php82Extensions.mbstring", "php82Extensions.gd", "php82Extensions.zip", "php82Extensions.sodium", "php82Extensions.bcmath", "php82Extensions.xml", "php82Extensions.curl", "php82Extensions.sockets"]
 
 [phases.install]
 cmds = [
-    "composer install --no-dev --optimize-autoloader"
+    "composer install --no-dev --optimize-autoloader",
+    "php vendor/bin/rr get-binary --location /app"
 ]
 
 [start]
-cmd = "php artisan migrate --force && php artisan storage:link --force && php artisan octane:start --server=swoole --host=0.0.0.0 --port=${PORT:-8080} --workers=4 --task-workers=2 --max-requests=1000"
+cmd = "php artisan migrate --force && php artisan storage:link --force && php artisan octane:start --server=roadrunner --host=0.0.0.0 --port=${PORT:-8080} --workers=4 --max-requests=1000"
