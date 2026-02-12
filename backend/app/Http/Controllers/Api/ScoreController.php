@@ -784,39 +784,9 @@ class ScoreController extends Controller
                 ->first();
 
             if (!$districtCompetition) {
-                // Debug: ลองหาโดยไม่ filter name เพื่อดูว่ามี district competition ไหม
-                $debugCount = Competition::where('competition_level', 'district')
-                    ->where('category_id', $groupCompetition->category_id)
-                    ->where('level', $groupCompetition->level)
-                    ->count();
-                $debugActive = Competition::where('competition_level', 'district')
-                    ->where('category_id', $groupCompetition->category_id)
-                    ->where('level', $groupCompetition->level)
-                    ->where('status', 'active')
-                    ->count();
-                $debugNames = Competition::where('competition_level', 'district')
-                    ->where('category_id', $groupCompetition->category_id)
-                    ->where('level', $groupCompetition->level)
-                    ->pluck('name', 'id')->toArray();
-                $debugStatuses = Competition::where('competition_level', 'district')
-                    ->where('category_id', $groupCompetition->category_id)
-                    ->where('level', $groupCompetition->level)
-                    ->pluck('status', 'id')->toArray();
-
                 return response()->json([
                     'error' => 'District competition not found',
-                    'message' => 'ไม่พบการแข่งขันระดับเขตที่ตรงกัน',
-                    'debug' => [
-                        'group_id' => $groupCompetition->id,
-                        'group_name' => $groupName,
-                        'clean_name' => $cleanName,
-                        'category_id' => $groupCompetition->category_id,
-                        'level' => $groupCompetition->level,
-                        'district_count_all' => $debugCount,
-                        'district_count_active' => $debugActive,
-                        'district_names' => $debugNames,
-                        'district_statuses' => $debugStatuses,
-                    ]
+                    'message' => 'ไม่พบการแข่งขันระดับเขตที่ตรงกัน'
                 ], 404);
             }
 
@@ -837,8 +807,9 @@ class ScoreController extends Controller
             }
 
             DB::beginTransaction();
-            
+
             $promoted = [];
+            $alreadySent = [];
             foreach ($topScores as $score) {
                 $groupRegistration = $score->registration;
 
@@ -849,6 +820,11 @@ class ScoreController extends Controller
                     ->first();
 
                 if ($existing) {
+                    $alreadySent[] = [
+                        'rank' => $score->rank,
+                        'team_name' => $groupRegistration->team_name,
+                        'school_name' => $groupRegistration->school->name ?? 'N/A',
+                    ];
                     continue; // ข้ามถ้าส่งไปแล้ว
                 }
 
@@ -877,12 +853,18 @@ class ScoreController extends Controller
 
             DB::commit();
 
+            $message = 'ส่งเข้ารอบเขตสำเร็จ ' . count($promoted) . ' ทีม';
+            if (count($alreadySent) > 0) {
+                $message .= ' (มี ' . count($alreadySent) . ' ทีมที่เคยส่งไปแล้ว)';
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'ส่งเข้ารอบเขตสำเร็จ ' . count($promoted) . ' ทีม',
+                'message' => $message,
                 'data' => [
                     'promoted_count' => count($promoted),
                     'promoted_teams' => $promoted,
+                    'already_sent' => $alreadySent,
                     'district_competition' => [
                         'id' => $districtCompetition->id,
                         'name' => $districtCompetition->name,
