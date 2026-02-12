@@ -1321,7 +1321,7 @@ class RegistrationController extends Controller
             $competitionIds = $competitions->pluck('id')->toArray();
 
             $regQuery = Registration::whereIn('competition_id', $competitionIds)
-                ->where('status', 'approved')
+                ->whereIn('status', ['approved', 'pending'])
                 ->with(['school.schoolGroup', 'score']);
 
             // ✅ กรองตาม role
@@ -1387,6 +1387,7 @@ class RegistrationController extends Controller
                                 'student_names' => $reg->student_names,
                                 'teacher_names' => $reg->teacher_names,
                                 'teacher_count' => $reg->teacher_count,
+                                'status' => $reg->status,
                                 'notes' => $reg->notes,
                                 'score' => $reg->score ? number_format($reg->score->score, 2) : null,
                                 'medal' => $reg->score->medal ?? null,
