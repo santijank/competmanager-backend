@@ -19,7 +19,8 @@ import {
   MapPin,
   Ban,
   ClipboardList,
-  CalendarCheck
+  CalendarCheck,
+  MessageCircle
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
@@ -225,6 +226,13 @@ export default function Sidebar({ isOpen, onClose }) {
       });
     }
 
+    // ===== แจ้งปัญหา (ทุก Role) =====
+    items.push({
+      label: 'แจ้งปัญหา',
+      icon: MessageCircle,
+      path: '/issues',
+    });
+
     // ===== ผู้ใช้งาน =====
     if (hasRole(['admin', 'district_admin'])) {
       items.push({
@@ -311,7 +319,7 @@ export default function Sidebar({ isOpen, onClose }) {
       {/* Sidebar - อยู่ในระดับเดียวกับ content */}
       <aside
         className={`
-          w-60 bg-white border-r flex-shrink-0
+          w-64 bg-white border-r flex-shrink-0
           fixed inset-y-0 left-0 z-50
           lg:relative lg:z-0
           transform transition-transform duration-300

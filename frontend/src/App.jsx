@@ -7,6 +7,8 @@ import PublicDashboard from '@/pages/PublicDashboard';
 import PublicDashboardNew from '@/pages/PublicDashboardNew';
 import PublicResults from '@/pages/public/PublicResults';
 import AnnouncementManagement from '@/pages/announcements/AnnouncementManagement';
+import IssueList from '@/pages/issues/IssueList';
+import IssueDetail from '@/pages/issues/IssueDetail';
 
 // Layouts
 import AuthLayout from '@/components/layouts/AuthLayout';
@@ -132,6 +134,8 @@ function App() {
             {/* Dashboard */}
             <Route path="/dashboard" element={<DashboardHome />} />
            <Route path="/announcements" element={<AnnouncementManagement />} />
+           <Route path="/issues" element={<IssueList />} />
+           <Route path="/issues/:id" element={<IssueDetail />} />
 
             {/* User Management (Admin Only) */}
             <Route path="/users" element={<UserManagement />} />

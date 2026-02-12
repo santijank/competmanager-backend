@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\StatisticsController;
 use App\Http\Controllers\Api\ActivityLogController;
+use App\Http\Controllers\Api\IssueController;
 
 /*
 |--------------------------------------------------------------------------
@@ -141,6 +142,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Announcements
     Route::apiResource('announcements', AnnouncementController::class);
     Route::post('announcements/{id}/toggle-pin', [AnnouncementController::class, 'togglePin']);
+
+    // Issues / Tickets - ระบบแจ้งปัญหา
+    Route::prefix('issues')->group(function () {
+        Route::get('/statistics', [IssueController::class, 'statistics']);
+        Route::get('/', [IssueController::class, 'index']);
+        Route::post('/', [IssueController::class, 'store']);
+        Route::get('/{id}', [IssueController::class, 'show']);
+        Route::put('/{id}', [IssueController::class, 'update']);
+        Route::patch('/{id}/status', [IssueController::class, 'updateStatus']);
+        Route::patch('/{id}/assign', [IssueController::class, 'assign']);
+        Route::post('/{id}/replies', [IssueController::class, 'addReply']);
+    });
 
     // Auth - get current user
     Route::get('auth/me', [AuthController::class, 'user']);

@@ -259,3 +259,22 @@ export const certificateTemplateService = {
     });
   },
 };
+
+// ============================================
+// Issue / Ticket Service - ระบบแจ้งปัญหา
+// ============================================
+
+export const issueService = {
+  getAll: (params) => api.get('/issues', { params }),
+  getById: (id) => api.get(`/issues/${id}`),
+  create: (formData) => api.post('/issues', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  update: (id, data) => api.put(`/issues/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/issues/${id}/status`, data),
+  assign: (id, data) => api.patch(`/issues/${id}/assign`, data),
+  addReply: (id, formData) => api.post(`/issues/${id}/replies`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  getStatistics: () => api.get('/issues/statistics'),
+};
