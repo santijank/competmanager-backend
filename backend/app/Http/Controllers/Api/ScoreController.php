@@ -768,11 +768,19 @@ class ScoreController extends Controller
             }
 
             // หา district competition ที่ตรงกัน (ชื่อเหมือนกัน, category เหมือนกัน, level เหมือนกัน)
+            $groupName = trim($groupCompetition->name);
+            // ลบ suffix ระดับ เช่น "(ระดับเขต)", "(ระดับกลุ่ม)" ออกก่อน match
+            $cleanName = preg_replace('/\s*\(ระดับ[^)]*\)\s*/', '', $groupName);
+            $cleanName = trim($cleanName);
+
             $districtCompetition = Competition::where('competition_level', 'district')
                 ->where('category_id', $groupCompetition->category_id)
                 ->where('level', $groupCompetition->level)
-                ->where('name', 'LIKE', '%' . $groupCompetition->name . '%')
                 ->where('status', 'active')
+                ->where(function ($query) use ($cleanName, $groupName) {
+                    $query->where('name', 'LIKE', '%' . $cleanName . '%')
+                          ->orWhere('name', 'LIKE', '%' . $groupName . '%');
+                })
                 ->first();
 
             if (!$districtCompetition) {
