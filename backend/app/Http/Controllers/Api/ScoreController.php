@@ -767,26 +767,38 @@ class ScoreController extends Controller
                 ], 400);
             }
 
-            // หา district competition ที่ตรงกัน (ชื่อเหมือนกัน, category เหมือนกัน, level เหมือนกัน)
-            $groupName = trim($groupCompetition->name);
-            // ลบ suffix ระดับ เช่น "(ระดับเขต)", "(ระดับกลุ่ม)" ออกก่อน match
-            $cleanName = preg_replace('/\s*\(ระดับ[^)]*\)\s*/', '', $groupName);
-            $cleanName = trim($cleanName);
+            // หา district competition ที่ตรงกัน
+            // วิธีที่ 1: ใช้ parent_competition_id (แม่นยำที่สุด)
+            $districtCompetition = null;
+            if ($groupCompetition->parent_competition_id) {
+                $districtCompetition = Competition::where('id', $groupCompetition->parent_competition_id)
+                    ->where('competition_level', 'district')
+                    ->where('status', 'active')
+                    ->first();
+            }
 
-            $districtCompetition = Competition::where('competition_level', 'district')
-                ->where('category_id', $groupCompetition->category_id)
-                ->where('level', $groupCompetition->level)
-                ->where('status', 'active')
-                ->where(function ($query) use ($cleanName, $groupName) {
-                    $query->where('name', 'LIKE', '%' . $cleanName . '%')
-                          ->orWhere('name', 'LIKE', '%' . $groupName . '%');
-                })
-                ->first();
+            // วิธีที่ 2: Fallback ใช้ชื่อ + category + level (กรณีไม่มี parent_competition_id)
+            if (!$districtCompetition) {
+                $groupName = trim($groupCompetition->name);
+                // ลบ suffix ระดับ เช่น "(ระดับเขต)", "(ระดับกลุ่ม)" ออกก่อน match
+                $cleanName = preg_replace('/\s*\(ระดับ[^)]*\)\s*/', '', $groupName);
+                $cleanName = trim($cleanName);
+
+                $districtCompetition = Competition::where('competition_level', 'district')
+                    ->where('category_id', $groupCompetition->category_id)
+                    ->where('level', $groupCompetition->level)
+                    ->where('status', 'active')
+                    ->where(function ($query) use ($cleanName, $groupName) {
+                        $query->where('name', 'LIKE', '%' . $cleanName . '%')
+                              ->orWhere('name', 'LIKE', '%' . $groupName . '%');
+                    })
+                    ->first();
+            }
 
             if (!$districtCompetition) {
                 return response()->json([
                     'error' => 'District competition not found',
-                    'message' => 'ไม่พบการแข่งขันระดับเขตที่ตรงกัน'
+                    'message' => 'ไม่พบการแข่งขันระดับเขตที่ตรงกัน กรุณาตรวจสอบว่า parent_competition_id, ชื่อ, หมวดหมู่ และระดับชั้นตรงกัน'
                 ], 404);
             }
 

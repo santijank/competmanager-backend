@@ -95,15 +95,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Schools
     Route::apiResource('schools', SchoolController::class);
     
-    // Competitions (protected routes)
-    Route::apiResource('competitions', CompetitionController::class);
+    // Competitions (custom routes ต้องอยู่ก่อน apiResource เพื่อไม่ให้ถูก {competition} ดักไว้)
     Route::post('competitions/bulk-create', [CompetitionController::class, 'bulkCreate']);
     Route::post('competitions/bulk-update-excluded-groups', [CompetitionController::class, 'bulkUpdateExcludedGroups']);
     Route::get('competitions/school-group/{schoolGroupId}', [CompetitionController::class, 'getCompetitionsForSchoolGroup']);
+    Route::get('competitions/check-mismatches', [CompetitionController::class, 'checkMismatches']);
+    Route::post('competitions/sync-with-parent', [CompetitionController::class, 'syncWithParent']);
+    Route::apiResource('competitions', CompetitionController::class);
     Route::get('competitions/{id}/registrations', [CompetitionController::class, 'getRegistrations']);
     Route::get('competitions/{id}/results', [CompetitionController::class, 'getResults']);
     Route::post('competitions/{id}/advance-winners', [CompetitionController::class, 'advanceWinners']);
-    
+
     // Registrations
     Route::get('registrations/statistics', [RegistrationController::class, 'statistics']);
     Route::get('registrations/district-competitions', [RegistrationController::class, 'districtCompetitions']);

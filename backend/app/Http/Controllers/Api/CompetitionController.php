@@ -945,4 +945,188 @@ class CompetitionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * ตรวจสอบ group competitions ที่ชื่อ/code/category_id ไม่ตรงกับ parent district competition
+     */
+    public function checkMismatches(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            // ดึง group competitions ที่มี parent_competition_id
+            $groupComps = Competition::with(['parentCompetition', 'schoolGroup:id,name', 'category:id,name'])
+                ->where('competition_level', 'group')
+                ->whereNotNull('parent_competition_id')
+                ->get();
+
+            $mismatches = [];
+            foreach ($groupComps as $group) {
+                $parent = $group->parentCompetition;
+                if (!$parent) continue;
+
+                $issues = [];
+                if (trim($group->name) !== trim($parent->name)) {
+                    $issues[] = [
+                        'field' => 'name',
+                        'group_value' => $group->name,
+                        'district_value' => $parent->name,
+                    ];
+                }
+                if ($group->code !== $parent->code) {
+                    $issues[] = [
+                        'field' => 'code',
+                        'group_value' => $group->code,
+                        'district_value' => $parent->code,
+                    ];
+                }
+                if ($group->category_id !== $parent->category_id) {
+                    $issues[] = [
+                        'field' => 'category_id',
+                        'group_value' => $group->category_id,
+                        'district_value' => $parent->category_id,
+                    ];
+                }
+                if ($group->level !== $parent->level) {
+                    $issues[] = [
+                        'field' => 'level',
+                        'group_value' => $group->level,
+                        'district_value' => $parent->level,
+                    ];
+                }
+
+                if (!empty($issues)) {
+                    $mismatches[] = [
+                        'group_competition_id' => $group->id,
+                        'group_name' => $group->name,
+                        'group_code' => $group->code,
+                        'school_group' => $group->schoolGroup->name ?? 'N/A',
+                        'school_group_id' => $group->school_group_id,
+                        'district_competition_id' => $parent->id,
+                        'district_name' => $parent->name,
+                        'district_code' => $parent->code,
+                        'issues' => $issues,
+                    ];
+                }
+            }
+
+            // ดึง group competitions ที่ไม่มี parent_competition_id (อาจมีปัญหา)
+            $orphans = Competition::with(['schoolGroup:id,name', 'category:id,name'])
+                ->where('competition_level', 'group')
+                ->whereNull('parent_competition_id')
+                ->where('is_active', true)
+                ->get()
+                ->map(function ($comp) {
+                    return [
+                        'group_competition_id' => $comp->id,
+                        'group_name' => $comp->name,
+                        'group_code' => $comp->code,
+                        'school_group' => $comp->schoolGroup->name ?? 'N/A',
+                        'school_group_id' => $comp->school_group_id,
+                        'category_id' => $comp->category_id,
+                        'level' => $comp->level,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'mismatch_count' => count($mismatches),
+                    'orphan_count' => $orphans->count(),
+                    'mismatches' => $mismatches,
+                    'orphans' => $orphans,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Check mismatches error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Sync group competitions ทั้งหมดให้ name/code/category_id/level ตรงกับ parent district competition
+     */
+    public function syncWithParent(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $groupComps = Competition::with('parentCompetition')
+                ->where('competition_level', 'group')
+                ->whereNotNull('parent_competition_id')
+                ->get();
+
+            $updated = [];
+            $skipped = [];
+
+            DB::beginTransaction();
+
+            foreach ($groupComps as $group) {
+                $parent = $group->parentCompetition;
+                if (!$parent) {
+                    $skipped[] = [
+                        'id' => $group->id,
+                        'name' => $group->name,
+                        'reason' => 'parent not found',
+                    ];
+                    continue;
+                }
+
+                $changes = [];
+                if (trim($group->name) !== trim($parent->name)) {
+                    $changes['name'] = ['from' => $group->name, 'to' => $parent->name];
+                    $group->name = $parent->name;
+                }
+                // ไม่ sync code เพราะ code เป็น unique ต่อ record (group แต่ละกลุ่มมี code ต่างกัน)
+                if ($group->category_id !== $parent->category_id) {
+                    $changes['category_id'] = ['from' => $group->category_id, 'to' => $parent->category_id];
+                    $group->category_id = $parent->category_id;
+                }
+                if ($group->level !== $parent->level) {
+                    $changes['level'] = ['from' => $group->level, 'to' => $parent->level];
+                    $group->level = $parent->level;
+                }
+
+                if (!empty($changes)) {
+                    $group->save();
+                    $updated[] = [
+                        'id' => $group->id,
+                        'school_group_id' => $group->school_group_id,
+                        'changes' => $changes,
+                    ];
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sync สำเร็จ อัปเดต ' . count($updated) . ' รายการ',
+                'data' => [
+                    'updated_count' => count($updated),
+                    'skipped_count' => count($skipped),
+                    'updated' => $updated,
+                    'skipped' => $skipped,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sync with parent error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
