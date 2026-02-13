@@ -72,6 +72,12 @@ export default function Sidebar({ isOpen, onClose }) {
           roles: ['admin', 'district_admin'],
         },
         {
+          label: 'กำหนดกิจกรรมแต่ละกลุ่ม',
+          icon: Layers,
+          path: '/competitions/group-view',
+          roles: ['admin', 'district_admin'],
+        },
+        {
           label: 'กำหนดการลงทะเบียน',
           icon: CalendarCheck,
           path: '/registrations/settings',
