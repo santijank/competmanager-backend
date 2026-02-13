@@ -49,7 +49,7 @@ export default function CompetitionExclusionManager() {
     try {
       setLoading(true);
       const [compsRes, groupsRes, catsRes] = await Promise.all([
-        api.get('/competitions', { params: { is_active: true } }),
+        api.get('/competitions', { params: { is_active: true, per_page: 500 } }),
         api.get('/school-groups'),
         api.get('/categories')
       ]);

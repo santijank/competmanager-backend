@@ -119,9 +119,12 @@ class CompetitionController extends Controller
             // ✅ Execute query
             $totalCount = DB::table('competitions')->count();
 
+            $perPage = $request->filled('per_page') ? (int) $request->per_page : 100;
+            if ($perPage <= 0 || $perPage > 1000) $perPage = 100;
+
             $competitions = $query
                 ->orderBy('competitions.created_at', 'desc')
-                ->limit(100)
+                ->limit($perPage)
                 ->get();
 
             // ✅ Format data
