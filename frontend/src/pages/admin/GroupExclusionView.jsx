@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Building2,
   Search,
@@ -6,12 +6,9 @@ import {
   ChevronDown,
   ChevronRight,
   Layers,
-  CheckCircle2,
-  Ban,
   Save,
   Eye,
   EyeOff,
-  RefreshCw,
   AlertCircle,
   CheckSquare,
   Square,
@@ -24,12 +21,13 @@ import useAuthStore from '@/stores/authStore';
 /**
  * Group Exclusion View
  *
- * มุมมองแบบกลุ่ม: เลือกกลุ่มโรงเรียน → เห็นกิจกรรมทั้งหมด → ติ๊กเลือกกิจกรรมที่กลุ่มนี้เข้าแข่งได้
+ * มุมมองแบบกลุ่ม: เลือกกลุ่มโรงเรียน → เห็นกิจกรรมของกลุ่มนั้น → ติ๊กเลือกกิจกรรมที่กลุ่มนี้เข้าแข่งได้
  * กิจกรรมที่ไม่ได้ติ๊ก = ถูกยกเว้น (excluded)
  */
 export default function GroupExclusionView() {
   const { hasRole } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [loadingComps, setLoadingComps] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [competitions, setCompetitions] = useState([]);
@@ -42,10 +40,9 @@ export default function GroupExclusionView() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [filterLevel, setFilterLevel] = useState('all');
   const [filterVisibility, setFilterVisibility] = useState('all'); // 'all', 'visible', 'hidden'
 
-  // Expanded categories
+  // Expanded categories - default collapsed
   const [expandedCategories, setExpandedCategories] = useState({});
 
   // Track changes (local state of which competitions this group can see)
@@ -57,45 +54,20 @@ export default function GroupExclusionView() {
       toast.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
       return;
     }
-    fetchData();
+    fetchInitialData();
   }, []);
 
-  const fetchData = async () => {
+  // โหลดข้อมูลเริ่มต้น (กลุ่มโรงเรียน + หมวดหมู่)
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [compsRes, groupsRes, catsRes] = await Promise.all([
-        api.get('/competitions', { params: { is_active: true, per_page: 500 } }),
+      const [groupsRes, catsRes] = await Promise.all([
         api.get('/school-groups'),
         api.get('/categories')
       ]);
 
-      const comps = compsRes.data.data || [];
-      const groups = groupsRes.data.data || [];
-      const cats = catsRes.data.data || [];
-
-      setCompetitions(comps);
-      setSchoolGroups(groups);
-      setCategories(cats);
-
-      // Auto-expand all categories
-      const allExpanded = {};
-      cats.forEach(cat => { allExpanded[cat.name] = true; });
-      allExpanded['ไม่ระบุหมวดหมู่'] = true;
-      setExpandedCategories(allExpanded);
-
-      // Auto-select first group
-      if (groups.length > 0 && !selectedGroupId) {
-        const firstGid = groups[0].id;
-        setSelectedGroupId(firstGid);
-        const allowed = new Set();
-        comps.forEach((comp) => {
-          const excluded = comp.excluded_school_groups || [];
-          if (!excluded.includes(firstGid)) {
-            allowed.add(comp.id);
-          }
-        });
-        setAllowedCompIds(allowed);
-      }
+      setSchoolGroups(groupsRes.data.data || []);
+      setCategories(catsRes.data.data || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('ไม่สามารถโหลดข้อมูลได้');
@@ -104,30 +76,46 @@ export default function GroupExclusionView() {
     }
   };
 
-  // When group is selected, compute which competitions are allowed
+  // โหลดกิจกรรมเฉพาะกลุ่มที่เลือก
+  const fetchCompetitionsForGroup = useCallback(async (groupId) => {
+    try {
+      setLoadingComps(true);
+      const response = await api.get('/competitions', {
+        params: { is_active: true, per_page: 500, school_group_id: groupId }
+      });
+
+      const comps = response.data.data || [];
+      setCompetitions(comps);
+
+      // ค่าเริ่มต้น: ทุกกิจกรรมเห็นหมด (allowed) ยกเว้นที่ถูก exclude ไว้แล้ว
+      const allowed = new Set();
+      comps.forEach((comp) => {
+        const excluded = comp.excluded_school_groups || [];
+        if (!excluded.includes(groupId)) {
+          allowed.add(comp.id);
+        }
+      });
+      setAllowedCompIds(allowed);
+      setHasChanges(false);
+
+      // ย่อทั้งหมดเป็นค่าเริ่มต้น
+      setExpandedCategories({});
+    } catch (error) {
+      console.error('Failed to fetch competitions:', error);
+      toast.error('ไม่สามารถโหลดกิจกรรมได้');
+    } finally {
+      setLoadingComps(false);
+    }
+  }, []);
+
+  // เมื่อเลือกกลุ่ม
   const selectGroup = (groupId) => {
     const gid = parseInt(groupId);
     setSelectedGroupId(gid);
-    setHasChanges(false);
-
-    // Build set of allowed competition IDs
-    // A competition is allowed if the group is NOT in its excluded_school_groups
-    const allowed = new Set();
-    competitions.forEach((comp) => {
-      const excluded = comp.excluded_school_groups || [];
-      if (!excluded.includes(gid)) {
-        allowed.add(comp.id);
-      }
-    });
-    setAllowedCompIds(allowed);
-
-    // Auto-expand all categories
-    const allExpanded = {};
-    categories.forEach(cat => {
-      allExpanded[cat.name] = true;
-    });
-    allExpanded['ไม่ระบุหมวดหมู่'] = true;
-    setExpandedCategories(allExpanded);
+    setSearchTerm('');
+    setFilterCategory('all');
+    setFilterVisibility('all');
+    fetchCompetitionsForGroup(gid);
   };
 
   // Toggle single competition
@@ -145,17 +133,15 @@ export default function GroupExclusionView() {
   };
 
   // Toggle all in category
-  const toggleCategory = (categoryComps) => {
+  const toggleCategoryComps = (categoryComps) => {
     const compIds = categoryComps.map((c) => c.id);
     const allAllowed = compIds.every((id) => allowedCompIds.has(id));
 
     setAllowedCompIds((prev) => {
       const newSet = new Set(prev);
       if (allAllowed) {
-        // ยกเลิกทั้งหมดในหมวดหมู่
         compIds.forEach((id) => newSet.delete(id));
       } else {
-        // เลือกทั้งหมดในหมวดหมู่
         compIds.forEach((id) => newSet.add(id));
       }
       return newSet;
@@ -186,20 +172,16 @@ export default function GroupExclusionView() {
     try {
       setSaving(true);
 
-      // For each competition, determine if this group should be excluded or not
-      // We batch into add/remove operations
-      const toExclude = []; // competitions where group should be in excluded list
-      const toAllow = []; // competitions where group should NOT be in excluded list
+      const toExclude = [];
+      const toAllow = [];
 
       competitions.forEach((comp) => {
         const currentlyExcluded = (comp.excluded_school_groups || []).includes(selectedGroupId);
         const shouldBeAllowed = allowedCompIds.has(comp.id);
 
         if (shouldBeAllowed && currentlyExcluded) {
-          // Need to REMOVE from exclusion
           toAllow.push(comp.id);
         } else if (!shouldBeAllowed && !currentlyExcluded) {
-          // Need to ADD to exclusion
           toExclude.push(comp.id);
         }
       });
@@ -276,10 +258,6 @@ export default function GroupExclusionView() {
         return false;
       }
 
-      if (filterLevel !== 'all' && comp.competition_level !== filterLevel) {
-        return false;
-      }
-
       if (selectedGroupId && filterVisibility !== 'all') {
         const isAllowed = allowedCompIds.has(comp.id);
         if (filterVisibility === 'visible' && !isAllowed) return false;
@@ -288,7 +266,7 @@ export default function GroupExclusionView() {
 
       return true;
     });
-  }, [competitions, searchTerm, filterCategory, filterLevel, filterVisibility, selectedGroupId, allowedCompIds]);
+  }, [competitions, searchTerm, filterCategory, filterVisibility, selectedGroupId, allowedCompIds]);
 
   // Group by category
   const groupedCompetitions = useMemo(() => {
@@ -309,8 +287,6 @@ export default function GroupExclusionView() {
     const allowed = allowedCompIds.size;
     return { total, allowed, excluded: total - allowed };
   }, [selectedGroupId, competitions, allowedCompIds]);
-
-  const selectedGroup = schoolGroups.find((g) => g.id === selectedGroupId);
 
   const expandAll = () => {
     const allExpanded = {};
@@ -355,28 +331,20 @@ export default function GroupExclusionView() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {schoolGroups.map((group) => {
             const isSelected = selectedGroupId === group.id;
-            // Count excluded for this group
-            const excludedCount = competitions.filter(
-              (c) => (c.excluded_school_groups || []).includes(group.id)
-            ).length;
 
             return (
               <button
                 key={group.id}
                 onClick={() => selectGroup(group.id)}
+                disabled={loadingComps}
                 className={`relative flex flex-col items-center px-3 py-3 text-sm rounded-lg border-2 transition-all ${
                   isSelected
                     ? 'bg-blue-50 border-blue-500 text-blue-800 shadow-md'
                     : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
-                }`}
+                } disabled:opacity-50`}
               >
                 <Building2 className={`w-5 h-5 mb-1 ${isSelected ? 'text-blue-500' : 'text-gray-400'}`} />
                 <span className="font-medium text-center leading-tight">{group.name}</span>
-                {excludedCount > 0 && (
-                  <span className="mt-1 px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-[10px] font-medium">
-                    ยกเว้น {excludedCount}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -394,8 +362,16 @@ export default function GroupExclusionView() {
         </div>
       )}
 
+      {/* Loading competitions */}
+      {selectedGroupId && loadingComps && (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
+          <p className="text-gray-600 mt-4">กำลังโหลดกิจกรรมของกลุ่ม...</p>
+        </div>
+      )}
+
       {/* Selected group content */}
-      {selectedGroupId && (
+      {selectedGroupId && !loadingComps && (
         <>
           {/* Sticky Save Bar */}
           {hasChanges && (
@@ -408,7 +384,7 @@ export default function GroupExclusionView() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => selectGroup(selectedGroupId)}
+                  onClick={() => fetchCompetitionsForGroup(selectedGroupId)}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-white"
                 >
                   ยกเลิก
@@ -458,7 +434,7 @@ export default function GroupExclusionView() {
 
           {/* Filters */}
           <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {/* Search */}
               <div className="relative md:col-span-2">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -485,20 +461,6 @@ export default function GroupExclusionView() {
                       {cat.name}
                     </option>
                   ))}
-                </select>
-              </div>
-
-              {/* Level Filter */}
-              <div className="relative">
-                <Layers className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <select
-                  value={filterLevel}
-                  onChange={(e) => setFilterLevel(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none text-sm"
-                >
-                  <option value="all">ทุกระดับ</option>
-                  <option value="group">ระดับกลุ่ม</option>
-                  <option value="district">ระดับเขต</option>
                 </select>
               </div>
 
@@ -568,7 +530,7 @@ export default function GroupExclusionView() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleCategory(comps);
+                          toggleCategoryComps(comps);
                         }}
                         className="flex-shrink-0"
                         title={allAllowed ? 'ยกเว้นทั้งหมดในหมวดนี้' : 'อนุญาตทั้งหมดในหมวดนี้'}
@@ -662,17 +624,6 @@ export default function GroupExclusionView() {
                               )}
                             </div>
 
-                            {/* Level badge */}
-                            <span
-                              className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium mr-3 ${
-                                comp.competition_level === 'district'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}
-                            >
-                              {comp.competition_level === 'district' ? 'เขต' : 'กลุ่ม'}
-                            </span>
-
                             {/* Status icon */}
                             <div className="flex-shrink-0">
                               {isAllowed ? (
@@ -702,7 +653,7 @@ export default function GroupExclusionView() {
           {hasChanges && (
             <div className="mt-6 flex justify-end gap-3">
               <button
-                onClick={() => selectGroup(selectedGroupId)}
+                onClick={() => fetchCompetitionsForGroup(selectedGroupId)}
                 className="px-6 py-2.5 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 ยกเลิกการเปลี่ยนแปลง
