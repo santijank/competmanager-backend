@@ -20,7 +20,8 @@ import {
   Ban,
   ClipboardList,
   CalendarCheck,
-  MessageCircle
+  MessageCircle,
+  SkipForward,
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
@@ -75,6 +76,12 @@ export default function Sidebar({ isOpen, onClose }) {
           label: 'กำหนดกิจกรรมแต่ละกลุ่ม',
           icon: Layers,
           path: '/competitions/group-view',
+          roles: ['admin', 'district_admin'],
+        },
+        {
+          label: 'ข้ามระดับกลุ่ม',
+          icon: SkipForward,
+          path: '/competitions/skip-group',
           roles: ['admin', 'district_admin'],
         },
         {

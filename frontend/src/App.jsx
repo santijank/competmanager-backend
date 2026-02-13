@@ -76,6 +76,7 @@ import SchoolManagement from '@/pages/admin/SchoolManagement';
 import ActivityLogs from '@/pages/admin/ActivityLogs';
 import CompetitionExclusionManager from '@/pages/admin/CompetitionExclusionManager';
 import GroupExclusionView from '@/pages/admin/GroupExclusionView';
+import SkipGroupLevelManager from '@/pages/admin/SkipGroupLevelManager';
 
 // School Pages
 import SchoolSchedules from '@/pages/school/SchoolSchedules';
@@ -164,6 +165,7 @@ function App() {
             {/* Competition Exclusion Manager (District Admin Only) */}
             <Route path="/competitions/exclusions" element={<CompetitionExclusionManager />} />
             <Route path="/competitions/group-view" element={<GroupExclusionView />} />
+            <Route path="/competitions/skip-group" element={<SkipGroupLevelManager />} />
 
             {/* Registration Routes - New System */}
             {/* Teacher Routes */}

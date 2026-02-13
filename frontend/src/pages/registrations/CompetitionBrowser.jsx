@@ -86,12 +86,17 @@ export default function CompetitionBrowser() {
       const response = await api.get('/competitions', { params });
       let comps = response.data.data || [];
 
-      // ✅ Filter สำหรับ school_admin/teacher - เห็นเฉพาะการแข่งขันของกลุ่มตัวเอง
+      // ✅ Filter สำหรับ school_admin/teacher - เห็นเฉพาะการแข่งขันของกลุ่มตัวเอง + กิจกรรมข้ามระดับกลุ่ม
       if (isSchoolRole()) {
         const userSchoolGroupId = user?.school_group_id || user?.school?.school_group_id;
 
         if (userSchoolGroupId) {
           comps = comps.filter(comp => {
+            // ✅ กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม → โรงเรียนสมัครตรงได้
+            if (comp.competition_level === 'district' && comp.skip_group_level) {
+              return true;
+            }
+
             // ต้องเป็นระดับกลุ่มและเป็นกลุ่มตัวเอง
             const isOwnGroup = comp.competition_level === 'group' &&
                    comp.school_group_id === userSchoolGroupId;
@@ -105,9 +110,14 @@ export default function CompetitionBrowser() {
         }
       }
 
-      // ✅ Filter สำหรับ group_admin - เห็นเฉพาะการแข่งขันของกลุ่มตัวเอง
+      // ✅ Filter สำหรับ group_admin - เห็นเฉพาะการแข่งขันของกลุ่มตัวเอง + กิจกรรมข้ามระดับกลุ่ม
       if (isGroupAdmin() && user?.school_group_id) {
         comps = comps.filter(comp => {
+          // ✅ กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม → เห็นได้
+          if (comp.competition_level === 'district' && comp.skip_group_level) {
+            return true;
+          }
+
           const isOwnGroup = comp.competition_level === 'group' &&
                  comp.school_group_id === user.school_group_id;
 
@@ -459,6 +469,13 @@ const CompetitionCard = ({ competition, onRegister, getLevelBadge, showLevel = f
           </h3>
           {showLevel && getLevelBadge(competition.competition_level)}
         </div>
+        {/* ✅ Badge สมัครตรงระดับเขต */}
+        {competition.skip_group_level && competition.competition_level === 'district' && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium mb-2">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 17l5-5-5-5M6 12h12"/></svg>
+            สมัครตรงระดับเขต
+          </span>
+        )}
 
         <div className="space-y-1 text-sm text-gray-600">
           <p>รหัส: <span className="font-medium">{competition.code}</span></p>

@@ -29,6 +29,7 @@ class Competition extends Model
         'school_group_id',
         'excluded_school_groups',  // ✅ กลุ่มที่ไม่อนุญาตให้ลงทะเบียน
         'exclusion_reason',        // ✅ เหตุผลที่ยกเว้น
+        'skip_group_level',        // ✅ ข้ามระดับกลุ่ม (bypass ไประดับเขตเลย)
         'start_date',
         'end_date',
         'status',
@@ -59,6 +60,7 @@ class Competition extends Model
         'is_active' => 'boolean',
         'auto_close_registration' => 'boolean',
         'auto_generated' => 'boolean',
+        'skip_group_level' => 'boolean',  // ✅ Cast เป็น boolean
 
         // ✅ Cast participant limits เป็น integer
         'min_students' => 'integer',

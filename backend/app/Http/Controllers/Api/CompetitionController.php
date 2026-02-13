@@ -58,10 +58,16 @@ class CompetitionController extends Controller
                     break;
 
                 case 'group_admin':
-                    // Group Admin เห็นเฉพาะกลุ่มตัวเอง
+                    // Group Admin เห็นเฉพาะกลุ่มตัวเอง + กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม
                     if ($user->school_group_id) {
-                        $query->where('competitions.school_group_id', $user->school_group_id);
-                        $filterApplied = "Group Admin - เฉพาะกลุ่ม {$user->school_group_id}";
+                        $query->where(function ($q) use ($user) {
+                            $q->where('competitions.school_group_id', $user->school_group_id)
+                              ->orWhere(function ($q2) {
+                                  $q2->where('competitions.competition_level', 'district')
+                                     ->where('competitions.skip_group_level', true);
+                              });
+                        });
+                        $filterApplied = "Group Admin - กลุ่ม {$user->school_group_id} + skip_group_level";
                     } else {
                         $query->whereNull('competitions.school_group_id');
                         $filterApplied = 'Group Admin - เฉพาะสาธารณะ';
@@ -70,7 +76,7 @@ class CompetitionController extends Controller
 
                 case 'school_admin':
                 case 'teacher':
-                    // School Admin/Teacher เห็นเฉพาะกลุ่มของโรงเรียน
+                    // School Admin/Teacher เห็นเฉพาะกลุ่มของโรงเรียน + กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม
                     $schoolGroupId = $user->school_group_id;
                     // ถ้าไม่มี school_group_id ให้ค้นหาจาก school
                     if (!$schoolGroupId && $user->school_id) {
@@ -79,8 +85,15 @@ class CompetitionController extends Controller
                     }
 
                     if ($schoolGroupId) {
-                        $query->where('competitions.school_group_id', $schoolGroupId);
-                        $filterApplied = "School Admin - เฉพาะกลุ่ม {$schoolGroupId}";
+                        // ✅ เห็นกิจกรรมของกลุ่มตัวเอง OR กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม
+                        $query->where(function ($q) use ($schoolGroupId) {
+                            $q->where('competitions.school_group_id', $schoolGroupId)
+                              ->orWhere(function ($q2) {
+                                  $q2->where('competitions.competition_level', 'district')
+                                     ->where('competitions.skip_group_level', true);
+                              });
+                        });
+                        $filterApplied = "School Admin - กลุ่ม {$schoolGroupId} + skip_group_level";
                     } else {
                         $query->whereNull('competitions.school_group_id');
                         $filterApplied = 'School Admin - เฉพาะสาธารณะ';
@@ -159,6 +172,7 @@ class CompetitionController extends Controller
                     'is_active' => (bool) $comp->is_active,
                     'excluded_school_groups' => $excludedGroups ?? [], // ✅ เพิ่ม excluded_school_groups
                     'exclusion_reason' => $comp->exclusion_reason ?? null, // ✅ เพิ่ม exclusion_reason
+                    'skip_group_level' => (bool) ($comp->skip_group_level ?? false), // ✅ ข้ามระดับกลุ่ม
                     'created_at' => $comp->created_at,
                 ];
             })->toArray();
@@ -1129,6 +1143,86 @@ class CompetitionController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Bulk update skip_group_level for multiple district competitions
+     * สำหรับ Admin กำหนดว่ากิจกรรมไหนข้ามระดับกลุ่ม
+     */
+    public function bulkUpdateSkipGroupLevel(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเข้าสู่ระบบ'
+                ], 401);
+            }
+
+            $userRole = strtolower($user->role);
+
+            // ✅ เฉพาะ Admin/District Admin เท่านั้น
+            if (!in_array($userRole, ['admin', 'district_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'คุณไม่มีสิทธิ์ดำเนินการนี้'
+                ], 403);
+            }
+
+            $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+                'competition_ids' => 'required|array|min:1',
+                'competition_ids.*' => 'integer|exists:competitions,id',
+                'skip_group_level' => 'required|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ข้อมูลไม่ถูกต้อง',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $skipGroupLevel = $request->skip_group_level;
+            $updatedCount = 0;
+
+            foreach ($request->competition_ids as $competitionId) {
+                $competition = Competition::find($competitionId);
+                if (!$competition) continue;
+
+                // อัพเดทเฉพาะ district competitions
+                if ($competition->competition_level === 'district') {
+                    $competition->skip_group_level = $skipGroupLevel;
+                    $competition->save();
+                    $updatedCount++;
+                }
+            }
+
+            Log::info('Bulk update skip_group_level', [
+                'skip_group_level' => $skipGroupLevel,
+                'updated_count' => $updatedCount,
+                'updated_by' => $user->id
+            ]);
+
+            $statusText = $skipGroupLevel ? 'ข้ามระดับกลุ่ม' : 'ไม่ข้ามระดับกลุ่ม';
+
+            return response()->json([
+                'success' => true,
+                'message' => "อัพเดทสำเร็จ {$updatedCount} กิจกรรม → {$statusText}",
+                'updated_count' => $updatedCount
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Bulk update skip_group_level error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

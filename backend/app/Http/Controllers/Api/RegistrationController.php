@@ -216,7 +216,11 @@ class RegistrationController extends Controller
 
         // ✅ ตรวจสอบว่ากลุ่มโรงเรียนถูกยกเว้นจากการลงทะเบียนหรือไม่
         $school = School::findOrFail($schoolId);
-        if ($school->school_group_id && $competition->isSchoolGroupExcluded($school->school_group_id)) {
+
+        // ✅ Bypass: ถ้าเป็น district + skip_group_level → อนุญาตให้ลงทะเบียนตรง (ไม่ต้องเช็ค exclusion ของ group)
+        $isSkipGroupLevel = $competition->competition_level === 'district' && $competition->skip_group_level;
+
+        if (!$isSkipGroupLevel && $school->school_group_id && $competition->isSchoolGroupExcluded($school->school_group_id)) {
             return response()->json([
                 'success' => false,
                 'message' => 'กลุ่มโรงเรียนของคุณไม่สามารถลงทะเบียนกิจกรรมนี้ได้',
