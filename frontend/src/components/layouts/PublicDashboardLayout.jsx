@@ -3,6 +3,7 @@ import { LogIn, LogOut, User, LayoutDashboard } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 
 // Public Navbar Component with Auth Buttons
+// ใช้ banner image เดียวกับหน้า Dashboard (Navbar.jsx)
 function PublicNavbar() {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
@@ -13,16 +14,13 @@ function PublicNavbar() {
   };
 
   return (
-    <nav
-      className="relative z-40 min-h-[350px] h-[56vh] max-h-[700px] bg-cover md:min-h-[450px] lg:min-h-[500px]"
-      style={{
-        backgroundImage: "url('/images/header-banner.png')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center top'
-      }}
-    >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-blue-900/10" />
+    <nav className="relative z-40 w-full">
+      {/* Banner Image - แสดงภาพเต็มขนาดปกติ */}
+      <img
+        src="/images/1header-banner.png"
+        alt="งานศิลปหัตถกรรมนักเรียน"
+        className="w-full h-auto block"
+      />
 
       {/* Auth Buttons - Top Right */}
       <div className="absolute top-4 right-6 z-20 flex items-center gap-3">
@@ -68,15 +66,13 @@ function PublicNavbar() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex items-end h-full px-6 pb-6 text-white">
-        <div>
-          <h1 className="text-3xl font-bold">
-            CompetManager
-          </h1>
-          <p className="text-base opacity-90">
-            ระบบบริหารจัดการแข่งขันระดับเขต
-          </p>
-        </div>
+      <div className="absolute bottom-0 left-0 right-0 z-10 px-6 pb-2 text-white">
+        <h1 className="text-xl md:text-2xl font-bold drop-shadow-lg">
+          CompetManager
+        </h1>
+        <p className="text-xs md:text-sm opacity-90 drop-shadow-md">
+          ระบบบริหารจัดการแข่งขันระดับเขต
+        </p>
       </div>
     </nav>
   );

@@ -110,6 +110,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Registrations
     Route::get('registrations/statistics', [RegistrationController::class, 'statistics']);
     Route::get('registrations/district-competitions', [RegistrationController::class, 'districtCompetitions']);
+    Route::get('registrations/district-representatives-pdf', [RegistrationController::class, 'districtRepresentativesPdf']);
     Route::get('registrations/group-overview', [RegistrationController::class, 'groupOverview']);
     Route::get('registrations/status', [RegistrationController::class, 'status']);
     Route::get('registrations/settings', [RegistrationController::class, 'getSettings']);

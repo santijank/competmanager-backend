@@ -19,7 +19,7 @@ export default function Navbar({ onMenuClick }) {
 
   return (
     <nav className="relative z-40 w-full">
-      {/* Banner Image - แสดงภาพครบทั้งหมด ปรับขนาดอัตโนมัติตามความกว้างหน้าจอ */}
+      {/* Banner Image - แสดงภาพเต็มขนาดปกติ */}
       <img
         src="/images/1header-banner.png"
         alt="งานศิลปหัตถกรรมนักเรียน"

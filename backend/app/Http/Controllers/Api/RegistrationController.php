@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class RegistrationController extends Controller
 {
@@ -1519,6 +1520,138 @@ class RegistrationController extends Controller
         } catch (\Exception $e) {
             Log::error('Group overview error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด'], 500);
+        }
+    }
+
+    /**
+     * ออกเอกสาร PDF รายชื่อตัวแทนระดับเขต/ระดับโรงเรียน
+     * จัดกลุ่มตามโรงเรียน แสดงกิจกรรม ผู้แข่งขัน ครูผู้ฝึกสอน
+     * Route: GET /registrations/district-representatives-pdf
+     */
+    public function districtRepresentativesPdf(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // ดึง district competitions ที่ active
+            $competitions = Competition::with(['category'])
+                ->where('competition_level', 'district')
+                ->where('is_active', true)
+                ->orderBy('category_id')
+                ->orderBy('name')
+                ->get();
+
+            $competitionIds = $competitions->pluck('id')->toArray();
+
+            // ดึง registrations ที่ approved/pending
+            $regQuery = Registration::whereIn('competition_id', $competitionIds)
+                ->whereIn('status', ['approved', 'pending'])
+                ->with(['school.schoolGroup', 'competition.category']);
+
+            // กรองตาม role
+            if (in_array($user->role, ['school_admin', 'teacher'])) {
+                $schoolId = $user->school_id;
+                if (!$schoolId) {
+                    return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลโรงเรียน'], 400);
+                }
+                $regQuery->where('school_id', $schoolId);
+            } elseif ($user->role === 'group_admin') {
+                $schoolGroupId = $user->school_group_id;
+                if ($schoolGroupId) {
+                    $schoolIds = School::where('school_group_id', $schoolGroupId)->pluck('id')->toArray();
+                    $regQuery->whereIn('school_id', $schoolIds);
+                }
+            }
+            // admin/district_admin: ไม่กรอง
+
+            $registrations = $regQuery->get();
+
+            if ($registrations->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีข้อมูลตัวแทนที่ผ่านเข้ารอบ'], 404);
+            }
+
+            // จัดกลุ่มตามโรงเรียน
+            $groupedBySchool = $registrations->groupBy('school_id');
+
+            $schools = [];
+            foreach ($groupedBySchool as $schoolId => $schoolRegs) {
+                $firstReg = $schoolRegs->first();
+                $schoolName = $firstReg->school->name ?? '-';
+                $schoolGroupName = $firstReg->school->schoolGroup->name ?? '';
+
+                $activities = [];
+                // เรียงตาม category แล้วตาม competition name
+                $sortedRegs = $schoolRegs->sortBy(function ($reg) {
+                    $catName = $reg->competition->category->name ?? '';
+                    $compName = $reg->competition->name ?? '';
+                    return $catName . '_' . $compName;
+                });
+
+                foreach ($sortedRegs as $reg) {
+                    $studentNames = $reg->student_names ?? [];
+                    // handle both string array and object array
+                    $students = collect($studentNames)->map(function ($s) {
+                        return is_string($s) ? $s : ($s['name'] ?? $s->name ?? '-');
+                    })->toArray();
+
+                    $teacherNames = $reg->teacher_names ?? [];
+                    $teachers = collect($teacherNames)->map(function ($t) {
+                        return is_string($t) ? $t : ($t['name'] ?? $t->name ?? '-');
+                    })->toArray();
+
+                    $activities[] = [
+                        'name' => $reg->competition->name ?? '-',
+                        'level' => $reg->competition->level ?? '',
+                        'category' => $reg->competition->category->name ?? '',
+                        'students' => $students,
+                        'teachers' => $teachers,
+                    ];
+                }
+
+                $schools[] = [
+                    'school_name' => $schoolName,
+                    'school_group_name' => $schoolGroupName,
+                    'activities' => $activities,
+                ];
+            }
+
+            // เรียงตามชื่อโรงเรียน
+            usort($schools, function ($a, $b) {
+                return strcmp($a['school_name'], $b['school_name']);
+            });
+
+            // กำหนด level label
+            $levelLabel = 'เขตพื้นที่';
+
+            // วันที่พิมพ์
+            $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                          'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            $now = now();
+            $rawYear = (int) $now->format('Y');
+            $year = $rawYear > 2400 ? $rawYear : $rawYear + 543;
+            $generatedAt = $now->format('d/m/') . $year . ' ' . $now->format('H:i:s');
+
+            $data = [
+                'schools' => $schools,
+                'levelLabel' => $levelLabel,
+                'venueAndDate' => '',
+                'generated_at' => $generatedAt,
+            ];
+
+            $pdf = PDF::loadView('exports.district-representatives-pdf', $data);
+            $pdf->setPaper('A4', 'portrait');
+
+            $filename = 'รายชื่อตัวแทนระดับเขต_' . now()->format('Ymd_His') . '.pdf';
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error('District representatives PDF error: ' . $e->getMessage() . ' | ' . $e->getTraceAsString());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
         }
     }
 }

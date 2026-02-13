@@ -26,6 +26,7 @@ const DistrictCompetitions = () => {
   const [totalComps, setTotalComps] = useState(0);
   const [totalRegs, setTotalRegs] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(null);
+  const [exportingAllPdf, setExportingAllPdf] = useState(false);
 
   const isSchoolRole = hasRole(['school_admin', 'teacher']);
   const isGroupAdmin = hasRole(['group_admin']);
@@ -165,6 +166,47 @@ const DistrictCompetitions = () => {
     }
   };
 
+  const handleExportAllPdf = async () => {
+    try {
+      setExportingAllPdf(true);
+      const response = await api.get('/registrations/district-representatives-pdf', {
+        responseType: 'blob'
+      });
+
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || 'เกิดข้อผิดพลาด');
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `รายชื่อตัวแทนระดับเขต.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('ดาวน์โหลด PDF รายชื่อตัวแทนสำเร็จ');
+    } catch (error) {
+      console.error('Export all PDF error:', error);
+      let message = 'ไม่สามารถดาวน์โหลด PDF ได้';
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const json = JSON.parse(text);
+          message = json.message || message;
+        } catch (e) { /* ignore */ }
+      } else if (error.message) {
+        message = error.message;
+      }
+      toast.error(message);
+    } finally {
+      setExportingAllPdf(false);
+    }
+  };
+
   // Filter by search
   const filteredCategories = searchTerm
     ? categories.map(cat => ({
@@ -214,14 +256,27 @@ const DistrictCompetitions = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>รีเฟรช</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              {categories.length > 0 && (
+                <button
+                  onClick={handleExportAllPdf}
+                  disabled={exportingAllPdf}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  title="ดาวน์โหลด PDF รายชื่อตัวแทนแยกตามโรงเรียน"
+                >
+                  <FileDown className={`w-4 h-4 ${exportingAllPdf ? 'animate-pulse' : ''}`} />
+                  <span>{exportingAllPdf ? 'กำลังสร้าง PDF...' : 'PDF รายชื่อตัวแทน'}</span>
+                </button>
+              )}
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>รีเฟรช</span>
+              </button>
+            </div>
           </div>
         </div>
 
