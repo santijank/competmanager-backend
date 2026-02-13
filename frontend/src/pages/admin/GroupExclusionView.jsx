@@ -69,9 +69,33 @@ export default function GroupExclusionView() {
         api.get('/categories')
       ]);
 
-      setCompetitions(compsRes.data.data || []);
-      setSchoolGroups(groupsRes.data.data || []);
-      setCategories(catsRes.data.data || []);
+      const comps = compsRes.data.data || [];
+      const groups = groupsRes.data.data || [];
+      const cats = catsRes.data.data || [];
+
+      setCompetitions(comps);
+      setSchoolGroups(groups);
+      setCategories(cats);
+
+      // Auto-expand all categories
+      const allExpanded = {};
+      cats.forEach(cat => { allExpanded[cat.name] = true; });
+      allExpanded['ไม่ระบุหมวดหมู่'] = true;
+      setExpandedCategories(allExpanded);
+
+      // Auto-select first group
+      if (groups.length > 0 && !selectedGroupId) {
+        const firstGid = groups[0].id;
+        setSelectedGroupId(firstGid);
+        const allowed = new Set();
+        comps.forEach((comp) => {
+          const excluded = comp.excluded_school_groups || [];
+          if (!excluded.includes(firstGid)) {
+            allowed.add(comp.id);
+          }
+        });
+        setAllowedCompIds(allowed);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('ไม่สามารถโหลดข้อมูลได้');
