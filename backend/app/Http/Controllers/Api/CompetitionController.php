@@ -120,6 +120,11 @@ class CompetitionController extends Controller
                 $query->where('competitions.registration_status', $request->registration_status);
             }
 
+            // ✅ Filter competition_level (group/district)
+            if ($request->filled('competition_level') && in_array($request->competition_level, ['group', 'district'])) {
+                $query->where('competitions.competition_level', $request->competition_level);
+            }
+
             // ✅ Admin manual group filter (เฉพาะ District Admin/Admin)
             if ($request->filled('school_group_id') &&
                 $request->school_group_id !== 'all' &&

@@ -68,13 +68,11 @@ export default function SkipGroupLevelManager() {
     try {
       setLoading(true);
       const [compsRes, catsRes] = await Promise.all([
-        api.get('/competitions', { params: { is_active: true, per_page: 500 } }),
+        api.get('/competitions', { params: { is_active: true, per_page: 500, competition_level: 'district' } }),
         api.get('/categories'),
       ]);
 
-      const allComps = compsRes.data.data || [];
-      // Filter only district-level competitions
-      const districtComps = allComps.filter((c) => c.competition_level === 'district');
+      const districtComps = compsRes.data.data || [];
       setCompetitions(districtComps);
       setCategories(catsRes.data.data || []);
 
