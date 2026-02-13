@@ -101,6 +101,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('competitions/school-group/{schoolGroupId}', [CompetitionController::class, 'getCompetitionsForSchoolGroup']);
     Route::get('competitions/check-mismatches', [CompetitionController::class, 'checkMismatches']);
     Route::post('competitions/sync-with-parent', [CompetitionController::class, 'syncWithParent']);
+    Route::post('competitions/auto-link-parent', [CompetitionController::class, 'autoLinkParent']);
     Route::apiResource('competitions', CompetitionController::class);
     Route::get('competitions/{id}/registrations', [CompetitionController::class, 'getRegistrations']);
     Route::get('competitions/{id}/results', [CompetitionController::class, 'getResults']);

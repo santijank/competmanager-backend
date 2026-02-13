@@ -1129,4 +1129,127 @@ class CompetitionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Auto-link orphan group competitions ที่ไม่มี parent_competition_id
+     * โดย match จาก category_id + level + ชื่อที่ตรงกัน กับ district competition
+     */
+    public function autoLinkParent(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $dryRun = $request->boolean('dry_run', false);
+
+            // ดึง group competitions ที่ไม่มี parent
+            $orphans = Competition::where('competition_level', 'group')
+                ->whereNull('parent_competition_id')
+                ->where('is_active', true)
+                ->get();
+
+            // ดึง district competitions ทั้งหมด
+            $districtComps = Competition::where('competition_level', 'district')
+                ->where('status', 'active')
+                ->get();
+
+            $linked = [];
+            $notFound = [];
+            $multipleFound = [];
+
+            if (!$dryRun) {
+                DB::beginTransaction();
+            }
+
+            foreach ($orphans as $orphan) {
+                $orphanName = trim($orphan->name);
+                // ลบ suffix ระดับ
+                $cleanName = preg_replace('/\s*\(ระดับ[^)]*\)\s*/', '', $orphanName);
+                $cleanName = trim($cleanName);
+
+                // หา district competition ที่ match
+                $matches = $districtComps->filter(function ($dc) use ($orphan, $cleanName, $orphanName) {
+                    if ($dc->category_id !== $orphan->category_id) return false;
+                    if ($dc->level !== $orphan->level) return false;
+
+                    $dcName = trim($dc->name);
+                    $dcCleanName = preg_replace('/\s*\(ระดับ[^)]*\)\s*/', '', $dcName);
+                    $dcCleanName = trim($dcCleanName);
+
+                    // ชื่อตรงกัน (exact หลัง clean) หรือ contains
+                    return $dcCleanName === $cleanName
+                        || str_contains($dcName, $cleanName)
+                        || str_contains($dcCleanName, $cleanName)
+                        || str_contains($orphanName, $dcCleanName);
+                });
+
+                if ($matches->count() === 1) {
+                    $parent = $matches->first();
+                    if (!$dryRun) {
+                        $orphan->parent_competition_id = $parent->id;
+                        $orphan->save();
+                    }
+                    $linked[] = [
+                        'group_id' => $orphan->id,
+                        'group_name' => $orphan->name,
+                        'group_code' => $orphan->code,
+                        'school_group_id' => $orphan->school_group_id,
+                        'district_id' => $parent->id,
+                        'district_name' => $parent->name,
+                    ];
+                } elseif ($matches->count() > 1) {
+                    $multipleFound[] = [
+                        'group_id' => $orphan->id,
+                        'group_name' => $orphan->name,
+                        'group_code' => $orphan->code,
+                        'school_group_id' => $orphan->school_group_id,
+                        'category_id' => $orphan->category_id,
+                        'level' => $orphan->level,
+                        'candidate_count' => $matches->count(),
+                        'candidates' => $matches->map(fn($m) => ['id' => $m->id, 'name' => $m->name])->values(),
+                    ];
+                } else {
+                    $notFound[] = [
+                        'group_id' => $orphan->id,
+                        'group_name' => $orphan->name,
+                        'group_code' => $orphan->code,
+                        'school_group_id' => $orphan->school_group_id,
+                        'category_id' => $orphan->category_id,
+                        'level' => $orphan->level,
+                    ];
+                }
+            }
+
+            if (!$dryRun) {
+                DB::commit();
+            }
+
+            return response()->json([
+                'success' => true,
+                'dry_run' => $dryRun,
+                'message' => ($dryRun ? '[DRY RUN] ' : '') . 'Auto-link สำเร็จ เชื่อม ' . count($linked) . ' รายการ',
+                'data' => [
+                    'total_orphans' => $orphans->count(),
+                    'linked_count' => count($linked),
+                    'not_found_count' => count($notFound),
+                    'multiple_found_count' => count($multipleFound),
+                    'linked' => $linked,
+                    'not_found' => $notFound,
+                    'multiple_found' => $multipleFound,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            if (!($request->boolean('dry_run', false))) {
+                DB::rollBack();
+            }
+            Log::error('Auto-link parent error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
