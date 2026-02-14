@@ -1383,6 +1383,12 @@ class RegistrationController extends Controller
                         'is_published' => (bool) $comp->is_published,
                         'is_finalized' => (bool) $comp->is_finalized,
                         'registrations' => $compRegs->map(function ($reg) {
+                            // ✅ ดึงอันดับจาก notes (กรณี promote จากระดับกลุ่ม เช่น "อันดับที่ 1")
+                            $groupRank = null;
+                            if ($reg->notes && preg_match('/อันดับที่\s*(\d+)/', $reg->notes, $matches)) {
+                                $groupRank = (int) $matches[1];
+                            }
+
                             return [
                                 'id' => $reg->id,
                                 'team_name' => $reg->team_name,
@@ -1397,12 +1403,13 @@ class RegistrationController extends Controller
                                 'score' => $reg->score ? number_format($reg->score->score, 2) : null,
                                 'medal' => $reg->score->medal ?? null,
                                 'rank' => $reg->score->rank ?? null,
+                                'group_rank' => $groupRank, // ✅ อันดับจากระดับกลุ่ม
                                 'is_finalized' => $reg->score ? (bool) $reg->score->is_finalized : false,
                             ];
                         })->sort(function ($a, $b) {
-                            // เรียงตาม rank น้อยไปมาก (1, 2, 3...) โดย null อยู่ท้ายสุด
-                            $rankA = $a['rank'] ?? PHP_INT_MAX;
-                            $rankB = $b['rank'] ?? PHP_INT_MAX;
+                            // ✅ เรียงตาม rank (district score) ก่อน → ถ้าไม่มีใช้ group_rank แทน
+                            $rankA = $a['rank'] ?? $a['group_rank'] ?? PHP_INT_MAX;
+                            $rankB = $b['rank'] ?? $b['group_rank'] ?? PHP_INT_MAX;
                             if ($rankA !== $rankB) return $rankA - $rankB;
                             // ถ้า rank เท่ากัน เรียงตาม score มากไปน้อย
                             $scoreA = $a['score'] ? (float) $a['score'] : 0;
