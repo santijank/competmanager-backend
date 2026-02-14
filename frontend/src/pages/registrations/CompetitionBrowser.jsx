@@ -86,6 +86,14 @@ export default function CompetitionBrowser() {
       const response = await api.get('/competitions', { params });
       let comps = response.data.data || [];
 
+      // ✅ สร้าง Set ของ district IDs ที่ skip_group_level = true
+      // เพื่อซ่อน group competitions ที่มี parent ชี้ไป district ตัวนั้น (ป้องกันซ้ำ)
+      const skipDistrictIds = new Set(
+        comps
+          .filter(c => c.competition_level === 'district' && c.skip_group_level)
+          .map(c => c.id)
+      );
+
       // ✅ Filter สำหรับ school_admin/teacher - เห็นเฉพาะการแข่งขันของกลุ่มตัวเอง + กิจกรรมข้ามระดับกลุ่ม
       if (isSchoolRole()) {
         const userSchoolGroupId = user?.school_group_id || user?.school?.school_group_id;
@@ -95,6 +103,11 @@ export default function CompetitionBrowser() {
             // ✅ กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม → โรงเรียนสมัครตรงได้
             if (comp.competition_level === 'district' && comp.skip_group_level) {
               return true;
+            }
+
+            // ✅ ซ่อน group ที่มี parent เป็น district skip_group_level (ป้องกันเห็นซ้ำ)
+            if (comp.competition_level === 'group' && comp.parent_competition_id && skipDistrictIds.has(comp.parent_competition_id)) {
+              return false;
             }
 
             // ต้องเป็นระดับกลุ่มและเป็นกลุ่มตัวเอง
@@ -116,6 +129,11 @@ export default function CompetitionBrowser() {
           // ✅ กิจกรรมระดับเขตที่ข้ามระดับกลุ่ม → เห็นได้
           if (comp.competition_level === 'district' && comp.skip_group_level) {
             return true;
+          }
+
+          // ✅ ซ่อน group ที่มี parent เป็น district skip_group_level (ป้องกันเห็นซ้ำ)
+          if (comp.competition_level === 'group' && comp.parent_competition_id && skipDistrictIds.has(comp.parent_competition_id)) {
+            return false;
           }
 
           const isOwnGroup = comp.competition_level === 'group' &&

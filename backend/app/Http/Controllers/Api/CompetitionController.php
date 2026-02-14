@@ -178,6 +178,7 @@ class CompetitionController extends Controller
                     'excluded_school_groups' => $excludedGroups ?? [], // ✅ เพิ่ม excluded_school_groups
                     'exclusion_reason' => $comp->exclusion_reason ?? null, // ✅ เพิ่ม exclusion_reason
                     'skip_group_level' => (bool) ($comp->skip_group_level ?? false), // ✅ ข้ามระดับกลุ่ม
+                    'parent_competition_id' => $comp->parent_competition_id ? (int) $comp->parent_competition_id : null,
                     'created_at' => $comp->created_at,
                 ];
             })->toArray();
