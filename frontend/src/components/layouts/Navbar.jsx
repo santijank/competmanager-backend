@@ -21,7 +21,7 @@ export default function Navbar({ onMenuClick }) {
     <nav className="relative z-40 w-full">
       {/* Banner Image - แสดงภาพเต็มขนาดปกติ */}
       <img
-        src="/images/1header-banner.png"
+        src="/images/1header-banner.png?v=20260214"
         alt="งานศิลปหัตถกรรมนักเรียน"
         className="w-full h-auto block"
       />
