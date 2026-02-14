@@ -1399,7 +1399,16 @@ class RegistrationController extends Controller
                                 'rank' => $reg->score->rank ?? null,
                                 'is_finalized' => $reg->score ? (bool) $reg->score->is_finalized : false,
                             ];
-                        })->sortBy('rank')->values()->toArray(),
+                        })->sort(function ($a, $b) {
+                            // เรียงตาม rank น้อยไปมาก (1, 2, 3...) โดย null อยู่ท้ายสุด
+                            $rankA = $a['rank'] ?? PHP_INT_MAX;
+                            $rankB = $b['rank'] ?? PHP_INT_MAX;
+                            if ($rankA !== $rankB) return $rankA - $rankB;
+                            // ถ้า rank เท่ากัน เรียงตาม score มากไปน้อย
+                            $scoreA = $a['score'] ? (float) $a['score'] : 0;
+                            $scoreB = $b['score'] ? (float) $b['score'] : 0;
+                            return $scoreB <=> $scoreA;
+                        })->values()->toArray(),
                     ];
                 }
 
@@ -1504,7 +1513,14 @@ class RegistrationController extends Controller
                                 'rank' => $reg->score->rank ?? null,
                                 'is_finalized' => $reg->score ? (bool) $reg->score->is_finalized : false,
                             ];
-                        })->sortBy('rank')->values()->toArray(),
+                        })->sort(function ($a, $b) {
+                            $rankA = $a['rank'] ?? PHP_INT_MAX;
+                            $rankB = $b['rank'] ?? PHP_INT_MAX;
+                            if ($rankA !== $rankB) return $rankA - $rankB;
+                            $scoreA = $a['score'] ? (float) $a['score'] : 0;
+                            $scoreB = $b['score'] ? (float) $b['score'] : 0;
+                            return $scoreB <=> $scoreA;
+                        })->values()->toArray(),
                     ];
                 }
 
