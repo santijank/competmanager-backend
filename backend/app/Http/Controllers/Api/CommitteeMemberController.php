@@ -136,6 +136,85 @@ class CommitteeMemberController extends Controller
     }
 
     /**
+     * Store multiple committee members at once (batch create)
+     */
+    public function storeBatch(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'members' => 'required|array|min:1|max:20',
+            'members.*.name' => 'required|string|max:255',
+            'members.*.position' => 'nullable|string|max:255',
+            'members.*.organization' => 'nullable|string|max:255',
+            'members.*.responsibility' => 'nullable|string|max:500',
+            'member_type' => 'required|in:committee,staff,volunteer',
+            'level' => 'required|in:group,district',
+            'competition_id' => 'nullable|exists:competitions,id',
+            'note' => 'nullable|string',
+        ], [
+            'members.required' => 'กรุณากรอกรายชื่อคณะทำงานอย่างน้อย 1 คน',
+            'members.*.name.required' => 'กรุณากรอกชื่อ-นามสกุล',
+            'member_type.required' => 'กรุณาเลือกประเภทคณะทำงาน',
+            'level.required' => 'กรุณาเลือกระดับ',
+            'competition_id.exists' => 'ไม่พบการแข่งขันที่เลือก',
+        ]);
+
+        // Group admin/School admin restrictions
+        $schoolGroupId = null;
+        $level = $validated['level'];
+        if (in_array($user->role, ['group_admin', 'school_admin'])) {
+            $schoolGroupId = $user->school_group_id;
+            $level = 'group';
+        }
+
+        $created = [];
+        DB::beginTransaction();
+        try {
+            foreach ($validated['members'] as $memberData) {
+                // ข้ามแถวที่ชื่อว่างเปล่า
+                if (empty(trim($memberData['name']))) continue;
+
+                $member = CommitteeMember::create([
+                    'name' => $memberData['name'],
+                    'position' => $memberData['position'] ?? null,
+                    'organization' => $memberData['organization'] ?? null,
+                    'responsibility' => $memberData['responsibility'] ?? null,
+                    'member_type' => $validated['member_type'],
+                    'level' => $level,
+                    'competition_id' => $validated['competition_id'] ?? null,
+                    'note' => $validated['note'] ?? null,
+                    'school_group_id' => $schoolGroupId,
+                    'is_active' => true,
+                    'created_by' => $user->id,
+                ]);
+                $created[] = $member;
+            }
+            DB::commit();
+
+            Log::info("Committee members batch created", [
+                'count' => count($created),
+                'created_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'เพิ่มคณะทำงาน ' . count($created) . ' คนสำเร็จ',
+                'data' => $created
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Committee batch create error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการบันทึก',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Display the specified committee member
      */
     public function show($id)
