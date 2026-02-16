@@ -342,30 +342,21 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        // ดึงเฉพาะ competition ที่มี registration อนุมัติแล้ว (approved)
+        // ดึงเฉพาะกิจกรรมระดับเขต (district) ที่ active
         $query = DB::table('competitions')
-            ->join('registrations', 'competitions.id', '=', 'registrations.competition_id')
             ->leftJoin('categories', 'competitions.category_id', '=', 'categories.id')
-            ->leftJoin('school_groups', 'competitions.school_group_id', '=', 'school_groups.id')
             ->where('competitions.is_active', true)
-            ->where('registrations.status', 'approved')
+            ->where('competitions.competition_level', 'district')
             ->select(
                 'competitions.id',
                 'competitions.name',
                 'competitions.code',
                 'competitions.level',
                 'competitions.competition_level',
-                'competitions.school_group_id',
                 'categories.id as category_id',
-                'categories.name as category_name',
-                'school_groups.name as school_group_name'
+                'categories.name as category_name'
             )
             ->distinct();
-
-        // group_admin เห็นเฉพาะกิจกรรมในกลุ่มตัวเอง
-        if ($user->role === 'group_admin' && $user->school_group_id) {
-            $query->where('competitions.school_group_id', $user->school_group_id);
-        }
 
         $competitions = $query->orderBy('categories.name')
             ->orderBy('competitions.code')
@@ -376,16 +367,11 @@ class CommitteeMemberController extends Controller
                     'name' => $comp->name,
                     'code' => $comp->code,
                     'level' => $comp->level,
-                    'competition_level' => $comp->competition_level ?? 'group',
-                    'school_group_id' => $comp->school_group_id ? (int) $comp->school_group_id : null,
+                    'competition_level' => $comp->competition_level ?? 'district',
                     'category' => [
                         'id' => (int) $comp->category_id,
                         'name' => $comp->category_name
                     ],
-                    'school_group' => $comp->school_group_id ? [
-                        'id' => (int) $comp->school_group_id,
-                        'name' => $comp->school_group_name
-                    ] : null,
                 ];
             });
 
