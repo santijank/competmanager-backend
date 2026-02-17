@@ -41,8 +41,14 @@ const RegistrationManagement = () => {
   const [actionType, setActionType] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState({});
 
-  // ✅ Tab สำหรับ District Admin แยกระดับ
-  const [activeLevel, setActiveLevel] = useState('group'); // 'group' | 'district'
+  // ✅ Tab สำหรับ District Admin แยกระดับ (เก็บค่าใน localStorage)
+  const [activeLevel, setActiveLevelState] = useState(() => {
+    return localStorage.getItem('reg_activeLevel') || 'group';
+  });
+  const setActiveLevel = (level) => {
+    localStorage.setItem('reg_activeLevel', level);
+    setActiveLevelState(level);
+  };
 
   // ✅ Filter สำหรับเลือกกลุ่ม (district admin)
   const [schoolGroups, setSchoolGroups] = useState([]);
