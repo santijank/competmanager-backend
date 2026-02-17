@@ -58,9 +58,10 @@ class RegistrationController extends Controller
         }
 
         // ✅ Filter ตาม competition_level (district / group)
-        if ($request->has('competition_level') && $request->competition_level) {
-            $query->whereHas('competition', function($q) use ($request) {
-                $q->where('competition_level', $request->competition_level);
+        if ($request->filled('competition_level')) {
+            $compLevel = $request->competition_level;
+            $query->whereHas('competition', function($q) use ($compLevel) {
+                $q->where('competition_level', $compLevel);
             });
         }
 
@@ -753,7 +754,7 @@ class RegistrationController extends Controller
             }
 
             // ✅ Filter ตาม competition_level (district / group)
-            if ($request->has('competition_level') && $request->competition_level) {
+            if ($request->filled('competition_level')) {
                 $query->whereHas('competition', function($q) use ($request) {
                     $q->where('competition_level', $request->competition_level);
                 });
@@ -1098,7 +1099,7 @@ class RegistrationController extends Controller
             // District Admin - สามารถเลือกรีเซ็ตตาม level หรือ group ได้
             if (in_array($user->role, ['district_admin', 'admin'])) {
                 // Filter ตาม competition_level
-                if ($request->has('competition_level') && $request->competition_level) {
+                if ($request->filled('competition_level')) {
                     $query->whereHas('competition', function($q) use ($request) {
                         $q->where('competition_level', $request->competition_level);
                     });
@@ -1177,7 +1178,7 @@ class RegistrationController extends Controller
 
             // District Admin filters
             if (in_array($user->role, ['district_admin', 'admin'])) {
-                if ($request->has('competition_level') && $request->competition_level) {
+                if ($request->filled('competition_level')) {
                     $query->whereHas('competition', function($q) use ($request) {
                         $q->where('competition_level', $request->competition_level);
                     });

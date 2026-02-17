@@ -129,7 +129,7 @@ const useAuthStore = create((set, get) => ({
   },
 
   // ✅ แก้ไข: เปลี่ยนชื่อและเพิ่ม role ใหม่
-  isDistrictAdmin: () => get().hasRole('district_admin'),
+  isDistrictAdmin: () => get().hasRole(['admin', 'district_admin']),
   isCommittee: () => get().hasRole(['district_admin', 'committee']),
   isGroupAdmin: () => get().hasRole('group_admin'),
   isSchoolAdmin: () => get().hasRole('school_admin'), // ✅ เปลี่ยนจาก isTeacher
