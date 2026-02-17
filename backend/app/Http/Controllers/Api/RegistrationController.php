@@ -456,7 +456,7 @@ class RegistrationController extends Controller
                 }
 
                 if ($registration->status !== 'pending') {
-                    $errors[] = "การลงทะเบียน ID: {$registration->id} ไม่อยู่ในสถานะรอการอนุมัติ";
+                    // skip เงียบๆ ถ้าไม่ใช่ pending (อาจถูกอนุมัติไปแล้วก่อนหน้า)
                     continue;
                 }
 
