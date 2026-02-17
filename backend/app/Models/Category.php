@@ -32,6 +32,14 @@ class Category extends Model
     }
 
     /**
+     * Get the users assigned to this category (category_admin/data_entry)
+     */
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    /**
      * Scope: Only active categories
      */
     public function scopeActive($query)

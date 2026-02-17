@@ -7,6 +7,7 @@ const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [schools, setSchools] = useState([]);
   const [schoolGroups, setSchoolGroups] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
@@ -39,6 +40,7 @@ const UserManagement = () => {
     role: 'teacher',
     school_id: '',
     school_group_id: '',
+    category_id: '',
     is_active: true
   });
 
@@ -49,6 +51,8 @@ const UserManagement = () => {
   const roles = [
     { value: 'admin', label: 'Admin (ผู้ดูแลระบบ)' },
     { value: 'district_admin', label: 'District Admin (ผู้ดูแลระดับเขต)' },
+    { value: 'category_admin', label: 'Category Admin (ผู้ดูแลหมวดหมู่)' },
+    { value: 'data_entry', label: 'Data Entry (ทีมบันทึกข้อมูล)' },
     { value: 'committee', label: 'Committee (คณะกรรมการ)' },
     { value: 'group_admin', label: 'Group Admin (ผู้ดูแลกลุ่ม)' },
     { value: 'school_admin', label: 'School Admin (ผู้ดูแลโรงเรียน)' },
@@ -59,6 +63,7 @@ const UserManagement = () => {
     fetchUsers();
     fetchSchools();
     fetchSchoolGroups();
+    fetchCategories();
   }, [pagination.current_page, filters]);
 
   const fetchUsers = async () => {
@@ -113,6 +118,17 @@ const UserManagement = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      if (response.data.success) {
+        setCategories(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
   const handleOpenModal = (mode, user = null) => {
     setModalMode(mode);
     setSelectedUser(user);
@@ -126,6 +142,7 @@ const UserManagement = () => {
         role: user.role,
         school_id: user.school_id || '',
         school_group_id: user.school_group_id || '',
+        category_id: user.category_id || '',
         is_active: user.is_active
       });
     } else {
@@ -178,6 +195,7 @@ const UserManagement = () => {
       // Convert empty strings to null
       if (!dataToSubmit.school_id) dataToSubmit.school_id = null;
       if (!dataToSubmit.school_group_id) dataToSubmit.school_group_id = null;
+      if (!dataToSubmit.category_id) dataToSubmit.category_id = null;
 
       let response;
       if (modalMode === 'create') {
@@ -241,6 +259,8 @@ const UserManagement = () => {
     const colors = {
       admin: 'bg-purple-100 text-purple-800',
       district_admin: 'bg-blue-100 text-blue-800',
+      category_admin: 'bg-teal-100 text-teal-800',
+      data_entry: 'bg-cyan-100 text-cyan-800',
       committee: 'bg-indigo-100 text-indigo-800',
       group_admin: 'bg-green-100 text-green-800',
       school_admin: 'bg-yellow-100 text-yellow-800',
@@ -388,6 +408,9 @@ const UserManagement = () => {
                         กลุ่ม
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        หมวดหมู่
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         สถานะ
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -414,6 +437,9 @@ const UserManagement = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {user.school_group?.name || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {user.category?.name || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -643,6 +669,27 @@ const UserManagement = () => {
                               ))}
                             </select>
                             {errors.school_group_id && <p className="mt-1 text-sm text-red-600">{errors.school_group_id[0]}</p>}
+                          </div>
+                        )}
+
+                        {/* Category (for category_admin and data_entry) */}
+                        {(formData.role === 'category_admin' || formData.role === 'data_entry') && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              หมวดหมู่ <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={formData.category_id}
+                              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            >
+                              <option value="">เลือกหมวดหมู่</option>
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                            </select>
+                            {errors.category_id && <p className="mt-1 text-sm text-red-600">{errors.category_id[0]}</p>}
                           </div>
                         )}
 

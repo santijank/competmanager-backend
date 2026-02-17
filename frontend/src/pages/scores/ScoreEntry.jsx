@@ -213,7 +213,7 @@ const ScoreEntry = () => {
     // Check if all teams have scores
     const unscoredCount = registrations.filter(reg => !scores[reg.id] || scores[reg.id] === '').length;
 
-    const canOverride = ['admin', 'district_admin'].includes(user.role);
+    const canOverride = ['admin', 'district_admin', 'category_admin'].includes(user.role);
     const message = unscoredCount > 0
       ? `ยังมี ${unscoredCount} ทีมที่ยังไม่ได้ใส่คะแนน\n\nต้องการยืนยันคะแนนหรือไม่?\n\n` +
         `(หลังยืนยันแล้วจะไม่สามารถแก้ไขได้ ${canOverride ? 'เว้นแต่ผู้ดูแลระบบยกเลิกยืนยัน' : ''})`
@@ -551,7 +551,7 @@ const ScoreEntry = () => {
                     const medal = score !== '' ? calculateMedal(score) : null;
                     const medalDisplay = medal ? getMedalDisplay(medal) : null;
                     const rank = rankPreview[reg.id];
-                    const isLocked = reg.score?.is_finalized && !['admin', 'district_admin'].includes(user.role);
+                    const isLocked = reg.score?.is_finalized && !['admin', 'district_admin', 'category_admin'].includes(user.role);
                     
                     return (
                       <tr key={reg.id} className={isLocked ? 'bg-gray-50' : 'hover:bg-gray-50'}>
@@ -653,7 +653,7 @@ const ScoreEntry = () => {
             
             <button
               onClick={handleSaveScores}
-              disabled={saving || (isFinalized && !['admin', 'district_admin'].includes(user.role))}
+              disabled={saving || (isFinalized && !['admin', 'district_admin', 'category_admin'].includes(user.role))}
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? (
@@ -669,7 +669,7 @@ const ScoreEntry = () => {
               )}
             </button>
             
-            {!isFinalized && (
+            {!isFinalized && user.role !== 'data_entry' && (
               <button
                 onClick={handleFinalizeScores}
                 disabled={finalizing}
@@ -689,8 +689,8 @@ const ScoreEntry = () => {
               </button>
             )}
 
-            {/* ปุ่มยกเลิกยืนยัน - เฉพาะ admin/district_admin */}
-            {isFinalized && ['admin', 'district_admin'].includes(user.role) && (
+            {/* ปุ่มยกเลิกยืนยัน - เฉพาะ admin/district_admin/category_admin */}
+            {isFinalized && ['admin', 'district_admin', 'category_admin'].includes(user.role) && (
               <button
                 onClick={handleUnfinalize}
                 className="flex items-center space-x-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
@@ -700,8 +700,8 @@ const ScoreEntry = () => {
               </button>
             )}
 
-            {/* ✅ ปุ่มส่งเข้ารอบเขต - แสดงเฉพาะระดับกลุ่มที่ finalize แล้ว */}
-            {competition?.competition_level === 'group' && isFinalized && (
+            {/* ✅ ปุ่มส่งเข้ารอบเขต - แสดงเฉพาะระดับกลุ่มที่ finalize แล้ว (ไม่แสดงสำหรับ data_entry) */}
+            {competition?.competition_level === 'group' && isFinalized && user.role !== 'data_entry' && (
               <button
                 onClick={handlePromoteToDistrict}
                 disabled={promotingToDistrict}
@@ -721,8 +721,8 @@ const ScoreEntry = () => {
               </button>
             )}
 
-            {/* 📢 ปุ่มประกาศผล - แสดงเฉพาะเมื่อ finalize แล้ว */}
-            {isFinalized && !isPublished && (
+            {/* 📢 ปุ่มประกาศผล - แสดงเฉพาะเมื่อ finalize แล้ว (ไม่แสดงสำหรับ data_entry) */}
+            {isFinalized && !isPublished && user.role !== 'data_entry' && (
               <button
                 onClick={handlePublish}
                 disabled={publishing}
@@ -749,7 +749,7 @@ const ScoreEntry = () => {
                   <span>✅</span>
                   <span>ประกาศผลแล้ว</span>
                 </span>
-                
+
                 <button
                   onClick={() => window.open('/public-dashboard', '_blank')}
                   className="flex items-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -757,21 +757,23 @@ const ScoreEntry = () => {
                   <span>🔗</span>
                   <span>ดูผลสาธารณะ</span>
                 </button>
-                
-                <button
-                  onClick={handleUnpublish}
-                  disabled={unpublishing}
-                  className="flex items-center space-x-2 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                >
-                  {unpublishing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>กำลังยกเลิก...</span>
-                    </>
-                  ) : (
-                    <span>ยกเลิกประกาศผล</span>
-                  )}
-                </button>
+
+                {user.role !== 'data_entry' && (
+                  <button
+                    onClick={handleUnpublish}
+                    disabled={unpublishing}
+                    className="flex items-center space-x-2 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  >
+                    {unpublishing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>กำลังยกเลิก...</span>
+                      </>
+                    ) : (
+                      <span>ยกเลิกประกาศผล</span>
+                    )}
+                  </button>
+                )}
               </>
             )}
           </div>

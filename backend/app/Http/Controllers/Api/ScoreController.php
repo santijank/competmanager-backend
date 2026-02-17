@@ -28,10 +28,10 @@ class ScoreController extends Controller
             ]);
 
             // ตรวจสอบสิทธิ์
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
                 return response()->json([
                     'error' => 'Unauthorized',
-                    'message' => 'เฉพาะ Admin, District Admin และ Group Admin เท่านั้นที่สามารถจัดการคะแนนได้'
+                    'message' => 'คุณไม่มีสิทธิ์จัดการคะแนน'
                 ], 403);
             }
 
@@ -40,6 +40,14 @@ class ScoreController extends Controller
                 return response()->json([
                     'error' => 'No group assigned',
                     'message' => 'กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดกลุ่มโรงเรียน'
+                ], 400);
+            }
+
+            // ตรวจสอบว่ามี category_id หรือไม่ (สำหรับ category_admin/data_entry)
+            if (in_array($user->role, ['category_admin', 'data_entry']) && !$user->category_id) {
+                return response()->json([
+                    'error' => 'No category assigned',
+                    'message' => 'กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดหมวดหมู่'
                 ], 400);
             }
 
@@ -62,8 +70,11 @@ class ScoreController extends Controller
                     $q->where('school_group_id', $user->school_group_id)
                       ->orWhere('competition_level', 'district');
                 });
+            } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                // category_admin/data_entry เห็นเฉพาะหมวดหมู่ของตน
+                $query->where('category_id', $user->category_id);
             }
-            // Admin เห็นทั้งหมด - ไม่ต้อง filter
+            // Admin/district_admin เห็นทั้งหมด - ไม่ต้อง filter
 
             $competitions = $query->orderBy('category_id')
                 ->orderBy('order_number')
@@ -162,6 +173,16 @@ class ScoreController extends Controller
                 ], 403);
             }
 
+            // ✅ ตรวจสอบสิทธิ์ category_admin/data_entry
+            if (in_array($user->role, ['category_admin', 'data_entry']) &&
+                $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ดูคะแนนการแข่งขันในหมวดหมู่นี้'
+                ], 403);
+            }
+
             // คำนวณสถิติ
             $registrations = $competition->registrations;
             $scoredCount = $registrations->filter(fn($r) => $r->score && $r->score->score !== null)->count();
@@ -254,12 +275,15 @@ class ScoreController extends Controller
             ])->findOrFail($competitionId);
 
             // ตรวจสอบสิทธิ์
-            if ($user->role === 'group_admin' && 
+            if ($user->role === 'group_admin' &&
                 $competition->school_group_id !== $user->school_group_id &&
                 $competition->competition_level !== 'district') {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
-            // Admin มีสิทธิ์เข้าถึงทั้งหมด
+            if (in_array($user->role, ['category_admin', 'data_entry']) &&
+                $competition->category_id !== $user->category_id) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
 
             return response()->json([
                 'competition' => [
@@ -307,12 +331,15 @@ class ScoreController extends Controller
             $competition = Competition::findOrFail($competitionId);
 
             // ตรวจสอบสิทธิ์
-            if ($user->role === 'group_admin' && 
+            if ($user->role === 'group_admin' &&
                 $competition->school_group_id !== $user->school_group_id &&
                 $competition->competition_level !== 'district') {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
-            // Admin มีสิทธิ์เข้าถึงทั้งหมด
+            if (in_array($user->role, ['category_admin', 'data_entry']) &&
+                $competition->category_id !== $user->category_id) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
 
             $scores = Score::where('competition_id', $competitionId)
                 ->whereNotNull('score')
@@ -376,22 +403,29 @@ class ScoreController extends Controller
                 'notes' => 'nullable|string',
             ]);
 
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $registration = Registration::with('competition')->findOrFail($request->registration_id);
 
             // ตรวจสอบสิทธิ์: อนุญาตถ้าเป็นการแข่งขันของกลุ่มตัวเอง หรือ district level (สำหรับ Group Admin)
-            if ($user->role === 'group_admin' && 
-                $registration->competition->school_group_id !== $user->school_group_id && 
+            if ($user->role === 'group_admin' &&
+                $registration->competition->school_group_id !== $user->school_group_id &&
                 $registration->competition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันนี้'
                 ], 403);
             }
-            // Admin มีสิทธิ์ทั้งหมด
+            // ตรวจสอบสิทธิ์ category_admin/data_entry
+            if (in_array($user->role, ['category_admin', 'data_entry']) &&
+                $registration->competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันในหมวดหมู่นี้'
+                ], 403);
+            }
 
             $score = floatval($request->score);
             
@@ -455,25 +489,32 @@ class ScoreController extends Controller
                 'scores.*.notes' => 'nullable|string',
             ]);
 
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $competition = Competition::findOrFail($competitionId);
-            
-            // ตรวจสอบสิทธิ์: อนุญาตถ้าเป็นการแข่งขันของกลุ่มตัวเอง หรือ district level (สำหรับ Group Admin)
-            if ($user->role === 'group_admin' && 
-                $competition->school_group_id !== $user->school_group_id && 
+
+            // ตรวจสอบสิทธิ์: Group Admin
+            if ($user->role === 'group_admin' &&
+                $competition->school_group_id !== $user->school_group_id &&
                 $competition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันนี้'
                 ], 403);
             }
-            // Admin มีสิทธิ์ทั้งหมด
+            // ตรวจสอบสิทธิ์: category_admin/data_entry
+            if (in_array($user->role, ['category_admin', 'data_entry']) &&
+                $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันในหมวดหมู่นี้'
+                ], 403);
+            }
 
-            // ✅ ตรวจสอบ finalization: group_admin ไม่สามารถแก้คะแนนหลัง finalize ได้
-            if ($user->role === 'group_admin') {
+            // ✅ ตรวจสอบ finalization: group_admin/data_entry ไม่สามารถแก้คะแนนหลัง finalize ได้
+            if (in_array($user->role, ['group_admin', 'data_entry'])) {
                 $hasFinalized = Score::where('competition_id', $competitionId)
                     ->where('is_finalized', true)
                     ->exists();
@@ -561,15 +602,24 @@ class ScoreController extends Controller
                 'scores.*.notes' => 'nullable|string',
             ]);
 
-            if ($user->role !== 'group_admin') {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $competition = Competition::findOrFail($request->competition_id);
-            if ($competition->school_group_id !== $user->school_group_id) {
+
+            // ตรวจสอบสิทธิ์ตาม role
+            if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันนี้'
+                ], 403);
+            }
+            if (in_array($user->role, ['category_admin', 'data_entry']) &&
+                $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์ใส่คะแนนการแข่งขันในหมวดหมู่นี้'
                 ], 403);
             }
 
@@ -639,21 +689,26 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin'])) {
+                return response()->json(['error' => 'Unauthorized', 'message' => 'คุณไม่มีสิทธิ์ยืนยันคะแนน'], 403);
             }
 
             $competition = Competition::findOrFail($competitionId);
 
-            if ($user->role === 'group_admin' && 
-                $competition->school_group_id !== $user->school_group_id && 
+            if ($user->role === 'group_admin' &&
+                $competition->school_group_id !== $user->school_group_id &&
                 $competition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
                 ], 403);
             }
-            // Admin มีสิทธิ์ทั้งหมด
+            if ($user->role === 'category_admin' && $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันในหมวดหมู่นี้'
+                ], 403);
+            }
 
             $this->calculateRanks($competitionId);
 
@@ -691,16 +746,25 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
-            // เฉพาะ admin และ district_admin เท่านั้นที่ยกเลิกยืนยันได้
-            if (!in_array($user->role, ['admin', 'district_admin'])) {
+            // เฉพาะ admin, district_admin และ category_admin เท่านั้นที่ยกเลิกยืนยันได้
+            if (!in_array($user->role, ['admin', 'district_admin', 'category_admin'])) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized',
-                    'message' => 'เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถยกเลิกการยืนยันคะแนนได้'
+                    'message' => 'คุณไม่มีสิทธิ์ยกเลิกการยืนยันคะแนน'
                 ], 403);
             }
 
             $competition = Competition::findOrFail($competitionId);
+
+            // ตรวจสอบสิทธิ์ category_admin
+            if ($user->role === 'category_admin' && $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันในหมวดหมู่นี้'
+                ], 403);
+            }
 
             Score::where('competition_id', $competitionId)
                 ->update([
@@ -742,22 +806,27 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
             $groupCompetition = Competition::findOrFail($competitionId);
 
             // ตรวจสอบสิทธิ์
-            if ($user->role === 'group_admin' && 
-                $groupCompetition->school_group_id !== $user->school_group_id && 
+            if ($user->role === 'group_admin' &&
+                $groupCompetition->school_group_id !== $user->school_group_id &&
                 $groupCompetition->competition_level !== 'district') {
                 return response()->json([
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
                 ], 403);
             }
-            // Admin มีสิทธิ์ทั้งหมด
+            if ($user->role === 'category_admin' && $groupCompetition->category_id !== $user->category_id) {
+                return response()->json([
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันในหมวดหมู่นี้'
+                ], 403);
+            }
 
             // ต้องเป็นการแข่งขันระดับกลุ่ม
             if ($groupCompetition->competition_level !== 'group') {
@@ -936,7 +1005,7 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
@@ -950,6 +1019,13 @@ class ScoreController extends Controller
                     'success' => false,
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
+                ], 403);
+            }
+            if ($user->role === 'category_admin' && $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันในหมวดหมู่นี้'
                 ], 403);
             }
 
@@ -1003,7 +1079,7 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+            if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
@@ -1017,6 +1093,13 @@ class ScoreController extends Controller
                     'success' => false,
                     'error' => 'Unauthorized',
                     'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
+                ], 403);
+            }
+            if ($user->role === 'category_admin' && $competition->category_id !== $user->category_id) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันในหมวดหมู่นี้'
                 ], 403);
             }
 

@@ -42,7 +42,7 @@ export default function Sidebar({ isOpen, onClose }) {
       label: 'แดชบอร์ด',
       icon: Home,
       path: '/dashboard',
-      roles: ['admin', 'committee', 'group_admin', 'school_admin', 'district_admin', 'teacher', 'judge'],
+      roles: ['admin', 'committee', 'group_admin', 'school_admin', 'district_admin', 'teacher', 'judge', 'category_admin', 'data_entry'],
     });
 
     // ===== เมนูสำหรับ District Admin =====
@@ -204,6 +204,18 @@ export default function Sidebar({ isOpen, onClose }) {
       );
     }
 
+    // ===== เมนูสำหรับ Category Admin / Data Entry =====
+    if (hasRole(['category_admin', 'data_entry'])) {
+      items.push(
+        {
+          label: 'ผลการแข่งขัน',
+          icon: BarChart3,
+          path: '/scores',
+          roles: ['category_admin', 'data_entry'],
+        }
+      );
+    }
+
     // ===== ผลการแข่งขัน =====
     if (hasRole(['admin', 'district_admin', 'group_admin', 'judge'])) {
       items.push({
@@ -294,7 +306,7 @@ export default function Sidebar({ isOpen, onClose }) {
       label: 'คณะทำงาน',
       icon: Users,
       path: '/settings/committee',
-      roles: ['admin', 'district_admin', 'group_admin', 'school_admin'],
+      roles: ['admin', 'district_admin', 'group_admin', 'school_admin', 'category_admin'],
     },
   ];
 

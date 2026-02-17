@@ -60,6 +60,7 @@ class AuthController extends Controller
                     'role' => $user->role,
                     'school_id' => $user->school_id,
                     'school_group_id' => $user->school_group_id,
+                    'category_id' => $user->category_id,
                 ],
                 'token' => $token,
                 'token_type' => 'Bearer'
@@ -96,7 +97,7 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['school', 'schoolGroup']);
+        $user = $request->user()->load(['school', 'schoolGroup', 'category']);
 
         return response()->json([
             'success' => true,

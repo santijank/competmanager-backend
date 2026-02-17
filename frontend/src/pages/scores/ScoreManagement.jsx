@@ -36,7 +36,9 @@ const ScoreManagement = () => {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   // Tab สำหรับแยกระดับ (สำหรับ admin/district_admin)
-  const [activeLevel, setActiveLevel] = useState('group'); // 'group' | 'district'
+  // category_admin/data_entry เริ่มต้นที่ district เสมอ
+  const isCategoryScopedRole = ['category_admin', 'data_entry'].includes(user?.role);
+  const [activeLevel, setActiveLevel] = useState(isCategoryScopedRole ? 'district' : 'group'); // 'group' | 'district'
   const [selectedGroupId, setSelectedGroupId] = useState(''); // กรองกลุ่มโรงเรียน
 
   useEffect(() => {
@@ -519,6 +521,8 @@ const ScoreManagement = () => {
   // สำหรับ group_admin แสดงเฉพาะระดับกลุ่ม
   const isGroupAdminOnly = user?.role === 'group_admin';
   const isAdmin = ['admin', 'district_admin'].includes(user?.role);
+  // สำหรับ category_admin / data_entry แสดงเฉพาะระดับเขต (API กรอง category ให้แล้ว)
+  const isCategoryScoped = ['category_admin', 'data_entry'].includes(user?.role);
 
   // กรองตามกลุ่มโรงเรียนที่เลือก (สำหรับ admin ที่ดู tab ระดับกลุ่ม)
   const filteredGroupCompetitions = (isAdmin && selectedGroupId && activeLevel === 'group')
@@ -550,13 +554,15 @@ const ScoreManagement = () => {
           <p className="text-gray-600">
             {isGroupAdminOnly
               ? `ใส่คะแนนการแข่งขันระดับกลุ่มของคุณ (${groupCompetitions.length} รายการ)`
-              : `ใส่คะแนนการแข่งขันทุกระดับ (${competitions.length} รายการ)`
+              : isCategoryScoped
+                ? `ใส่คะแนนการแข่งขันหมวดหมู่ของคุณ (${competitions.length} รายการ)`
+                : `ใส่คะแนนการแข่งขันทุกระดับ (${competitions.length} รายการ)`
             }
           </p>
         </div>
 
-        {/* Tab Navigation - สำหรับ Admin/District Admin */}
-        {!isGroupAdminOnly && (
+        {/* Tab Navigation - สำหรับ Admin/District Admin (ซ่อนสำหรับ group_admin และ category-scoped) */}
+        {!isGroupAdminOnly && !isCategoryScoped && (
           <div className="mb-6">
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
               <button
@@ -732,7 +738,7 @@ const ScoreManagement = () => {
         />
 
         {/* Quick Stats Footer */}
-        {!isGroupAdminOnly && (
+        {!isGroupAdminOnly && !isCategoryScoped && (
           <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">สรุปภาพรวม</h3>
             <div className="grid grid-cols-2 gap-6">

@@ -24,7 +24,7 @@ class UserController extends Controller
             Log::info('UserController@index called with request: ' . json_encode($request->all()));
 
             // เริ่มต้นด้วยการ query users พร้อม relationships
-            $query = User::with(['school', 'school_group']);
+            $query = User::with(['school', 'school_group', 'category']);
             
             Log::info('Initial query created successfully');
 
@@ -115,9 +115,10 @@ class UserController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|string|min:6|confirmed',
-                'role' => 'required|in:admin,district_admin,committee,group_admin,school_admin,teacher',
+                'role' => 'required|in:admin,district_admin,committee,group_admin,school_admin,teacher,category_admin,data_entry',
                 'school_id' => 'nullable|exists:schools,id',
                 'school_group_id' => 'nullable|exists:school_groups,id',
+                'category_id' => 'nullable|exists:categories,id',
                 'is_active' => 'boolean',
                 'committee_level' => 'nullable|in:group,district',
             ]);
@@ -131,6 +132,15 @@ class UserController extends Controller
                 ], 422);
             }
 
+            // category_id required for category_admin/data_entry
+            if (in_array($request->role, ['category_admin', 'data_entry']) && !$request->category_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเลือกหมวดหมู่สำหรับ role นี้',
+                    'errors' => ['category_id' => ['กรุณาเลือกหมวดหมู่']]
+                ], 422);
+            }
+
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -138,6 +148,7 @@ class UserController extends Controller
                 'role' => $request->role,
                 'school_id' => $request->school_id,
                 'school_group_id' => $request->school_group_id,
+                'category_id' => $request->category_id,
                 'is_active' => $request->is_active ?? true,
                 'committee_level' => $request->committee_level,
             ]);
@@ -147,7 +158,7 @@ class UserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'เพิ่มผู้ใช้สำเร็จ',
-                'data' => $user->load(['school', 'school_group'])
+                'data' => $user->load(['school', 'school_group', 'category'])
             ], 201);
             
         } catch (Exception $e) {
@@ -179,9 +190,10 @@ class UserController extends Controller
                     Rule::unique('users')->ignore($user->id)
                 ],
                 'password' => 'nullable|string|min:6|confirmed',
-                'role' => 'required|in:admin,district_admin,committee,group_admin,school_admin,teacher',
+                'role' => 'required|in:admin,district_admin,committee,group_admin,school_admin,teacher,category_admin,data_entry',
                 'school_id' => 'nullable|exists:schools,id',
                 'school_group_id' => 'nullable|exists:school_groups,id',
+                'category_id' => 'nullable|exists:categories,id',
                 'is_active' => 'boolean',
                 'committee_level' => 'nullable|in:group,district',
             ]);
@@ -195,11 +207,21 @@ class UserController extends Controller
                 ], 422);
             }
 
+            // category_id required for category_admin/data_entry
+            if (in_array($request->role, ['category_admin', 'data_entry']) && !$request->category_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กรุณาเลือกหมวดหมู่สำหรับ role นี้',
+                    'errors' => ['category_id' => ['กรุณาเลือกหมวดหมู่']]
+                ], 422);
+            }
+
             $user->name = $request->name;
             $user->email = $request->email;
             $user->role = $request->role;
             $user->school_id = $request->school_id;
             $user->school_group_id = $request->school_group_id;
+            $user->category_id = $request->category_id;
             $user->is_active = $request->is_active ?? $user->is_active;
             $user->committee_level = $request->committee_level;
 
@@ -214,7 +236,7 @@ class UserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'แก้ไขผู้ใช้สำเร็จ',
-                'data' => $user->load(['school', 'school_group'])
+                'data' => $user->load(['school', 'school_group', 'category'])
             ]);
             
         } catch (Exception $e) {

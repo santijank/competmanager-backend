@@ -139,9 +139,22 @@ const useAuthStore = create((set, get) => ({
 
   // ✅ เช็คว่าเป็น School Role (school_admin หรือ teacher)
   isSchoolRole: () => get().hasRole(['school_admin', 'teacher']),
-  
+
   // ✅ เพิ่ม helper function ใหม่
   isAdmin: () => get().hasRole(['district_admin', 'group_admin']),
+
+  // ✅ Role ใหม่สำหรับ category-scoped users
+  isCategoryAdmin: () => get().hasRole('category_admin'),
+  isDataEntry: () => get().hasRole('data_entry'),
+
+  // เช็คว่า user นี้สามารถบันทึกคะแนนได้ไหม
+  canEnterScores: () => get().hasRole(['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry']),
+
+  // เช็คว่า user นี้สามารถยืนยัน/ประกาศ/ส่งเข้ารอบได้ไหม
+  canFinalizeScores: () => get().hasRole(['admin', 'district_admin', 'group_admin', 'category_admin']),
+
+  // เช็คว่าเป็น category-scoped role (เห็นเฉพาะหมวดหมู่ตัวเอง)
+  isCategoryScoped: () => get().hasRole(['category_admin', 'data_entry']),
 }));
 
 // ⚡ Initialize state from localStorage when store is created

@@ -25,6 +25,7 @@ class User extends Authenticatable
         'role',
         'school_id',
         'school_group_id',
+        'category_id',
         'is_active',
         'committee_level',
         'last_activity_at',
@@ -75,6 +76,14 @@ class User extends Authenticatable
     public function schoolGroup(): BelongsTo
     {
         return $this->school_group();
+    }
+
+    /**
+     * Get the category assigned to this user (for category_admin/data_entry)
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /**
@@ -139,6 +148,39 @@ class User extends Authenticatable
     public function isJudge(): bool
     {
         return $this->role === 'judge';
+    }
+
+    /**
+     * Check if user is category admin
+     */
+    public function isCategoryAdmin(): bool
+    {
+        return $this->role === 'category_admin';
+    }
+
+    /**
+     * Check if user is data entry
+     */
+    public function isDataEntry(): bool
+    {
+        return $this->role === 'data_entry';
+    }
+
+    /**
+     * Check if user can access a specific category
+     */
+    public function canAccessCategory(int $categoryId): bool
+    {
+        // admin (super_admin) can access everything
+        if ($this->role === 'admin') return true;
+
+        // category_admin and data_entry can only access their assigned category
+        if (in_array($this->role, ['category_admin', 'data_entry'])) {
+            return $this->category_id === $categoryId;
+        }
+
+        // other roles (district_admin, group_admin) can access all categories
+        return true;
     }
 
     /**
