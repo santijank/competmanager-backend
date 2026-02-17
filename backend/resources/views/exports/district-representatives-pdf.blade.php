@@ -196,6 +196,12 @@
             color: #555;
         }
 
+        .badge-direct {
+            font-size: 12pt;
+            color: #0066cc;
+            font-style: italic;
+        }
+
         .page-break {
             page-break-after: always;
         }
@@ -280,6 +286,9 @@
                             {{ $activity['name'] }}
                             @if(!empty($activity['level']))
                                 <br><span class="activity-level">{{ $activity['level'] }}</span>
+                            @endif
+                            @if(!empty($activity['skip_group_level']))
+                                <br><span class="badge-direct">(สมัครตรงระดับเขต)</span>
                             @endif
                         </td>
                         <td class="col-students">

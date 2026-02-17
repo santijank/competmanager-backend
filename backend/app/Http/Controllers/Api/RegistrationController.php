@@ -1326,7 +1326,7 @@ class RegistrationController extends Controller
         try {
             $user = $request->user();
 
-            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin'])) {
+            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin', 'category_admin', 'data_entry'])) {
                 return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
             }
 
@@ -1334,6 +1334,11 @@ class RegistrationController extends Controller
             $query = Competition::with(['category'])
                 ->where('competition_level', 'district')
                 ->where('is_active', true);
+
+            // category_admin/data_entry: เฉพาะหมวดหมู่ตัวเอง
+            if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
+                $query->where('category_id', $user->category_id);
+            }
 
             $competitions = $query->orderBy('category_id')->orderBy('name')->get();
 
@@ -1365,7 +1370,7 @@ class RegistrationController extends Controller
                     $regQuery->whereIn('school_id', $schoolIds);
                 }
             }
-            // admin/district_admin: เห็นทั้งหมด (ไม่กรอง)
+            // admin/district_admin/category_admin/data_entry: เห็นทั้งหมด (ไม่กรอง registration)
 
             $registrations = $regQuery->get()->groupBy('competition_id');
 
@@ -1394,6 +1399,7 @@ class RegistrationController extends Controller
                         'code' => $comp->code,
                         'level' => $comp->level,
                         'competition_level' => $comp->competition_level,
+                        'skip_group_level' => (bool) $comp->skip_group_level,
                         'registration_count' => $compRegs->count(),
                         'is_published' => (bool) $comp->is_published,
                         'is_finalized' => (bool) $comp->is_finalized,
@@ -1575,15 +1581,21 @@ class RegistrationController extends Controller
         try {
             $user = $request->user();
 
-            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin'])) {
+            if (!$user || !in_array($user->role, ['school_admin', 'teacher', 'group_admin', 'admin', 'district_admin', 'category_admin', 'data_entry'])) {
                 return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
             }
 
             // ดึง district competitions ที่ active
-            $competitions = Competition::with(['category'])
+            $compQuery = Competition::with(['category'])
                 ->where('competition_level', 'district')
-                ->where('is_active', true)
-                ->orderBy('category_id')
+                ->where('is_active', true);
+
+            // category_admin/data_entry: เฉพาะหมวดหมู่ตัวเอง
+            if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
+                $compQuery->where('category_id', $user->category_id);
+            }
+
+            $competitions = $compQuery->orderBy('category_id')
                 ->orderBy('name')
                 ->get();
 
@@ -1608,7 +1620,7 @@ class RegistrationController extends Controller
                     $regQuery->whereIn('school_id', $schoolIds);
                 }
             }
-            // admin/district_admin: ไม่กรอง
+            // admin/district_admin/category_admin/data_entry: ไม่กรอง registration
 
             $registrations = $regQuery->get();
 
@@ -1649,6 +1661,7 @@ class RegistrationController extends Controller
                         'name' => $reg->competition->name ?? '-',
                         'level' => $reg->competition->level ?? '',
                         'category' => $reg->competition->category->name ?? '',
+                        'skip_group_level' => (bool) ($reg->competition->skip_group_level ?? false),
                         'students' => $students,
                         'teachers' => $teachers,
                     ];

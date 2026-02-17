@@ -229,6 +229,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/competitions', [\App\Http\Controllers\Api\ScoreController::class, 'getCompetitionsForScoring']);
         Route::post('/', [\App\Http\Controllers\Api\ScoreController::class, 'storeScore']);
         Route::post('/bulk', [\App\Http\Controllers\Api\ScoreController::class, 'bulkStoreScores']);
+        Route::get('/group-results', [\App\Http\Controllers\Api\ScoreController::class, 'getGroupLevelResults']);
+        Route::get('/group-certificates-pdf/{competitionId}', [\App\Http\Controllers\Api\ScoreController::class, 'exportGroupCertificatesPdf']);
     });
 
     // Competition Scores

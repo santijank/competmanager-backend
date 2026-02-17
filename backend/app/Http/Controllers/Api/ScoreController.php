@@ -9,6 +9,7 @@ use App\Models\Score;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ScoreController extends Controller
 {
@@ -1211,6 +1212,214 @@ class ScoreController extends Controller
                 'success' => true,
                 'data' => []
             ]);
+        }
+    }
+
+    /**
+     * ดูผลการแข่งขันระดับกลุ่มทั้งหมด (สำหรับออกเกียรติบัตร)
+     * Route: GET /scores/group-results
+     */
+    public function getGroupLevelResults(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user || !in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // ดึง competitions ระดับกลุ่มที่ finalized
+            $query = Competition::with(['category', 'schoolGroup'])
+                ->where('competition_level', 'group')
+                ->where('is_active', true);
+
+            // กรองตาม role
+            if ($user->role === 'group_admin') {
+                $query->where('school_group_id', $user->school_group_id);
+            } elseif (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
+                $query->where('category_id', $user->category_id);
+            }
+
+            // filter by category_id if provided
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            // ดึง scores ที่ finalized ของ competitions เหล่านี้
+            $competitionIds = $competitions->pluck('id')->toArray();
+
+            $scores = Score::whereIn('competition_id', $competitionIds)
+                ->where('is_finalized', true)
+                ->with(['registration.school'])
+                ->get()
+                ->groupBy('competition_id');
+
+            // กรองเฉพาะ competitions ที่มี finalized scores
+            $filteredCompetitions = $competitions->filter(function ($comp) use ($scores) {
+                return $scores->has($comp->id) && $scores->get($comp->id)->count() > 0;
+            });
+
+            // จัดกลุ่มตาม category
+            $categories = [];
+            $grouped = $filteredCompetitions->groupBy(function ($comp) {
+                return $comp->category->name ?? 'อื่นๆ';
+            });
+
+            foreach ($grouped as $categoryName => $comps) {
+                $categoryComps = [];
+                foreach ($comps as $comp) {
+                    $compScores = $scores->get($comp->id, collect());
+
+                    $teams = $compScores->sortBy('rank')->values()->map(function ($score) {
+                        $reg = $score->registration;
+                        $studentNames = $reg->student_names ?? [];
+                        $teacherNames = $reg->teacher_names ?? [];
+
+                        return [
+                            'registration_id' => $reg->id,
+                            'score_id' => $score->id,
+                            'team_name' => $reg->team_name,
+                            'school_name' => $reg->school->name ?? '-',
+                            'student_names' => $studentNames,
+                            'teacher_names' => $teacherNames,
+                            'student_count' => $reg->student_count,
+                            'score' => number_format($score->score, 2),
+                            'medal' => $score->medal,
+                            'rank' => $score->rank,
+                        ];
+                    });
+
+                    $categoryComps[] = [
+                        'id' => $comp->id,
+                        'name' => $comp->name,
+                        'code' => $comp->code,
+                        'level' => $comp->level,
+                        'school_group_name' => $comp->schoolGroup->name ?? '-',
+                        'team_count' => $teams->count(),
+                        'teams' => $teams->toArray(),
+                    ];
+                }
+
+                $categories[] = [
+                    'category' => $categoryName,
+                    'competition_count' => count($categoryComps),
+                    'competitions' => $categoryComps,
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $categories,
+                'total_competitions' => $filteredCompetitions->count(),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Group level results error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export เกียรติบัตรระดับกลุ่ม PDF
+     * Route: GET /scores/group-certificates-pdf/{competitionId}
+     */
+    public function exportGroupCertificatesPdf(Request $request, $competitionId)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user || !in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            $competition = Competition::with(['category', 'schoolGroup'])->findOrFail($competitionId);
+
+            // ตรวจสอบสิทธิ์
+            if ($user->role === 'group_admin' && $competition->school_group_id !== $user->school_group_id) {
+                return response()->json(['success' => false, 'message' => 'คุณไม่มีสิทธิ์เข้าถึงกิจกรรมนี้'], 403);
+            }
+            if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id && $competition->category_id !== $user->category_id) {
+                return response()->json(['success' => false, 'message' => 'คุณไม่มีสิทธิ์เข้าถึงกิจกรรมในหมวดหมู่นี้'], 403);
+            }
+
+            // ดึง finalized scores
+            $scores = Score::where('competition_id', $competitionId)
+                ->where('is_finalized', true)
+                ->with(['registration.school'])
+                ->orderBy('rank')
+                ->get();
+
+            if ($scores->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ยังไม่มีผลการแข่งขันที่ยืนยันแล้ว'], 404);
+            }
+
+            // filter by type: all, winners (gold/silver/bronze), participants
+            $type = $request->get('type', 'all');
+
+            $filteredScores = $scores;
+            if ($type === 'winners') {
+                $filteredScores = $scores->filter(fn($s) => in_array($s->medal, ['gold', 'silver', 'bronze']));
+            } elseif ($type === 'participants') {
+                $filteredScores = $scores->filter(fn($s) => $s->medal === 'participant');
+            }
+
+            // สร้างข้อมูลสำหรับ certificate
+            $certificates = [];
+            foreach ($filteredScores as $score) {
+                $reg = $score->registration;
+                $studentNames = $reg->student_names ?? [];
+                $teacherNames = $reg->teacher_names ?? [];
+
+                // แปลง student names
+                $students = collect($studentNames)->map(function ($s) {
+                    return is_string($s) ? $s : ($s['name'] ?? $s->name ?? '-');
+                })->toArray();
+
+                // แปลง teacher names
+                $teachers = collect($teacherNames)->map(function ($t) {
+                    return is_string($t) ? $t : ($t['name'] ?? $t->name ?? '-');
+                })->toArray();
+
+                $certificates[] = [
+                    'team_name' => $reg->team_name,
+                    'school_name' => $reg->school->name ?? '-',
+                    'students' => $students,
+                    'teachers' => $teachers,
+                    'score' => number_format($score->score, 2),
+                    'medal' => $score->medal,
+                    'rank' => $score->rank,
+                ];
+            }
+
+            // วันที่พิมพ์
+            $now = now();
+            $rawYear = (int) $now->format('Y');
+            $year = $rawYear > 2400 ? $rawYear : $rawYear + 543;
+            $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                          'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+            $generatedAt = $now->format('d') . ' ' . $thaiMonths[(int)$now->format('m')] . ' ' . $year;
+
+            $data = [
+                'competition' => $competition,
+                'certificates' => $certificates,
+                'groupName' => $competition->schoolGroup->name ?? '-',
+                'categoryName' => $competition->category->name ?? '-',
+                'generated_at' => $generatedAt,
+                'type' => $type,
+            ];
+
+            $pdf = PDF::loadView('exports.group-certificates-pdf', $data);
+            $pdf->setPaper('A4', 'landscape');
+
+            $filename = 'เกียรติบัตรระดับกลุ่ม_' . $competition->code . '_' . now()->format('Ymd_His') . '.pdf';
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error('Group certificates PDF error: ' . $e->getMessage() . ' | ' . $e->getTraceAsString());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
         }
     }
 }

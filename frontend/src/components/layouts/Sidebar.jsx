@@ -239,6 +239,16 @@ export default function Sidebar({ isOpen, onClose }) {
       });
     }
 
+    // ===== ผลระดับกลุ่ม (สำหรับออกเกียรติบัตร) =====
+    if (hasRole(['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
+      items.push({
+        label: 'ผลระดับกลุ่ม',
+        icon: Trophy,
+        path: '/group-results',
+        roles: ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'],
+      });
+    }
+
     // ===== เกียรติบัตร =====
     items.push({
       label: 'เกียรติบัตร',

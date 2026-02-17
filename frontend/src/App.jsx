@@ -55,6 +55,7 @@ import ScheduleManagement from '@/pages/groupadmin/ScheduleManagement';
 // Score Pages (NEW)
 import ScoreManagement from '@/pages/scores/ScoreManagement';
 import ScoreEntry from '@/pages/scores/ScoreEntry';
+import GroupResults from '@/pages/scores/GroupResults';
 
 // Result Pages
 import ResultList from '@/pages/results/ResultList';
@@ -195,6 +196,7 @@ function App() {
             {/* Score Routes */}
             <Route path="/scores" element={<ScoreManagement />} />
             <Route path="/scores/entry/:id" element={<ScoreEntry />} />
+            <Route path="/group-results" element={<GroupResults />} />
 
             {/* Results */}
             <Route path="/results" element={<ResultList />} />

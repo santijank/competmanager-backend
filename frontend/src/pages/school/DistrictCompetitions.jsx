@@ -248,10 +248,10 @@ const DistrictCompetitions = () => {
                 </h1>
                 <p className="text-gray-600 mt-1">
                   {isSchoolRole
-                    ? 'กิจกรรมของโรงเรียนที่ผ่านเข้ารอบแข่งขันระดับเขตพื้นที่'
+                    ? 'กิจกรรมของโรงเรียนที่เข้าแข่งขันระดับเขตพื้นที่ (รวมสมัครตรงและผ่านเข้ารอบจากกลุ่ม)'
                     : isGroupAdmin
-                    ? 'กิจกรรมทั้งหมดของกลุ่มที่ผ่านเข้ารอบแข่งขันระดับเขตพื้นที่'
-                    : 'กิจกรรมทั้งหมดที่ผ่านเข้ารอบแข่งขันระดับเขตพื้นที่'
+                    ? 'กิจกรรมทั้งหมดของกลุ่มที่เข้าแข่งขันระดับเขตพื้นที่'
+                    : 'กิจกรรมทั้งหมดที่เข้าแข่งขันระดับเขตพื้นที่'
                   }
                 </p>
               </div>
@@ -357,7 +357,7 @@ const DistrictCompetitions = () => {
               }
             </p>
             <p className="text-gray-400 text-sm mt-2">
-              กิจกรรมจะแสดงเมื่อมีการส่งผลเข้ารอบระดับเขตพื้นที่
+              กิจกรรมจะแสดงเมื่อมีการลงทะเบียนหรือส่งผลเข้ารอบระดับเขตพื้นที่
             </p>
           </div>
         ) : (
@@ -423,6 +423,11 @@ const DistrictCompetitions = () => {
                                     <h4 className="text-sm font-medium text-gray-900 truncate">
                                       {comp.name}
                                     </h4>
+                                    {comp.skip_group_level && (
+                                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                        สมัครตรง
+                                      </span>
+                                    )}
                                     {comp.is_published && (
                                       <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
                                         <CheckCircle className="w-3 h-3 mr-0.5" />
