@@ -14,9 +14,6 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
  * - แสดง Error Toast
  */
 
-// Flag to prevent multiple 401 toasts and redirects
-let isHandling401 = false;
-
 // Create axios instance
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -46,32 +43,10 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    // 401 Unauthorized - handle only once
+    // ✅ 401 Unauthorized - แค่ log warning ไม่ redirect/ลบ token
+    // การ logout ควรทำผ่าน authStore เท่านั้น (ป้องกันหน้า reload เอง)
     if (error.response?.status === 401) {
-      if (!isHandling401) {
-        isHandling401 = true;
-
-        // Clear token (ทั้งสอง keys)
-        localStorage.removeItem('token');
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-
-        // Show toast only once
-        toast.error('Session หมดอายุ กรุณา Login ใหม่', {
-          autoClose: 3000,
-          toastId: 'session-expired', // Prevent duplicate toasts
-        });
-
-        // Redirect to login
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 1500);
-
-        // Reset flag after redirect timeout
-        setTimeout(() => {
-          isHandling401 = false;
-        }, 3000);
-      }
+      console.warn('⚠️ 401 Unauthorized:', error.config?.url);
     }
 
     // 403 Forbidden

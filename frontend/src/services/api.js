@@ -35,14 +35,9 @@ api.interceptors.response.use(
       // Server ตอบกลับมาแต่เป็น error
       switch (error.response.status) {
         case 401:
-          // Unauthorized - ลบ token และ redirect ไป login
-          // แต่ไม่ redirect ถ้าอยู่ที่หน้า login อยู่แล้ว
-          if (!window.location.pathname.includes('/login')) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-          }
+          // ✅ แค่ log warning - ไม่ redirect/ลบ token (ป้องกันหน้า reload เอง)
+          // การ logout ควรทำผ่าน authStore เท่านั้น
+          console.warn('⚠️ 401 Unauthorized:', error.config?.url);
           break;
         case 403:
           // Forbidden
