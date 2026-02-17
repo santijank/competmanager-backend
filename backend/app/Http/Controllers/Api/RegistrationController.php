@@ -40,6 +40,13 @@ class RegistrationController extends Controller
                     $schoolIds = $this->getSchoolIdsByGroup($user->school_group_id);
                     $query->whereIn('school_id', $schoolIds);
                 }
+            } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ตัวเอง
+                if ($user->category_id) {
+                    $query->whereHas('competition', function($q) use ($user) {
+                        $q->where('category_id', $user->category_id);
+                    });
+                }
             }
             // District Admin/Admin เห็นได้ทั้งหมด
         }
@@ -749,6 +756,13 @@ class RegistrationController extends Controller
                     if ($user->school_group_id) {
                         $schoolIds = $this->getSchoolIdsByGroup($user->school_group_id);
                         $query->whereIn('school_id', $schoolIds);
+                    }
+                } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                    // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ตัวเอง
+                    if ($user->category_id) {
+                        $query->whereHas('competition', function($q) use ($user) {
+                            $q->where('category_id', $user->category_id);
+                        });
                     }
                 }
             }

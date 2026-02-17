@@ -28,6 +28,9 @@ class DashboardController extends Controller
                 case 'school_admin':
                 case 'teacher':
                     return $this->schoolAdmin($request);
+                case 'category_admin':
+                case 'data_entry':
+                    return $this->categoryDashboard($request);
                 default:
                     return $this->basicDashboard($user);
             }
@@ -65,6 +68,10 @@ class DashboardController extends Controller
                 case 'school_admin':
                 case 'teacher':
                     return $this->schoolAdminStats($user);
+
+                case 'category_admin':
+                case 'data_entry':
+                    return $this->categoryStats($user);
 
                 default:
                     return response()->json([
@@ -435,6 +442,114 @@ class DashboardController extends Controller
             Log::error('School admin dashboard error', ['error' => $e->getMessage()]);
             return response()->json(['success' => false, 'message' => 'Dashboard error'], 500);
         }
+    }
+
+    /**
+     * 📊 Category Admin/Data Entry Stats
+     */
+    private function categoryStats($user): JsonResponse
+    {
+        $categoryId = $user->category_id;
+
+        if (!$categoryId) {
+            return response()->json([
+                'competitions' => ['total' => 0, 'district' => 0, 'scored' => 0, 'finalized' => 0],
+                'registrations' => ['total' => 0, 'pending' => 0, 'approved' => 0],
+                'category' => null,
+            ]);
+        }
+
+        $category = DB::table('categories')->where('id', $categoryId)->first();
+
+        // นับการแข่งขันในหมวดหมู่
+        $totalCompetitions = DB::table('competitions')
+            ->where('is_active', true)
+            ->where('category_id', $categoryId)
+            ->count();
+
+        $districtCompetitions = DB::table('competitions')
+            ->where('is_active', true)
+            ->where('category_id', $categoryId)
+            ->where('competition_level', 'district')
+            ->count();
+
+        // นับที่ใส่คะแนนแล้ว
+        $scoredCompetitions = DB::table('competitions as c')
+            ->where('c.is_active', true)
+            ->where('c.category_id', $categoryId)
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('scores as sc')
+                    ->join('registrations as r', 'sc.registration_id', '=', 'r.id')
+                    ->whereColumn('r.competition_id', 'c.id');
+            })
+            ->count();
+
+        // นับที่ finalize แล้ว
+        $finalizedCompetitions = DB::table('competitions as c')
+            ->where('c.is_active', true)
+            ->where('c.category_id', $categoryId)
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('scores as sc')
+                    ->join('registrations as r', 'sc.registration_id', '=', 'r.id')
+                    ->whereColumn('r.competition_id', 'c.id')
+                    ->where('sc.is_finalized', true);
+            })
+            ->count();
+
+        // นับการลงทะเบียนในหมวดหมู่
+        $totalRegistrations = DB::table('registrations as r')
+            ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+            ->where('c.category_id', $categoryId)
+            ->count();
+
+        $pendingRegistrations = DB::table('registrations as r')
+            ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+            ->where('c.category_id', $categoryId)
+            ->where('r.status', 'pending')
+            ->count();
+
+        $approvedRegistrations = DB::table('registrations as r')
+            ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+            ->where('c.category_id', $categoryId)
+            ->where('r.status', 'approved')
+            ->count();
+
+        return response()->json([
+            'competitions' => [
+                'total' => $totalCompetitions,
+                'district' => $districtCompetitions,
+                'scored' => $scoredCompetitions,
+                'finalized' => $finalizedCompetitions,
+            ],
+            'registrations' => [
+                'total' => $totalRegistrations,
+                'pending' => $pendingRegistrations,
+                'approved' => $approvedRegistrations,
+            ],
+            'category' => $category ? ['id' => $category->id, 'name' => $category->name] : null,
+        ]);
+    }
+
+    /**
+     * 📋 Category Dashboard (index)
+     */
+    private function categoryDashboard(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $categoryId = $user->category_id;
+        $category = DB::table('categories')->where('id', $categoryId)->first();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'message' => 'ยินดีต้อนรับ - ' . ($category->name ?? 'หมวดหมู่'),
+                'user_name' => $user->name,
+                'user_role' => $user->role,
+                'category' => $category ? ['id' => $category->id, 'name' => $category->name] : null,
+            ]
+        ]);
     }
 
     /**

@@ -208,6 +208,12 @@ export default function Sidebar({ isOpen, onClose }) {
     if (hasRole(['category_admin', 'data_entry'])) {
       items.push(
         {
+          label: 'จัดการการลงทะเบียน',
+          icon: ClipboardList,
+          path: '/registrations/manage',
+          roles: ['category_admin', 'data_entry'],
+        },
+        {
           label: 'ผลการแข่งขัน',
           icon: BarChart3,
           path: '/scores',
@@ -238,7 +244,7 @@ export default function Sidebar({ isOpen, onClose }) {
       label: 'เกียรติบัตร',
       icon: Award,
       path: '/certificates',
-      roles: ['admin', 'committee', 'district_admin'],
+      roles: ['admin', 'committee', 'district_admin', 'category_admin', 'data_entry'],
     });
 
     // ===== จัดการประกาศ =====

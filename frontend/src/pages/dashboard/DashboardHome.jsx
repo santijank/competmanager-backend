@@ -531,6 +531,125 @@ const DashboardHome = () => {
   }
 
   // ===============================================
+  // CATEGORY ADMIN / DATA ENTRY DASHBOARD
+  // ===============================================
+  if (user?.role === 'category_admin' || user?.role === 'data_entry') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">แดชบอร์ด</h1>
+            <p className="text-gray-600 mt-2">
+              {stats?.category?.name || 'หมวดหมู่'} - {user?.role === 'category_admin' ? 'ผู้ดูแลหมวดหมู่' : 'ทีมบันทึกข้อมูล'}
+            </p>
+          </div>
+
+          {/* Stats Grid - Competitions */}
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-700 mb-3">การแข่งขัน</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard
+                icon={Trophy}
+                title="การแข่งขันทั้งหมด"
+                value={stats?.competitions?.total}
+                color="bg-blue-500"
+                onClick={() => navigate('/scores')}
+              />
+              <StatCard
+                icon={BarChart3}
+                title="ระดับเขต"
+                value={stats?.competitions?.district}
+                color="bg-indigo-500"
+              />
+              <StatCard
+                icon={CheckCircle}
+                title="ใส่คะแนนแล้ว"
+                value={stats?.competitions?.scored}
+                color="bg-green-500"
+              />
+              <StatCard
+                icon={TrendingUp}
+                title="ยืนยันคะแนนแล้ว"
+                value={stats?.competitions?.finalized}
+                color="bg-purple-500"
+              />
+            </div>
+          </div>
+
+          {/* Stats Grid - Registrations */}
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-700 mb-3">การลงทะเบียน</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <StatCard
+                icon={TrendingUp}
+                title="ลงทะเบียนทั้งหมด"
+                value={stats?.registrations?.total}
+                color="bg-blue-500"
+                onClick={() => navigate('/registrations/manage')}
+              />
+              <StatCard
+                icon={Clock}
+                title="รอการอนุมัติ"
+                value={stats?.registrations?.pending}
+                color="bg-yellow-500"
+                onClick={() => navigate('/registrations/manage')}
+              />
+              <StatCard
+                icon={CheckCircle}
+                title="อนุมัติแล้ว"
+                value={stats?.registrations?.approved}
+                color="bg-green-500"
+              />
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              เมนูด่วน
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <button
+                onClick={() => navigate('/scores')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <BarChart3 className="w-5 h-5 text-blue-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">ผลการแข่งขัน</div>
+                  <div className="text-sm text-gray-600">ใส่คะแนนการแข่งขัน</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/registrations/manage')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">จัดการการลงทะเบียน</div>
+                  <div className="text-sm text-gray-600">ดูรายการลงทะเบียน</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/certificates')}
+                className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Trophy className="w-5 h-5 text-purple-600 mr-3" />
+                <div className="text-left">
+                  <div className="font-medium text-gray-900">เกียรติบัตร</div>
+                  <div className="text-sm text-gray-600">ออกเกียรติบัตร</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===============================================
   // DEFAULT (No specific role or loading)
   // ===============================================
   return (

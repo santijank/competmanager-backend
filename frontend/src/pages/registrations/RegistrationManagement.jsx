@@ -41,8 +41,13 @@ const RegistrationManagement = () => {
   const [actionType, setActionType] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState({});
 
+  // ✅ category-scoped roles
+  const isCategoryScoped = ['category_admin', 'data_entry'].includes(user?.role);
+
   // ✅ Tab สำหรับ District Admin แยกระดับ (เก็บค่าใน localStorage)
+  // category_admin/data_entry เริ่มต้นที่ district เสมอ
   const [activeLevel, setActiveLevelState] = useState(() => {
+    if (isCategoryScoped) return 'district';
     return localStorage.getItem('reg_activeLevel') || 'group';
   });
   const setActiveLevel = (level) => {
@@ -116,6 +121,10 @@ const RegistrationManagement = () => {
       if (isDistrictAdmin() || isGroupAdmin()) {
         params.competition_level = activeLevel;
       }
+      // category-scoped users ดูเฉพาะระดับเขต (backend กรอง category ให้แล้ว)
+      if (isCategoryScoped) {
+        params.competition_level = 'district';
+      }
 
       if (isDistrictAdmin()) {
         // ถ้าเลือกดูระดับกลุ่ม และเลือกกลุ่มเฉพาะ
@@ -176,6 +185,9 @@ const RegistrationManagement = () => {
 
       if (isDistrictAdmin() || isGroupAdmin()) {
         params.competition_level = activeLevel;
+      }
+      if (isCategoryScoped) {
+        params.competition_level = 'district';
       }
       if (isDistrictAdmin() && activeLevel === 'group' && selectedGroupId !== 'all') {
         params.school_group_id = selectedGroupId;
