@@ -25,6 +25,7 @@ import useAuthStore from '@/stores/authStore';
 import RegistrationApprovalModal from '@/components/registrations/RegistrationApprovalModal';
 import EditRegistrationModal from '@/components/registrations/EditRegistrationModal';
 import DocumentButtons from '@/components/documents/DocumentButtons';
+import documentService from '@/services/documentService';
 import ResetRegistrationsModal from '@/components/registrations/ResetRegistrationsModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 
@@ -66,6 +67,10 @@ const RegistrationManagement = () => {
   const [selectedCompetitionForDoc, setSelectedCompetitionForDoc] = useState(null);
   const [loadingStaffPdf, setLoadingStaffPdf] = useState(false);
   const [showDocumentSection, setShowDocumentSection] = useState(false);
+  const [batchLoading, setBatchLoading] = useState({
+    student: false, teacher: false, summary: false,
+    committee: false, scoreSheet: false, coverSheet: false,
+  });
 
   const [filters, setFilters] = useState({
     status: '',
@@ -236,6 +241,46 @@ const RegistrationManagement = () => {
 
     } catch (error) {
       console.error('Load competitions error:', error);
+    }
+  };
+
+  // Helper: แยกระดับประถม/มัธยม
+  const getEducationLevel = (level) => {
+    if (!level) return 'other';
+    if (level.includes('ป.')) return 'primary';
+    if (level.includes('ม.')) return 'secondary';
+    return 'other';
+  };
+
+  const getEducationLevelLabel = (eduLevel) => {
+    if (eduLevel === 'primary') return 'ระดับประถมศึกษา';
+    if (eduLevel === 'secondary') return 'ระดับมัธยมศึกษา';
+    return 'อื่นๆ';
+  };
+
+  // Batch export handler
+  const handleBatchExport = async (type, typeKey) => {
+    if (!selectedCategory) return;
+    setBatchLoading(prev => ({ ...prev, [typeKey]: true }));
+    try {
+      toast.info('กำลังสร้างเอกสารแบบรวม กรุณารอสักครู่...');
+      const blob = await documentService.batchExport(parseInt(selectedCategory), type);
+      const categoryName = competitionsByCategory[selectedCategory]?.name || 'export';
+      const typeNames = {
+        'student-checkin': 'ลงทะเบียนนักเรียน',
+        'teacher-checkin': 'ลงทะเบียนครู',
+        'summary': 'สรุปผู้เข้าแข่ง',
+        'committee-checkin': 'ลงทะเบียนกรรมการ',
+        'score-sheet': 'ใบลงคะแนน',
+        'cover-sheet': 'ใบปะหน้าซอง',
+      };
+      documentService.downloadPDF(blob, `${typeNames[type]}_${categoryName}_รวม.pdf`);
+      toast.success('สร้างเอกสารสำเร็จ');
+    } catch (error) {
+      console.error('Batch export error:', error);
+      toast.error('ไม่สามารถสร้างเอกสารแบบรวมได้');
+    } finally {
+      setBatchLoading(prev => ({ ...prev, [typeKey]: false }));
     }
   };
 
@@ -625,31 +670,72 @@ const RegistrationManagement = () => {
               )}
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {/* เลือกหมวดหมู่ */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  1. เลือกหมวดหมู่
-                </label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setSelectedCompetitionForDoc(null);
-                  }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">-- เลือกหมวดหมู่ --</option>
-                  {Object.values(competitionsByCategory).map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name} ({category.competitions.length} กิจกรรม)
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* 1. เลือกหมวดหมู่ */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                1. เลือกหมวดหมู่
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setSelectedCompetitionForDoc(null);
+                }}
+                className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">-- เลือกหมวดหมู่ --</option>
+                {Object.values(competitionsByCategory).map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({category.competitions.length} กิจกรรม)
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              {/* เลือกกิจกรรม */}
-              <div>
+            {/* ปุ่ม Batch Export - ออกเอกสารทั้งหมดในหมวด */}
+            {selectedCategory && competitionsForSelectedCategory.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
+                  <Download className="w-4 h-4 mr-2" />
+                  ออกเอกสารทั้งหมดในหมวด ({competitionsForSelectedCategory.length} กิจกรรม)
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => handleBatchExport('student-checkin', 'student')} disabled={batchLoading.student}
+                    className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchLoading.student ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนนักเรียน (ทั้งหมด)'}
+                  </button>
+                  <button onClick={() => handleBatchExport('teacher-checkin', 'teacher')} disabled={batchLoading.teacher}
+                    className="inline-flex items-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchLoading.teacher ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนครู (ทั้งหมด)'}
+                  </button>
+                  <button onClick={() => handleBatchExport('summary', 'summary')} disabled={batchLoading.summary}
+                    className="inline-flex items-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchLoading.summary ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'สรุปผู้เข้าแข่ง (ทั้งหมด)'}
+                  </button>
+                  <button onClick={() => handleBatchExport('committee-checkin', 'committee')} disabled={batchLoading.committee}
+                    className="inline-flex items-center px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchLoading.committee ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนกรรมการ (ทั้งหมด)'}
+                  </button>
+                  <button onClick={() => handleBatchExport('score-sheet', 'scoreSheet')} disabled={batchLoading.scoreSheet}
+                    className="inline-flex items-center px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchLoading.scoreSheet ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ใบลงคะแนน (ทั้งหมด)'}
+                  </button>
+                  <button onClick={() => handleBatchExport('cover-sheet', 'coverSheet')} disabled={batchLoading.coverSheet}
+                    className="inline-flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchLoading.coverSheet ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ใบปะหน้าซอง (ทั้งหมด)'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* หรือเลือกกิจกรรมเดี่ยว */}
+            {selectedCategory && (
+              <div className="mb-4">
+                <div className="relative flex items-center mb-3">
+                  <div className="flex-grow border-t border-gray-300"></div>
+                  <span className="flex-shrink mx-4 text-xs text-gray-500">หรือเลือกกิจกรรมเดี่ยว</span>
+                  <div className="flex-grow border-t border-gray-300"></div>
+                </div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   2. เลือกกิจกรรม
                 </label>
@@ -661,29 +747,59 @@ const RegistrationManagement = () => {
                     );
                     setSelectedCompetitionForDoc(comp);
                   }}
-                  disabled={!selectedCategory}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">-- เลือกกิจกรรม --</option>
-                  {competitionsForSelectedCategory.map((comp) => (
-                    <option key={comp.id} value={comp.id}>
-                      {comp.name}
-                    </option>
-                  ))}
+                  {(() => {
+                    const primary = competitionsForSelectedCategory.filter(c => getEducationLevel(c.level) === 'primary');
+                    const secondary = competitionsForSelectedCategory.filter(c => getEducationLevel(c.level) === 'secondary');
+                    const other = competitionsForSelectedCategory.filter(c => getEducationLevel(c.level) === 'other');
+                    return (
+                      <>
+                        {primary.length > 0 && (
+                          <optgroup label={`ระดับประถมศึกษา (${primary.length})`}>
+                            {primary.map((comp) => (
+                              <option key={comp.id} value={comp.id}>
+                                {comp.name} ({comp.level})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {secondary.length > 0 && (
+                          <optgroup label={`ระดับมัธยมศึกษา (${secondary.length})`}>
+                            {secondary.map((comp) => (
+                              <option key={comp.id} value={comp.id}>
+                                {comp.name} ({comp.level})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {other.length > 0 && (
+                          <optgroup label={`อื่นๆ (${other.length})`}>
+                            {other.map((comp) => (
+                              <option key={comp.id} value={comp.id}>
+                                {comp.name} {comp.level ? `(${comp.level})` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    );
+                  })()}
                 </select>
-                {!selectedCategory && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    กรุณาเลือกหมวดหมู่ก่อน
-                  </p>
-                )}
               </div>
-            </div>
+            )}
 
             {selectedCompetitionForDoc && (
               <div className="border-t pt-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                   <p className="text-sm text-blue-900">
                     <strong>กิจกรรมที่เลือก:</strong> {selectedCompetitionForDoc.name}
+                    {selectedCompetitionForDoc.level && (
+                      <span className="ml-2 px-2 py-0.5 rounded text-xs font-medium bg-blue-200 text-blue-800">
+                        {selectedCompetitionForDoc.level}
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-blue-700 mt-1">
                     หมวดหมู่: {selectedCompetitionForDoc.category?.name}
@@ -999,59 +1115,87 @@ const RegistrationManagement = () => {
                       </div>
                     </button>
 
-                    {/* Competitions List - ระดับที่ 2 */}
+                    {/* Competitions List - ระดับที่ 2 (แยกประถม/มัธยม) */}
                     {expandedCategories[category.id] && (
                       <div className="border-t border-gray-200">
-                        {competitionsList.map((comp) => (
-                          <div key={comp.id} className="border-b border-gray-100 last:border-b-0">
-                            {/* Competition Header */}
-                            <button
-                              onClick={() => toggleCategory(`comp_${comp.id}`)}
-                              className="w-full px-6 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex items-center space-x-3 pl-6">
-                                {expandedCategories[`comp_${comp.id}`] ? (
-                                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                                ) : (
-                                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                                )}
-                                <FileText className="w-4 h-4 text-gray-500" />
-                                <h4 className="text-base font-medium text-gray-800">
-                                  {comp.name}
-                                </h4>
-                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                  {comp.registrations.length} ทีม
-                                </span>
-                                {/* แสดงสถานะรวม */}
-                                {comp.registrations.some(r => r.status === 'pending') && (
-                                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                                    {comp.registrations.filter(r => r.status === 'pending').length} รอ
-                                  </span>
-                                )}
-                              </div>
-                            </button>
+                        {(() => {
+                          const primaryComps = competitionsList.filter(c => getEducationLevel(c.competition?.level) === 'primary');
+                          const secondaryComps = competitionsList.filter(c => getEducationLevel(c.competition?.level) === 'secondary');
+                          const otherComps = competitionsList.filter(c => getEducationLevel(c.competition?.level) === 'other');
+                          const groups = [];
+                          if (primaryComps.length > 0) groups.push({ label: 'ระดับประถมศึกษา', comps: primaryComps, color: 'bg-blue-50 text-blue-700 border-blue-200' });
+                          if (secondaryComps.length > 0) groups.push({ label: 'ระดับมัธยมศึกษา', comps: secondaryComps, color: 'bg-indigo-50 text-indigo-700 border-indigo-200' });
+                          if (otherComps.length > 0) groups.push({ label: 'อื่นๆ', comps: otherComps, color: 'bg-gray-50 text-gray-600 border-gray-200' });
 
-                            {/* Registrations for this Competition */}
-                            {expandedCategories[`comp_${comp.id}`] && (
-                              <div className="bg-gray-50 border-t border-gray-100">
-                                {comp.registrations.map((registration) => (
-                                  <RegistrationItem
-                                    key={registration.id}
-                                    registration={registration}
-                                    getStatusBadge={getStatusBadge}
-                                    getLevelBadge={getLevelBadge}
-                                    handleEdit={handleEdit}
-                                    handleApprove={handleApprove}
-                                    handleReject={handleReject}
-                                    handleDelete={handleDelete}
-                                    showLevel={activeLevel === 'district'}
-                                    nested={true}
-                                  />
-                                ))}
+                          // ถ้ามีแค่กลุ่มเดียว ไม่ต้องแสดง sub-header
+                          if (groups.length <= 1) {
+                            return competitionsList.map((comp) => (
+                              <div key={comp.id} className="border-b border-gray-100 last:border-b-0">
+                                <button
+                                  onClick={() => toggleCategory(`comp_${comp.id}`)}
+                                  className="w-full px-6 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                                >
+                                  <div className="flex items-center space-x-3 pl-6">
+                                    {expandedCategories[`comp_${comp.id}`] ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                    <FileText className="w-4 h-4 text-gray-500" />
+                                    <h4 className="text-base font-medium text-gray-800">{comp.name}</h4>
+                                    {comp.competition?.level && (
+                                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{comp.competition.level}</span>
+                                    )}
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{comp.registrations.length} ทีม</span>
+                                    {comp.registrations.some(r => r.status === 'pending') && (
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">{comp.registrations.filter(r => r.status === 'pending').length} รอ</span>
+                                    )}
+                                  </div>
+                                </button>
+                                {expandedCategories[`comp_${comp.id}`] && (
+                                  <div className="bg-gray-50 border-t border-gray-100">
+                                    {comp.registrations.map((registration) => (
+                                      <RegistrationItem key={registration.id} registration={registration} getStatusBadge={getStatusBadge} getLevelBadge={getLevelBadge} handleEdit={handleEdit} handleApprove={handleApprove} handleReject={handleReject} handleDelete={handleDelete} showLevel={activeLevel === 'district'} nested={true} />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        ))}
+                            ));
+                          }
+
+                          return groups.map((group) => (
+                            <div key={group.label}>
+                              {/* Sub-header ระดับการศึกษา */}
+                              <div className={`px-8 py-2 ${group.color} border-b font-semibold text-sm`}>
+                                {group.label} ({group.comps.length} กิจกรรม)
+                              </div>
+                              {group.comps.map((comp) => (
+                                <div key={comp.id} className="border-b border-gray-100 last:border-b-0">
+                                  <button
+                                    onClick={() => toggleCategory(`comp_${comp.id}`)}
+                                    className="w-full px-6 py-3 flex items-center justify-between bg-white hover:bg-gray-50 transition-colors"
+                                  >
+                                    <div className="flex items-center space-x-3 pl-6">
+                                      {expandedCategories[`comp_${comp.id}`] ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                      <FileText className="w-4 h-4 text-gray-500" />
+                                      <h4 className="text-base font-medium text-gray-800">{comp.name}</h4>
+                                      {comp.competition?.level && (
+                                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{comp.competition.level}</span>
+                                      )}
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{comp.registrations.length} ทีม</span>
+                                      {comp.registrations.some(r => r.status === 'pending') && (
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">{comp.registrations.filter(r => r.status === 'pending').length} รอ</span>
+                                      )}
+                                    </div>
+                                  </button>
+                                  {expandedCategories[`comp_${comp.id}`] && (
+                                    <div className="bg-gray-50 border-t border-gray-100">
+                                      {comp.registrations.map((registration) => (
+                                        <RegistrationItem key={registration.id} registration={registration} getStatusBadge={getStatusBadge} getLevelBadge={getLevelBadge} handleEdit={handleEdit} handleApprove={handleApprove} handleReject={handleReject} handleDelete={handleDelete} showLevel={activeLevel === 'district'} nested={true} />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ));
+                        })()}
                       </div>
                     )}
                   </div>

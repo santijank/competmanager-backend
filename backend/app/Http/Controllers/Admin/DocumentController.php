@@ -586,4 +586,211 @@ class DocumentController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Batch Export - ออกเอกสารทุกกิจกรรมในหมวดหมู่รวมเป็น 1 PDF
+     */
+    public function batchExport(Request $request)
+    {
+        try {
+            $categoryId = $request->input('category_id');
+            $type = $request->input('type');
+
+            Log::info("DocumentController: Batch export for category {$categoryId}, type {$type}");
+
+            $validTypes = ['student-checkin', 'teacher-checkin', 'summary', 'committee-checkin', 'score-sheet', 'cover-sheet'];
+            if (!in_array($type, $validTypes)) {
+                return response()->json(['message' => 'ประเภทเอกสารไม่ถูกต้อง'], 400);
+            }
+
+            if (!$categoryId) {
+                return response()->json(['message' => 'กรุณาระบุหมวดหมู่'], 400);
+            }
+
+            // ดึง competitions ที่มี approved registrations ในหมวดนี้
+            $competitions = Competition::where('category_id', $categoryId)
+                ->whereHas('registrations', fn($q) => $q->where('status', 'approved'))
+                ->with(['category', 'schoolGroup'])
+                ->orderBy('level')
+                ->orderBy('name')
+                ->get();
+
+            if ($competitions->isEmpty()) {
+                return response()->json(['message' => 'ไม่พบกิจกรรมที่มีการลงทะเบียนอนุมัติแล้ว'], 404);
+            }
+
+            // เตรียม data สำหรับแต่ละ competition ตาม type
+            $allCompetitionsData = [];
+
+            foreach ($competitions as $competition) {
+                $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
+
+                switch ($type) {
+                    case 'student-checkin':
+                        $registrations = Registration::where('competition_id', $competition->id)
+                            ->where('status', 'approved')
+                            ->with(['school'])
+                            ->orderBy('created_at', 'asc')
+                            ->get();
+
+                        $schools = [];
+                        foreach ($registrations as $registration) {
+                            $schools[] = [
+                                'school_id' => $registration->school_id,
+                                'school_name' => $registration->school->name ?? '-',
+                                'students' => $registration->getStudentNamesList()
+                            ];
+                        }
+
+                        $allCompetitionsData[] = [
+                            'competition' => $competition,
+                            'schedule' => $schedule,
+                            'schools' => $schools,
+                            'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                        ];
+                        break;
+
+                    case 'teacher-checkin':
+                        $registrations = Registration::where('competition_id', $competition->id)
+                            ->where('status', 'approved')
+                            ->with(['school'])
+                            ->orderBy('created_at', 'asc')
+                            ->get();
+
+                        $schools = [];
+                        foreach ($registrations as $registration) {
+                            $schools[] = [
+                                'school_id' => $registration->school_id,
+                                'school_name' => $registration->school->name ?? '-',
+                                'teachers' => $registration->getTeacherNamesList()
+                            ];
+                        }
+
+                        $allCompetitionsData[] = [
+                            'competition' => $competition,
+                            'schedule' => $schedule,
+                            'schools' => $schools,
+                            'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                        ];
+                        break;
+
+                    case 'summary':
+                        $registrations = Registration::where('competition_id', $competition->id)
+                            ->with(['school'])
+                            ->get();
+
+                        $stats = [
+                            'total' => $registrations->count(),
+                            'approved' => $registrations->where('status', 'approved')->count(),
+                            'pending' => $registrations->where('status', 'pending')->count(),
+                            'rejected' => $registrations->where('status', 'rejected')->count(),
+                            'cancelled' => $registrations->where('status', 'cancelled')->count(),
+                        ];
+
+                        $totalStudents = 0;
+                        $totalTeachers = 0;
+                        foreach ($registrations->where('status', 'approved') as $registration) {
+                            $totalStudents += $registration->student_count ?? 0;
+                            $totalTeachers += $registration->teacher_count ?? 0;
+                        }
+                        $stats['total_students'] = $totalStudents;
+                        $stats['total_teachers'] = $totalTeachers;
+
+                        $bySchool = $registrations->where('status', 'approved')
+                            ->groupBy('school_id')
+                            ->map(function($items) {
+                                return [
+                                    'school_name' => $items->first()->school->name ?? '-',
+                                    'count' => $items->count(),
+                                ];
+                            })->values();
+
+                        $allCompetitionsData[] = [
+                            'competition' => $competition,
+                            'stats' => $stats,
+                            'by_school' => $bySchool,
+                            'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                        ];
+                        break;
+
+                    case 'committee-checkin':
+                        $committees = CommitteeMember::where('competition_id', $competition->id)
+                            ->where('is_active', true)
+                            ->orderBy('id', 'asc')
+                            ->get();
+
+                        $allCompetitionsData[] = [
+                            'competition' => $competition,
+                            'schedule' => $schedule,
+                            'committees' => $committees,
+                            'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                        ];
+                        break;
+
+                    case 'score-sheet':
+                        $registrations = Registration::where('competition_id', $competition->id)
+                            ->where('status', 'approved')
+                            ->with(['school'])
+                            ->orderBy('created_at', 'asc')
+                            ->get();
+
+                        $schools = [];
+                        foreach ($registrations as $registration) {
+                            $schools[] = [
+                                'school_id' => $registration->school_id,
+                                'school_name' => $registration->school->name ?? '-',
+                            ];
+                        }
+
+                        $judges = CommitteeMember::where('competition_id', $competition->id)
+                            ->where('is_active', true)
+                            ->where('member_type', 'committee')
+                            ->orderBy('id', 'asc')
+                            ->get();
+
+                        $allCompetitionsData[] = [
+                            'competition' => $competition,
+                            'schedule' => $schedule,
+                            'schools' => $schools,
+                            'judges' => $judges,
+                            'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                        ];
+                        break;
+
+                    case 'cover-sheet':
+                        $allCompetitionsData[] = [
+                            'competition' => $competition,
+                            'schedule' => $schedule,
+                            'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                        ];
+                        break;
+                }
+            }
+
+            // กำหนด orientation และ template
+            $orientation = ($type === 'committee-checkin') ? 'landscape' : 'portrait';
+            $templateName = "exports.batch-{$type}-pdf";
+
+            // สร้าง PDF
+            $pdf = Pdf::loadView($templateName, ['allCompetitionsData' => $allCompetitionsData])
+                ->setPaper('a4', $orientation)
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $categoryName = $competitions->first()->category->name ?? 'export';
+            $filename = "batch-{$type}-{$categoryName}-" . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: Batch export PDF generated successfully - {$competitions->count()} competitions");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (Batch Export): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารแบบรวม',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

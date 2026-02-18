@@ -309,6 +309,31 @@ const documentService = {
     const filename = `รายการลงทะเบียน_${statusLabel}.pdf`;
     this.downloadPDF(blob, filename);
   },
+
+  /**
+   * Batch Export - ออกเอกสารทุกกิจกรรมในหมวดหมู่รวมเป็น 1 PDF
+   * @param {number} categoryId - ID ของหมวดหมู่
+   * @param {string} type - ประเภทเอกสาร (student-checkin, teacher-checkin, summary, committee-checkin, score-sheet, cover-sheet)
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async batchExport(categoryId, type) {
+    try {
+      const response = await api.post(
+        '/documents/batch-export',
+        { category_id: categoryId, type: type },
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error batch exporting:', error);
+      throw new Error('ไม่สามารถสร้างเอกสารแบบรวมได้');
+    }
+  },
 };
 
 export default documentService;

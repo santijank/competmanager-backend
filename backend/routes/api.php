@@ -213,6 +213,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('competitions/{competition}/cover-sheet', [\App\Http\Controllers\Admin\DocumentController::class, 'generateCoverSheet']);
         Route::get('competitions/{competition}/summary', [\App\Http\Controllers\Admin\DocumentController::class, 'generateSummary']);
         Route::get('school-registrations', [\App\Http\Controllers\Admin\DocumentController::class, 'generateSchoolRegistrations']);
+        Route::post('batch-export', [\App\Http\Controllers\Admin\DocumentController::class, 'batchExport']);
     });
 
     // Competition Schedules (ตารางสถานที่แข่งขัน)
