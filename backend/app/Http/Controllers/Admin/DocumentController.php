@@ -847,9 +847,9 @@ class DocumentController extends Controller
                     return [
                         'name' => $comp->name,
                         'level' => $comp->level,
-                        'team_count' => $comp->approved_registrations_count,
+                        'team_count' => $comp->approved_registrations_count ?? 0,
                     ];
-                });
+                })->toArray();
 
                 $categoryData[] = [
                     'name' => $category->name,
