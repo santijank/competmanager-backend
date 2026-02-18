@@ -877,9 +877,21 @@ class DocumentController extends Controller
                 'generated_at' => now()->format('d/m/Y H:i'),
             ];
 
+            // DEBUG MODE: return JSON first to verify data works
+            if ($request->has('debug')) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $data,
+                ]);
+            }
+
             Log::info("DocumentController: Rendering PDF template...");
 
-            $pdf = Pdf::loadView('exports.category-overview-pdf', $data)
+            $html = view('exports.category-overview-pdf', $data)->render();
+
+            Log::info("DocumentController: HTML rendered, length=" . strlen($html));
+
+            $pdf = Pdf::loadHTML($html)
                 ->setPaper('a4', 'portrait')
                 ->setOption('defaultFont', 'THSarabunNew');
 
