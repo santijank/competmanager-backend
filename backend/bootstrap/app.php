@@ -33,5 +33,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // เพิ่ม CORS headers ใน error responses ด้วย
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response) {
+            $allowedOrigins = [
+                'https://competmanager.web.app',
+                'http://localhost:5173',
+                'http://localhost:3000',
+            ];
+            $origin = request()->header('Origin');
+            $allowedOrigin = in_array($origin, $allowedOrigins) ? $origin : $allowedOrigins[0];
+
+            $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
+            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-XSRF-TOKEN');
+            $response->headers->set('Access-Control-Allow-Credentials', 'true');
+
+            return $response;
+        });
     })->create();
