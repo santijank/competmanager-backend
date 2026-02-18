@@ -334,6 +334,28 @@ const documentService = {
       throw new Error('ไม่สามารถสร้างเอกสารแบบรวมได้');
     }
   },
+
+  /**
+   * Generate Category Overview PDF - สรุปหมวดหมู่การแข่งขันทั้งหมด
+   * @returns {Promise<Blob>} - PDF file
+   */
+  async generateCategoryOverview() {
+    try {
+      const response = await api.get(
+        '/documents/category-overview',
+        {
+          responseType: 'blob',
+          headers: {
+            'Accept': 'application/pdf'
+          }
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error generating category overview:', error);
+      throw new Error('ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');
+    }
+  },
 };
 
 export default documentService;

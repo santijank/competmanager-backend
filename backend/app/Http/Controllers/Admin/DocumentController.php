@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Category;
 use App\Models\Competition;
 use App\Models\Registration;
 use App\Models\CompetitionSchedule;
@@ -799,6 +800,92 @@ class DocumentController extends Controller
 
             return response()->json([
                 'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารแบบรวม',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * สร้างเอกสารสรุปหมวดหมู่การแข่งขัน (Category Overview)
+     */
+    public function generateCategoryOverview(Request $request)
+    {
+        try {
+            Log::info("DocumentController: Generating category overview PDF");
+
+            // ดึงหมวดหมู่ที่มีกิจกรรมที่มี approved registrations
+            $categories = Category::whereHas('competitions.registrations', function ($q) {
+                $q->where('status', 'approved');
+            })
+            ->with(['competitions' => function ($q) {
+                $q->whereHas('registrations', function ($r) {
+                    $r->where('status', 'approved');
+                })
+                ->withCount(['registrations as approved_registrations_count' => function ($r) {
+                    $r->where('status', 'approved');
+                }])
+                ->orderBy('level')
+                ->orderBy('name');
+            }])
+            ->orderBy('name')
+            ->get();
+
+            if ($categories->isEmpty()) {
+                return response()->json(['message' => 'ไม่พบหมวดหมู่ที่มีการลงทะเบียนอนุมัติแล้ว'], 404);
+            }
+
+            // สร้าง data สำหรับแต่ละหมวดหมู่
+            $categoryData = [];
+            $grandTotalCompetitions = 0;
+            $grandTotalTeams = 0;
+
+            foreach ($categories as $category) {
+                $competitionCount = $category->competitions->count();
+                $teamCount = $category->competitions->sum('approved_registrations_count');
+
+                $competitions = $category->competitions->map(function ($comp) {
+                    return [
+                        'name' => $comp->name,
+                        'level' => $comp->level,
+                        'team_count' => $comp->approved_registrations_count,
+                    ];
+                });
+
+                $categoryData[] = [
+                    'name' => $category->name,
+                    'competition_count' => $competitionCount,
+                    'team_count' => $teamCount,
+                    'competitions' => $competitions,
+                ];
+
+                $grandTotalCompetitions += $competitionCount;
+                $grandTotalTeams += $teamCount;
+            }
+
+            $data = [
+                'categories' => $categoryData,
+                'grand_total_competitions' => $grandTotalCompetitions,
+                'grand_total_teams' => $grandTotalTeams,
+                'total_categories' => count($categoryData),
+                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+            ];
+
+            $pdf = Pdf::loadView('exports.category-overview-pdf', $data)
+                ->setPaper('a4', 'portrait')
+                ->setOption('defaultFont', 'THSarabunNew');
+
+            $filename = 'สรุปหมวดหมู่การแข่งขัน-' . now()->format('YmdHis') . '.pdf';
+
+            Log::info("DocumentController: Category overview PDF generated - {$categories->count()} categories, {$grandTotalCompetitions} competitions, {$grandTotalTeams} teams");
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error("DocumentController Error (Category Overview): " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
+
+            return response()->json([
+                'message' => 'เกิดข้อผิดพลาดในการสร้างเอกสารสรุปหมวดหมู่',
                 'error' => $e->getMessage()
             ], 500);
         }

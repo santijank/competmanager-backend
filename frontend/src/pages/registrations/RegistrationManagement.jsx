@@ -77,6 +77,7 @@ const RegistrationManagement = () => {
   });
   const [showExportAllDropdown, setShowExportAllDropdown] = useState(false);
   const exportAllDropdownRef = useRef(null);
+  const [categoryOverviewLoading, setCategoryOverviewLoading] = useState(false);
 
   const [filters, setFilters] = useState({
     status: '',
@@ -324,6 +325,22 @@ const RegistrationManagement = () => {
       toast.error('ไม่สามารถสร้างเอกสารแบบรวมได้');
     } finally {
       setBatchAllLoading(prev => ({ ...prev, [typeKey]: false }));
+    }
+  };
+
+  // Generate Category Overview PDF
+  const handleCategoryOverview = async () => {
+    setCategoryOverviewLoading(true);
+    try {
+      toast.info('กำลังสร้าง PDF สรุปหมวดหมู่...');
+      const blob = await documentService.generateCategoryOverview();
+      documentService.downloadPDF(blob, `สรุปหมวดหมู่การแข่งขัน_${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('สร้างเอกสารสำเร็จ');
+    } catch (error) {
+      console.error('Category overview error:', error);
+      toast.error('ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');
+    } finally {
+      setCategoryOverviewLoading(false);
     }
   };
 
@@ -1050,13 +1067,28 @@ const RegistrationManagement = () => {
                 <Search className="w-4 h-4 inline mr-2" />
                 ค้นหา
               </label>
-              <input
-                type="text"
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                placeholder="ชื่อทีม, ครู..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  placeholder="ชื่อทีม, ครู..."
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleCategoryOverview}
+                  disabled={categoryOverviewLoading}
+                  className="flex items-center gap-1 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  title="สรุปหมวดหมู่การแข่งขัน (PDF)"
+                >
+                  {categoryOverviewLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">PDF</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
