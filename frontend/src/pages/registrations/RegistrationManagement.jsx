@@ -71,6 +71,10 @@ const RegistrationManagement = () => {
     student: false, teacher: false, summary: false,
     committee: false, scoreSheet: false, coverSheet: false,
   });
+  const [batchAllLoading, setBatchAllLoading] = useState({
+    student: false, teacher: false, summary: false,
+    committee: false, scoreSheet: false, coverSheet: false,
+  });
 
   const [filters, setFilters] = useState({
     status: '',
@@ -281,6 +285,30 @@ const RegistrationManagement = () => {
       toast.error('ไม่สามารถสร้างเอกสารแบบรวมได้');
     } finally {
       setBatchLoading(prev => ({ ...prev, [typeKey]: false }));
+    }
+  };
+
+  // Batch export ALL categories handler
+  const handleBatchExportAll = async (type, typeKey) => {
+    setBatchAllLoading(prev => ({ ...prev, [typeKey]: true }));
+    try {
+      toast.info('กำลังสร้างเอกสารทั้งหมดทุกหมวด กรุณารอสักครู่...');
+      const blob = await documentService.batchExport('all', type);
+      const typeNames = {
+        'student-checkin': 'ลงทะเบียนนักเรียน',
+        'teacher-checkin': 'ลงทะเบียนครู',
+        'summary': 'สรุปผู้เข้าแข่ง',
+        'committee-checkin': 'ลงทะเบียนกรรมการ',
+        'score-sheet': 'ใบลงคะแนน',
+        'cover-sheet': 'ใบปะหน้าซอง',
+      };
+      documentService.downloadPDF(blob, `${typeNames[type]}_ทุกหมวด_รวม.pdf`);
+      toast.success('สร้างเอกสารสำเร็จ');
+    } catch (error) {
+      console.error('Batch export all error:', error);
+      toast.error('ไม่สามารถสร้างเอกสารแบบรวมได้');
+    } finally {
+      setBatchAllLoading(prev => ({ ...prev, [typeKey]: false }));
     }
   };
 
@@ -669,6 +697,49 @@ const RegistrationManagement = () => {
                 </span>
               )}
             </h2>
+
+            {/* ออกเอกสารทั้งหมดทุกหมวด */}
+            {Object.keys(competitionsByCategory).length > 0 && (
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-semibold text-indigo-800 mb-3 flex items-center">
+                  <Download className="w-4 h-4 mr-2" />
+                  ออกเอกสารทั้งหมดทุกหมวดหมู่ (กดครั้งเดียว ได้ทุกกิจกรรม)
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => handleBatchExportAll('student-checkin', 'student')} disabled={batchAllLoading.student}
+                    className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchAllLoading.student ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนนักเรียน (ทุกหมวด)'}
+                  </button>
+                  <button onClick={() => handleBatchExportAll('teacher-checkin', 'teacher')} disabled={batchAllLoading.teacher}
+                    className="inline-flex items-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchAllLoading.teacher ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนครู (ทุกหมวด)'}
+                  </button>
+                  <button onClick={() => handleBatchExportAll('summary', 'summary')} disabled={batchAllLoading.summary}
+                    className="inline-flex items-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchAllLoading.summary ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'สรุปผู้เข้าแข่ง (ทุกหมวด)'}
+                  </button>
+                  <button onClick={() => handleBatchExportAll('committee-checkin', 'committee')} disabled={batchAllLoading.committee}
+                    className="inline-flex items-center px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchAllLoading.committee ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนกรรมการ (ทุกหมวด)'}
+                  </button>
+                  <button onClick={() => handleBatchExportAll('score-sheet', 'scoreSheet')} disabled={batchAllLoading.scoreSheet}
+                    className="inline-flex items-center px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchAllLoading.scoreSheet ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ใบลงคะแนน (ทุกหมวด)'}
+                  </button>
+                  <button onClick={() => handleBatchExportAll('cover-sheet', 'coverSheet')} disabled={batchAllLoading.coverSheet}
+                    className="inline-flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {batchAllLoading.coverSheet ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ใบปะหน้าซอง (ทุกหมวด)'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="relative flex items-center mb-4">
+              <div className="flex-grow border-t border-gray-300"></div>
+              <span className="flex-shrink mx-4 text-xs text-gray-500">หรือเลือกออกตามหมวดหมู่ / กิจกรรมเดี่ยว</span>
+              <div className="flex-grow border-t border-gray-300"></div>
+            </div>
 
             {/* 1. เลือกหมวดหมู่ */}
             <div className="mb-4">

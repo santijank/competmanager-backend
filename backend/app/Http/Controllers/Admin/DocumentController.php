@@ -603,17 +603,26 @@ class DocumentController extends Controller
                 return response()->json(['message' => 'ประเภทเอกสารไม่ถูกต้อง'], 400);
             }
 
-            if (!$categoryId) {
+            // ดึง competitions ที่มี approved registrations
+            if ($categoryId === 'all') {
+                // ออกเอกสารทุกหมวดหมู่
+                $competitions = Competition::whereHas('registrations', fn($q) => $q->where('status', 'approved'))
+                    ->with(['category', 'schoolGroup'])
+                    ->orderBy('category_id')
+                    ->orderBy('level')
+                    ->orderBy('name')
+                    ->get();
+            } elseif ($categoryId) {
+                // ออกเอกสารเฉพาะหมวดหมู่
+                $competitions = Competition::where('category_id', $categoryId)
+                    ->whereHas('registrations', fn($q) => $q->where('status', 'approved'))
+                    ->with(['category', 'schoolGroup'])
+                    ->orderBy('level')
+                    ->orderBy('name')
+                    ->get();
+            } else {
                 return response()->json(['message' => 'กรุณาระบุหมวดหมู่'], 400);
             }
-
-            // ดึง competitions ที่มี approved registrations ในหมวดนี้
-            $competitions = Competition::where('category_id', $categoryId)
-                ->whereHas('registrations', fn($q) => $q->where('status', 'approved'))
-                ->with(['category', 'schoolGroup'])
-                ->orderBy('level')
-                ->orderBy('name')
-                ->get();
 
             if ($competitions->isEmpty()) {
                 return response()->json(['message' => 'ไม่พบกิจกรรมที่มีการลงทะเบียนอนุมัติแล้ว'], 404);
@@ -772,11 +781,12 @@ class DocumentController extends Controller
             $templateName = "exports.batch-{$type}-pdf";
 
             // สร้าง PDF
-            $pdf = Pdf::loadView($templateName, ['allCompetitionsData' => $allCompetitionsData])
+            $isAllCategories = ($categoryId === 'all');
+            $pdf = Pdf::loadView($templateName, ['allCompetitionsData' => $allCompetitionsData, 'isAllCategories' => $isAllCategories])
                 ->setPaper('a4', $orientation)
                 ->setOption('defaultFont', 'THSarabunNew');
 
-            $categoryName = $competitions->first()->category->name ?? 'export';
+            $categoryName = $categoryId === 'all' ? 'ทุกหมวด' : ($competitions->first()->category->name ?? 'export');
             $filename = "batch-{$type}-{$categoryName}-" . now()->format('YmdHis') . '.pdf';
 
             Log::info("DocumentController: Batch export PDF generated successfully - {$competitions->count()} competitions");

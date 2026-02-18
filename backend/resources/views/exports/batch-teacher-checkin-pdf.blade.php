@@ -35,9 +35,13 @@
         .col-school { width: 27%; text-align: left; padding-left: 5px; }
         .col-affiliation { width: 15%; text-align: center; }
         .col-signature { width: 20%; text-align: left; padding-left: 6px; }
+        .category-separator { text-align: center; padding-top: 35%; }
+        .category-separator-title { font-size: 28pt; font-weight: bold; color: #1a5c1a; }
+        .category-separator-sub { font-size: 18pt; color: #666; margin-top: 10px; }
     </style>
 </head>
 <body>
+@php $currentCategoryId = null; @endphp
 @foreach($allCompetitionsData as $index => $compData)
     @php
         $competition = $compData['competition'];
@@ -61,7 +65,17 @@
         $activityCode = $competition->code ?? '-';
     @endphp
 
-    @if($index > 0)<div class="page-break"></div>@endif
+    @if(isset($isAllCategories) && $isAllCategories && $competition->category_id !== $currentCategoryId)
+        @if($index > 0)<div class="page-break"></div>@endif
+        <div class="category-separator">
+            <div class="category-separator-title">{{ $competition->category->name ?? '-' }}</div>
+            <div class="category-separator-sub">เอกสารลงทะเบียนครูผู้ฝึกสอน (DC.02)</div>
+        </div>
+        @php $currentCategoryId = $competition->category_id; @endphp
+        <div class="page-break"></div>
+    @elseif($index > 0)
+        <div class="page-break"></div>
+    @endif
 
     <div class="page-header">
         <table class="header-table">

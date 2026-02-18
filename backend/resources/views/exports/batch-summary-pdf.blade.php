@@ -37,9 +37,13 @@
         .col-school { width: 60%; }
         .col-count { width: 20%; text-align: center; }
         .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 13pt; color: #666; }
+        .category-separator { text-align: center; padding-top: 35%; }
+        .category-separator-title { font-size: 28pt; font-weight: bold; color: #1a5c1a; }
+        .category-separator-sub { font-size: 18pt; color: #666; margin-top: 10px; }
     </style>
 </head>
 <body>
+@php $currentCategoryId = null; @endphp
 @foreach($allCompetitionsData as $index => $compData)
     @php
         $competition = $compData['competition'];
@@ -48,7 +52,17 @@
         $generated_at = $compData['generated_at'];
     @endphp
 
-    @if($index > 0)<div class="page-break"></div>@endif
+    @if(isset($isAllCategories) && $isAllCategories && $competition->category_id !== $currentCategoryId)
+        @if($index > 0)<div class="page-break"></div>@endif
+        <div class="category-separator">
+            <div class="category-separator-title">{{ $competition->category->name ?? '-' }}</div>
+            <div class="category-separator-sub">สรุปการลงทะเบียนเข้าแข่งขัน</div>
+        </div>
+        @php $currentCategoryId = $competition->category_id; @endphp
+        <div class="page-break"></div>
+    @elseif($index > 0)
+        <div class="page-break"></div>
+    @endif
 
     <div class="header">
         <div class="title">สรุปการลงทะเบียนเข้าแข่งขัน</div>
