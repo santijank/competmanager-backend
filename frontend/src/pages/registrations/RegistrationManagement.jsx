@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import {
   CheckCircle,
@@ -75,6 +75,8 @@ const RegistrationManagement = () => {
     student: false, teacher: false, summary: false,
     committee: false, scoreSheet: false, coverSheet: false,
   });
+  const [showExportAllDropdown, setShowExportAllDropdown] = useState(false);
+  const exportAllDropdownRef = useRef(null);
 
   const [filters, setFilters] = useState({
     status: '',
@@ -105,6 +107,19 @@ const RegistrationManagement = () => {
     loadData();
     loadCompetitionsWithApprovedRegistrations();
   }, [filters, activeLevel, selectedGroupId]);
+
+  // Click-outside เพื่อปิด dropdown ออกเอกสารทุกหมวด
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (exportAllDropdownRef.current && !exportAllDropdownRef.current.contains(event.target)) {
+        setShowExportAllDropdown(false);
+      }
+    };
+    if (showExportAllDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showExportAllDropdown]);
 
   const loadSchoolGroups = async () => {
     try {
@@ -567,6 +582,59 @@ const RegistrationManagement = () => {
                 <span>ออกเอกสาร</span>
               </button>
 
+              {/* ปุ่มออกเอกสารทุกหมวด - Dropdown */}
+              <div className="relative" ref={exportAllDropdownRef}>
+                <button
+                  onClick={() => setShowExportAllDropdown(!showExportAllDropdown)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>ออกเอกสารทุกหมวด</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showExportAllDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showExportAllDropdown && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase border-b">เลือกประเภทเอกสาร (ทุกหมวด)</div>
+                    <button onClick={() => { handleBatchExportAll('student-checkin', 'student'); setShowExportAllDropdown(false); }}
+                      disabled={batchAllLoading.student}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 flex items-center space-x-2 disabled:opacity-50">
+                      {batchAllLoading.student ? <RefreshCw className="w-4 h-4 animate-spin text-blue-600" /> : <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>}
+                      <span>{batchAllLoading.student ? 'กำลังสร้าง...' : 'ลงทะเบียนนักเรียน (DC.01)'}</span>
+                    </button>
+                    <button onClick={() => { handleBatchExportAll('teacher-checkin', 'teacher'); setShowExportAllDropdown(false); }}
+                      disabled={batchAllLoading.teacher}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 flex items-center space-x-2 disabled:opacity-50">
+                      {batchAllLoading.teacher ? <RefreshCw className="w-4 h-4 animate-spin text-green-600" /> : <span className="w-2 h-2 rounded-full bg-green-600 inline-block"></span>}
+                      <span>{batchAllLoading.teacher ? 'กำลังสร้าง...' : 'ลงทะเบียนครู (DC.02)'}</span>
+                    </button>
+                    <button onClick={() => { handleBatchExportAll('committee-checkin', 'committee'); setShowExportAllDropdown(false); }}
+                      disabled={batchAllLoading.committee}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-orange-50 flex items-center space-x-2 disabled:opacity-50">
+                      {batchAllLoading.committee ? <RefreshCw className="w-4 h-4 animate-spin text-orange-600" /> : <span className="w-2 h-2 rounded-full bg-orange-600 inline-block"></span>}
+                      <span>{batchAllLoading.committee ? 'กำลังสร้าง...' : 'ลงทะเบียนกรรมการ (DC.03)'}</span>
+                    </button>
+                    <button onClick={() => { handleBatchExportAll('score-sheet', 'scoreSheet'); setShowExportAllDropdown(false); }}
+                      disabled={batchAllLoading.scoreSheet}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 flex items-center space-x-2 disabled:opacity-50">
+                      {batchAllLoading.scoreSheet ? <RefreshCw className="w-4 h-4 animate-spin text-red-600" /> : <span className="w-2 h-2 rounded-full bg-red-600 inline-block"></span>}
+                      <span>{batchAllLoading.scoreSheet ? 'กำลังสร้าง...' : 'ใบลงคะแนน (DC.04)'}</span>
+                    </button>
+                    <button onClick={() => { handleBatchExportAll('cover-sheet', 'coverSheet'); setShowExportAllDropdown(false); }}
+                      disabled={batchAllLoading.coverSheet}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50">
+                      {batchAllLoading.coverSheet ? <RefreshCw className="w-4 h-4 animate-spin text-gray-600" /> : <span className="w-2 h-2 rounded-full bg-gray-600 inline-block"></span>}
+                      <span>{batchAllLoading.coverSheet ? 'กำลังสร้าง...' : 'ใบปะหน้าซอง'}</span>
+                    </button>
+                    <button onClick={() => { handleBatchExportAll('summary', 'summary'); setShowExportAllDropdown(false); }}
+                      disabled={batchAllLoading.summary}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 flex items-center space-x-2 disabled:opacity-50">
+                      {batchAllLoading.summary ? <RefreshCw className="w-4 h-4 animate-spin text-purple-600" /> : <span className="w-2 h-2 rounded-full bg-purple-600 inline-block"></span>}
+                      <span>{batchAllLoading.summary ? 'กำลังสร้าง...' : 'สรุปผู้เข้าแข่ง'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* ✅ ปุ่มอนุมัติทั้งหมด - สำหรับ Group Admin และ District Admin */}
               {(isGroupAdmin() || isDistrictAdmin()) && statistics?.pending > 0 && (
                 <button
@@ -697,49 +765,6 @@ const RegistrationManagement = () => {
                 </span>
               )}
             </h2>
-
-            {/* ออกเอกสารทั้งหมดทุกหมวด */}
-            {Object.keys(competitionsByCategory).length > 0 && (
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-4">
-                <h3 className="text-sm font-semibold text-indigo-800 mb-3 flex items-center">
-                  <Download className="w-4 h-4 mr-2" />
-                  ออกเอกสารทั้งหมดทุกหมวดหมู่ (กดครั้งเดียว ได้ทุกกิจกรรม)
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => handleBatchExportAll('student-checkin', 'student')} disabled={batchAllLoading.student}
-                    className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    {batchAllLoading.student ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนนักเรียน (ทุกหมวด)'}
-                  </button>
-                  <button onClick={() => handleBatchExportAll('teacher-checkin', 'teacher')} disabled={batchAllLoading.teacher}
-                    className="inline-flex items-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    {batchAllLoading.teacher ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนครู (ทุกหมวด)'}
-                  </button>
-                  <button onClick={() => handleBatchExportAll('summary', 'summary')} disabled={batchAllLoading.summary}
-                    className="inline-flex items-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    {batchAllLoading.summary ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'สรุปผู้เข้าแข่ง (ทุกหมวด)'}
-                  </button>
-                  <button onClick={() => handleBatchExportAll('committee-checkin', 'committee')} disabled={batchAllLoading.committee}
-                    className="inline-flex items-center px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    {batchAllLoading.committee ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ลงทะเบียนกรรมการ (ทุกหมวด)'}
-                  </button>
-                  <button onClick={() => handleBatchExportAll('score-sheet', 'scoreSheet')} disabled={batchAllLoading.scoreSheet}
-                    className="inline-flex items-center px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    {batchAllLoading.scoreSheet ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ใบลงคะแนน (ทุกหมวด)'}
-                  </button>
-                  <button onClick={() => handleBatchExportAll('cover-sheet', 'coverSheet')} disabled={batchAllLoading.coverSheet}
-                    className="inline-flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    {batchAllLoading.coverSheet ? <><RefreshCw className="w-4 h-4 mr-1 animate-spin" /> กำลังสร้าง...</> : 'ใบปะหน้าซอง (ทุกหมวด)'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Divider */}
-            <div className="relative flex items-center mb-4">
-              <div className="flex-grow border-t border-gray-300"></div>
-              <span className="flex-shrink mx-4 text-xs text-gray-500">หรือเลือกออกตามหมวดหมู่ / กิจกรรมเดี่ยว</span>
-              <div className="flex-grow border-t border-gray-300"></div>
-            </div>
 
             {/* 1. เลือกหมวดหมู่ */}
             <div className="mb-4">
