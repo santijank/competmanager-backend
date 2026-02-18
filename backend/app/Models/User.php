@@ -167,6 +167,27 @@ class User extends Authenticatable
     }
 
     /**
+     * Get category IDs this user can access.
+     * If user's category name contains "พิเศษเรียนรวม", returns ALL such category IDs.
+     * Otherwise returns just the user's single category_id.
+     */
+    public function getCategoryIdsForScope(): array
+    {
+        if (!$this->category_id) return [];
+
+        $category = $this->relationLoaded('category')
+            ? $this->category
+            : Category::find($this->category_id);
+
+        if ($category && str_contains($category->name, 'พิเศษเรียนรวม')) {
+            return Category::where('name', 'like', '%พิเศษเรียนรวม%')
+                ->pluck('id')->toArray();
+        }
+
+        return [$this->category_id];
+    }
+
+    /**
      * Check if user can access a specific category
      */
     public function canAccessCategory(int $categoryId): bool
@@ -174,9 +195,9 @@ class User extends Authenticatable
         // admin (super_admin) can access everything
         if ($this->role === 'admin') return true;
 
-        // category_admin and data_entry can only access their assigned category
+        // category_admin and data_entry: check against scoped category IDs
         if (in_array($this->role, ['category_admin', 'data_entry'])) {
-            return $this->category_id === $categoryId;
+            return in_array($categoryId, $this->getCategoryIdsForScope());
         }
 
         // other roles (district_admin, group_admin) can access all categories

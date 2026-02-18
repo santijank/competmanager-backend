@@ -41,10 +41,11 @@ class RegistrationController extends Controller
                     $query->whereIn('school_id', $schoolIds);
                 }
             } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
-                // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ตัวเอง
-                if ($user->category_id) {
-                    $query->whereHas('competition', function($q) use ($user) {
-                        $q->where('category_id', $user->category_id);
+                // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
+                $categoryIds = $user->getCategoryIdsForScope();
+                if (!empty($categoryIds)) {
+                    $query->whereHas('competition', function($q) use ($categoryIds) {
+                        $q->whereIn('category_id', $categoryIds);
                     });
                 }
             }
@@ -758,10 +759,11 @@ class RegistrationController extends Controller
                         $query->whereIn('school_id', $schoolIds);
                     }
                 } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
-                    // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ตัวเอง
-                    if ($user->category_id) {
-                        $query->whereHas('competition', function($q) use ($user) {
-                            $q->where('category_id', $user->category_id);
+                    // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
+                    $categoryIds = $user->getCategoryIdsForScope();
+                    if (!empty($categoryIds)) {
+                        $query->whereHas('competition', function($q) use ($categoryIds) {
+                            $q->whereIn('category_id', $categoryIds);
                         });
                     }
                 }
@@ -1335,9 +1337,9 @@ class RegistrationController extends Controller
                 ->where('competition_level', 'district')
                 ->where('is_active', true);
 
-            // category_admin/data_entry: เฉพาะหมวดหมู่ตัวเอง
+            // category_admin/data_entry: เฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
             if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
-                $query->where('category_id', $user->category_id);
+                $query->whereIn('category_id', $user->getCategoryIdsForScope());
             }
 
             $competitions = $query->orderBy('category_id')->orderBy('name')->get();
@@ -1590,9 +1592,9 @@ class RegistrationController extends Controller
                 ->where('competition_level', 'district')
                 ->where('is_active', true);
 
-            // category_admin/data_entry: เฉพาะหมวดหมู่ตัวเอง
+            // category_admin/data_entry: เฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
             if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
-                $compQuery->where('category_id', $user->category_id);
+                $compQuery->whereIn('category_id', $user->getCategoryIdsForScope());
             }
 
             $competitions = $compQuery->orderBy('category_id')

@@ -449,9 +449,9 @@ class DashboardController extends Controller
      */
     private function categoryStats($user): JsonResponse
     {
-        $categoryId = $user->category_id;
+        $categoryIds = $user->getCategoryIdsForScope();
 
-        if (!$categoryId) {
+        if (empty($categoryIds)) {
             return response()->json([
                 'competitions' => ['total' => 0, 'district' => 0, 'scored' => 0, 'finalized' => 0],
                 'registrations' => ['total' => 0, 'pending' => 0, 'approved' => 0],
@@ -459,24 +459,24 @@ class DashboardController extends Controller
             ]);
         }
 
-        $category = DB::table('categories')->where('id', $categoryId)->first();
+        $category = DB::table('categories')->where('id', $user->category_id)->first();
 
-        // นับการแข่งขันในหมวดหมู่
+        // นับการแข่งขันในหมวดหมู่ (รวมทุกหมวดพิเศษเรียนรวม)
         $totalCompetitions = DB::table('competitions')
             ->where('is_active', true)
-            ->where('category_id', $categoryId)
+            ->whereIn('category_id', $categoryIds)
             ->count();
 
         $districtCompetitions = DB::table('competitions')
             ->where('is_active', true)
-            ->where('category_id', $categoryId)
+            ->whereIn('category_id', $categoryIds)
             ->where('competition_level', 'district')
             ->count();
 
         // นับที่ใส่คะแนนแล้ว
         $scoredCompetitions = DB::table('competitions as c')
             ->where('c.is_active', true)
-            ->where('c.category_id', $categoryId)
+            ->whereIn('c.category_id', $categoryIds)
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('scores as sc')
@@ -488,7 +488,7 @@ class DashboardController extends Controller
         // นับที่ finalize แล้ว
         $finalizedCompetitions = DB::table('competitions as c')
             ->where('c.is_active', true)
-            ->where('c.category_id', $categoryId)
+            ->whereIn('c.category_id', $categoryIds)
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('scores as sc')
@@ -501,18 +501,18 @@ class DashboardController extends Controller
         // นับการลงทะเบียนในหมวดหมู่
         $totalRegistrations = DB::table('registrations as r')
             ->join('competitions as c', 'r.competition_id', '=', 'c.id')
-            ->where('c.category_id', $categoryId)
+            ->whereIn('c.category_id', $categoryIds)
             ->count();
 
         $pendingRegistrations = DB::table('registrations as r')
             ->join('competitions as c', 'r.competition_id', '=', 'c.id')
-            ->where('c.category_id', $categoryId)
+            ->whereIn('c.category_id', $categoryIds)
             ->where('r.status', 'pending')
             ->count();
 
         $approvedRegistrations = DB::table('registrations as r')
             ->join('competitions as c', 'r.competition_id', '=', 'c.id')
-            ->where('c.category_id', $categoryId)
+            ->whereIn('c.category_id', $categoryIds)
             ->where('r.status', 'approved')
             ->count();
 
