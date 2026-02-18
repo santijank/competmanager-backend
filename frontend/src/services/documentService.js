@@ -345,15 +345,28 @@ const documentService = {
         '/documents/category-overview',
         {
           responseType: 'blob',
-          headers: {
-            'Accept': 'application/pdf'
-          }
         }
       );
+      // Check if response is actually JSON error (not PDF)
+      if (response.data.type && response.data.type.includes('json')) {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || errorData.error || 'Unknown error');
+      }
       return response.data;
     } catch (error) {
       console.error('Error generating category overview:', error);
-      throw new Error('ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');
+      // Try to read error from blob response
+      if (error.response && error.response.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');
+        } catch (parseError) {
+          // If we can't parse the blob, throw original error
+        }
+      }
+      throw new Error(error.message || 'ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');
     }
   },
 };

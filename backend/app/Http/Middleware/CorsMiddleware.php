@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class CorsMiddleware
@@ -42,6 +43,8 @@ class CorsMiddleware
         try {
             $response = $next($request);
         } catch (\Throwable $e) {
+            Log::error("CorsMiddleware caught exception: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
             $response = response()->json([
                 'message' => 'Internal Server Error',
                 'error' => $e->getMessage()

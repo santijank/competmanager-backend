@@ -811,11 +811,13 @@ class DocumentController extends Controller
     public function generateCategoryOverview(Request $request)
     {
         try {
-            Log::info("DocumentController: Generating category overview PDF");
+            Log::info("DocumentController: Generating category overview PDF - START");
 
             // ดึงหมวดหมู่ที่มีกิจกรรมที่มี approved registrations
-            $categories = Category::whereHas('competitions.registrations', function ($q) {
-                $q->where('status', 'approved');
+            $categories = Category::whereHas('competitions', function ($q) {
+                $q->whereHas('registrations', function ($r) {
+                    $r->where('status', 'approved');
+                });
             })
             ->with(['competitions' => function ($q) {
                 $q->whereHas('registrations', function ($r) {
@@ -830,6 +832,8 @@ class DocumentController extends Controller
             ->orderBy('name')
             ->get();
 
+            Log::info("DocumentController: Found {$categories->count()} categories");
+
             if ($categories->isEmpty()) {
                 return response()->json(['message' => 'ไม่พบหมวดหมู่ที่มีการลงทะเบียนอนุมัติแล้ว'], 404);
             }
@@ -843,16 +847,17 @@ class DocumentController extends Controller
                 $competitionCount = $category->competitions->count();
                 $teamCount = $category->competitions->sum('approved_registrations_count');
 
-                $competitions = $category->competitions->map(function ($comp) {
-                    return [
-                        'name' => $comp->name,
-                        'level' => $comp->level,
-                        'team_count' => $comp->approved_registrations_count ?? 0,
+                $competitions = [];
+                foreach ($category->competitions as $comp) {
+                    $competitions[] = [
+                        'name' => $comp->name ?? '-',
+                        'level' => $comp->level ?? '-',
+                        'team_count' => (int) ($comp->approved_registrations_count ?? 0),
                     ];
-                })->toArray();
+                }
 
                 $categoryData[] = [
-                    'name' => $category->name,
+                    'name' => $category->name ?? '-',
                     'competition_count' => $competitionCount,
                     'team_count' => $teamCount,
                     'competitions' => $competitions,
@@ -862,23 +867,27 @@ class DocumentController extends Controller
                 $grandTotalTeams += $teamCount;
             }
 
+            Log::info("DocumentController: Data prepared - {$grandTotalCompetitions} competitions, {$grandTotalTeams} teams");
+
             $data = [
                 'categories' => $categoryData,
                 'grand_total_competitions' => $grandTotalCompetitions,
                 'grand_total_teams' => $grandTotalTeams,
                 'total_categories' => count($categoryData),
-                'generated_at' => now()->locale('th')->translatedFormat('j F Y เวลา H:i น.'),
+                'generated_at' => now()->format('d/m/Y H:i'),
             ];
+
+            Log::info("DocumentController: Rendering PDF template...");
 
             $pdf = Pdf::loadView('exports.category-overview-pdf', $data)
                 ->setPaper('a4', 'portrait')
                 ->setOption('defaultFont', 'THSarabunNew');
 
-            $filename = 'สรุปหมวดหมู่การแข่งขัน-' . now()->format('YmdHis') . '.pdf';
+            $filename = 'category-overview-' . now()->format('YmdHis') . '.pdf';
 
-            Log::info("DocumentController: Category overview PDF generated - {$categories->count()} categories, {$grandTotalCompetitions} competitions, {$grandTotalTeams} teams");
+            Log::info("DocumentController: Category overview PDF generated successfully");
 
-            return $pdf->download($filename);
+            return $pdf->stream($filename);
 
         } catch (\Exception $e) {
             Log::error("DocumentController Error (Category Overview): " . $e->getMessage());

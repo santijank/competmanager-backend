@@ -53,17 +53,15 @@
         }
 
         .totals-box {
-            border: 2px solid #2c5282;
+            border: 2px solid #333;
             padding: 10px;
             margin: 10px 0 15px 0;
             text-align: center;
-            background-color: #ebf8ff;
         }
 
         .totals-text {
             font-size: 16pt;
             font-weight: bold;
-            color: #2c5282;
         }
 
         .category-section {
@@ -71,18 +69,16 @@
         }
 
         .category-header {
-            background-color: #e2e8f0;
             padding: 6px 10px;
             font-size: 16pt;
             font-weight: bold;
-            border: 1px solid #cbd5e0;
+            border: 1px solid #999;
             border-bottom: none;
         }
 
         .category-stats {
             font-size: 13pt;
             font-weight: normal;
-            color: #4a5568;
             margin-left: 8px;
         }
 
@@ -93,13 +89,12 @@
 
         th, td {
             padding: 4px 8px;
-            border: 1px solid #cbd5e0;
+            border: 1px solid #999;
             text-align: left;
             font-size: 13pt;
         }
 
         th {
-            background-color: #f7fafc;
             font-weight: bold;
             text-align: center;
         }
@@ -125,19 +120,13 @@
 
         .category-total {
             font-weight: bold;
-            background-color: #f7fafc;
         }
 
         .footer {
             margin-top: 15px;
             padding-top: 8px;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid #999;
             font-size: 12pt;
-            color: #666;
-        }
-
-        .page-break {
-            page-break-before: always;
         }
     </style>
 </head>
@@ -175,7 +164,7 @@
                 <tr>
                     <td class="col-no">{{ $index + 1 }}</td>
                     <td class="col-name">{{ $comp['name'] }}</td>
-                    <td class="col-level">{{ $comp['level'] ?? '-' }}</td>
+                    <td class="col-level">{{ $comp['level'] }}</td>
                     <td class="col-teams">{{ $comp['team_count'] }}</td>
                 </tr>
                 @endforeach
@@ -189,10 +178,6 @@
     @endforeach
 
     <div class="footer">
-        @php
-            $rawYear = (int) date('Y');
-            $thaiYear = $rawYear > 2400 ? $rawYear : $rawYear + 543;
-        @endphp
         <strong>พิมพ์เมื่อ:</strong> {{ $generated_at }}
     </div>
 </body>
