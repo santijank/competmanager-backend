@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\StatisticsController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\IssueController;
 use App\Http\Controllers\Api\SystemSettingController;
+use App\Http\Controllers\Api\IdCardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -207,6 +208,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('statistics/competitions', [StatisticsController::class, 'competitions']);
     Route::get('statistics/registrations', [StatisticsController::class, 'registrations']);
     Route::get('statistics/schools', [StatisticsController::class, 'schools']);
+
+    // ID Cards - บัตรประจำตัวผู้เข้าแข่งขัน
+    Route::prefix('id-cards')->group(function () {
+        Route::get('school/pdf', [IdCardController::class, 'generateAllPdf']);
+        Route::get('registrations/{registrationId}/photos', [IdCardController::class, 'getPhotos']);
+        Route::post('registrations/{registrationId}/photos', [IdCardController::class, 'uploadPhoto']);
+        Route::delete('registrations/{registrationId}/photos', [IdCardController::class, 'deletePhoto']);
+    });
 
     // Documents - PDF Generation
     Route::prefix('documents')->group(function () {

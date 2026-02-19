@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   MessageCircle,
   SkipForward,
+  CreditCard,
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
@@ -158,6 +159,12 @@ export default function Sidebar({ isOpen, onClose }) {
           label: 'การลงทะเบียนของฉัน',
           icon: FileText,
           path: '/registrations/my',
+          roles: ['teacher', 'school_admin'],
+        },
+        {
+          label: 'บัตรประจำตัวผู้แข่งขัน',
+          icon: CreditCard,
+          path: '/school/id-cards',
           roles: ['teacher', 'school_admin'],
         },
         {

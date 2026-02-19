@@ -78,6 +78,11 @@ class Registration extends Model
         return $this->hasOne(Result::class);
     }
 
+    public function photos()
+    {
+        return $this->hasMany(RegistrationPhoto::class);
+    }
+
     // ✅ NEW: Students Attribute (สำหรับ Export)
     public function getStudentsAttribute()
     {
