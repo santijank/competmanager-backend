@@ -817,15 +817,17 @@ class DocumentController extends Controller
 
             Log::info("DocumentController: Generating category overview PDF - START");
 
-            // ดึงหมวดหมู่ที่มีกิจกรรม ระดับเขต ที่มี approved registrations
+            // ดึงหมวดหมู่ที่มีกิจกรรม ระดับเขต + active ที่มี approved registrations
             $categories = Category::whereHas('competitions', function ($q) {
                 $q->where('competition_level', 'district')
+                  ->where('is_active', true)
                   ->whereHas('registrations', function ($r) {
                     $r->where('status', 'approved');
                 });
             })
             ->with(['competitions' => function ($q) {
                 $q->where('competition_level', 'district')
+                  ->where('is_active', true)
                   ->whereHas('registrations', function ($r) {
                     $r->where('status', 'approved');
                 })
