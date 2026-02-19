@@ -1357,6 +1357,7 @@ const RegistrationManagement = () => {
             setSelectedRegistration(null);
           }}
           onSuccess={handleEditSuccess}
+          userRole={user?.role}
         />
       )}
 

@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\SystemSetting;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class RegistrationController extends Controller
@@ -529,6 +530,50 @@ class RegistrationController extends Controller
 
             $updateData = [];
 
+            // ✅ ตรวจสอบช่วงเวลาเปิดแก้ไข + การเปลี่ยนชื่อ - โรงเรียนแก้ได้แค่ typo
+            if (!$this->isAdminRole($user)) {
+                // ตรวจสอบช่วงเวลาเปิดแก้ไขรายชื่อ
+                if (!SystemSetting::isEditNameAllowed()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'ขณะนี้ไม่อยู่ในช่วงเวลาที่อนุญาตให้แก้ไขรายชื่อ กรุณาติดต่อผู้ดูแลระบบ'
+                    ], 403);
+                }
+                $nameErrors = [];
+
+                // ดึงชื่อเดิมจาก registration
+                $oldStudentNames = is_string($registration->student_names)
+                    ? json_decode($registration->student_names, true)
+                    : ($registration->student_names ?? []);
+                $oldTeacherNames = is_string($registration->teacher_names)
+                    ? json_decode($registration->teacher_names, true)
+                    : ($registration->teacher_names ?? []);
+
+                // แปลง object array เป็น string array ถ้าจำเป็น
+                $oldStudentNames = array_map(fn($s) => is_array($s) ? ($s['name'] ?? '') : $s, $oldStudentNames);
+                $oldTeacherNames = array_map(fn($t) => is_array($t) ? ($t['name'] ?? '') : $t, $oldTeacherNames);
+
+                if ($request->has('student_names')) {
+                    $newStudentNames = $request->student_names;
+                    $nameErrors = array_merge($nameErrors,
+                        $this->validateNameChanges($oldStudentNames, $newStudentNames, 'นักเรียน'));
+                }
+
+                if ($request->has('teacher_names')) {
+                    $newTeacherNames = $request->teacher_names ?? [];
+                    $nameErrors = array_merge($nameErrors,
+                        $this->validateNameChanges($oldTeacherNames, $newTeacherNames, 'ครูผู้ฝึกสอน'));
+                }
+
+                if (!empty($nameErrors)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'การแก้ไขชื่อเปลี่ยนแปลงมากเกินไป',
+                        'errors' => ['name_changes' => $nameErrors]
+                    ], 422);
+                }
+            }
+
             if ($request->has('team_name')) {
                 $updateData['team_name'] = $request->team_name;
             }
@@ -701,6 +746,77 @@ class RegistrationController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * ตรวจสอบว่า user เป็น admin level หรือไม่
+     */
+    private function isAdminRole($user): bool
+    {
+        return in_array($user->role, ['admin', 'district_admin']);
+    }
+
+    /**
+     * Levenshtein distance ที่รองรับ multibyte (ภาษาไทย)
+     * PHP 8.2 built-in levenshtein() ไม่รองรับ UTF-8
+     */
+    private function mbLevenshtein(string $s1, string $s2): int
+    {
+        $len1 = mb_strlen($s1);
+        $len2 = mb_strlen($s2);
+
+        if ($len1 === 0) return $len2;
+        if ($len2 === 0) return $len1;
+
+        $prev = range(0, $len2);
+        for ($i = 1; $i <= $len1; $i++) {
+            $curr = [$i];
+            $c1 = mb_substr($s1, $i - 1, 1);
+            for ($j = 1; $j <= $len2; $j++) {
+                $c2 = mb_substr($s2, $j - 1, 1);
+                $cost = ($c1 === $c2) ? 0 : 1;
+                $curr[$j] = min(
+                    $prev[$j] + 1,       // deletion
+                    $curr[$j - 1] + 1,   // insertion
+                    $prev[$j - 1] + $cost // substitution
+                );
+            }
+            $prev = $curr;
+        }
+
+        return $prev[$len2];
+    }
+
+    /**
+     * ตรวจสอบการเปลี่ยนแปลงชื่อ - อนุญาตแค่ typo (Levenshtein distance ≤ maxDistance)
+     * คืนค่า array ของ error messages (ว่าง = ผ่าน)
+     */
+    private function validateNameChanges(array $oldNames, array $newNames, string $label, int $maxDistance = 5): array
+    {
+        $errors = [];
+
+        // ตรวจจำนวนต้องเท่าเดิม
+        if (count($oldNames) !== count($newNames)) {
+            $errors[] = "ไม่สามารถเพิ่มหรือลบ{$label}ได้ กรุณาติดต่อผู้ดูแลระบบ";
+            return $errors;
+        }
+
+        // ตรวจแต่ละชื่อว่าเปลี่ยนมากเกินไปหรือไม่
+        for ($i = 0; $i < count($oldNames); $i++) {
+            $old = trim($oldNames[$i]);
+            $new = trim($newNames[$i]);
+
+            if ($old === $new) continue;
+
+            $distance = $this->mbLevenshtein($old, $new);
+
+            if ($distance > $maxDistance) {
+                $num = $i + 1;
+                $errors[] = "{$label}คนที่ {$num}: ชื่อเปลี่ยนแปลงมากเกินไป (จาก \"{$old}\" เป็น \"{$new}\") กรุณาแก้เฉพาะตัวสะกด หากต้องการเปลี่ยนชื่อ กรุณาติดต่อผู้ดูแลระบบ";
+            }
+        }
+
+        return $errors;
     }
 
     /**

@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\JudgeController;
 use App\Http\Controllers\Api\StatisticsController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\IssueController;
+use App\Http\Controllers\Api\SystemSettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -123,6 +124,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('registrations', RegistrationController::class);
     Route::post('registrations/{id}/approve', [RegistrationController::class, 'approve']);
     Route::post('registrations/{id}/reject', [RegistrationController::class, 'reject']);
+
+    // System Settings - ตั้งค่าช่วงเวลาเปิดแก้ไขรายชื่อ
+    Route::get('system-settings/edit-name', [SystemSettingController::class, 'getEditNameSettings']);
+    Route::put('system-settings/edit-name', [SystemSettingController::class, 'updateEditNameSettings']);
 
     // Results
     Route::apiResource('results', ResultController::class);

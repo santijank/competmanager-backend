@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Plus, Trash2, Save, AlertTriangle, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
+import { checkNameChange } from '@/lib/levenshtein';
 
-const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => {
+const MAX_EDIT_DISTANCE = 5;
+
+const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess, userRole }) => {
   const [formData, setFormData] = useState({
     team_name: '',
     student_names: [],
@@ -13,54 +16,53 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
   const [loading, setLoading] = useState(false);
   const [competition, setCompetition] = useState(null);
 
+  // เก็บชื่อเดิมเพื่อเปรียบเทียบ
+  const [originalStudentNames, setOriginalStudentNames] = useState([]);
+  const [originalTeacherNames, setOriginalTeacherNames] = useState([]);
+
+  const isAdmin = ['admin', 'district_admin'].includes(userRole);
+
   useEffect(() => {
     if (isOpen && registration) {
-      console.log('📝 EditModal - Registration Data:', registration);
-      console.log('📝 EditModal - student_names:', registration.student_names);
-      console.log('📝 EditModal - teacher_names:', registration.teacher_names);
-
-      // โหลดข้อมูล registration
       setCompetition(registration.competition);
 
-      // แปลง student_names และ teacher_names จาก JSON string เป็น array
       let students = [];
       let teachers = [];
 
       try {
-        // Handle student_names
         if (typeof registration.student_names === 'string') {
           students = JSON.parse(registration.student_names);
         } else if (Array.isArray(registration.student_names)) {
           students = registration.student_names;
         }
 
-        // Handle teacher_names
         if (typeof registration.teacher_names === 'string') {
           teachers = JSON.parse(registration.teacher_names);
         } else if (Array.isArray(registration.teacher_names)) {
           teachers = registration.teacher_names;
         }
 
-        // ✅ ถ้า students เป็น array ของ string ให้แปลงเป็น object { name: '' }
         if (students.length > 0 && typeof students[0] === 'string') {
           students = students.map(name => ({ name }));
         }
-
-        // ✅ ถ้า teachers เป็น array ของ string ให้แปลงเป็น object { name: '' }
         if (teachers.length > 0 && typeof teachers[0] === 'string') {
           teachers = teachers.map(name => ({ name }));
         }
-
-        console.log('📝 EditModal - Parsed students:', students);
-        console.log('📝 EditModal - Parsed teachers:', teachers);
       } catch (e) {
         console.error('Parse error:', e);
       }
 
+      const parsedStudents = students.length > 0 ? students : [{ name: '' }];
+      const parsedTeachers = teachers.length > 0 ? teachers : [{ name: '' }];
+
+      // เก็บชื่อเดิม
+      setOriginalStudentNames(parsedStudents.map(s => s.name));
+      setOriginalTeacherNames(parsedTeachers.map(t => t.name));
+
       setFormData({
         team_name: registration.team_name || '',
-        student_names: students.length > 0 ? students : [{ name: '' }],
-        teacher_names: teachers.length > 0 ? teachers : [{ name: '' }],
+        student_names: parsedStudents,
+        teacher_names: parsedTeachers,
         notes: registration.notes || ''
       });
     }
@@ -73,8 +75,35 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
       teacher_names: [],
       notes: ''
     });
+    setOriginalStudentNames([]);
+    setOriginalTeacherNames([]);
     onClose();
   };
+
+  // ตรวจสอบ name change warnings
+  const nameWarnings = useMemo(() => {
+    if (isAdmin) return { students: [], teachers: [] };
+
+    const studentWarnings = formData.student_names.map((s, i) => {
+      if (i >= originalStudentNames.length) return null;
+      const original = originalStudentNames[i];
+      if (!original || !s.name || original === s.name) return null;
+      const result = checkNameChange(original, s.name, MAX_EDIT_DISTANCE);
+      return result.isValid ? null : { index: i, original, current: s.name, distance: result.distance };
+    }).filter(Boolean);
+
+    const teacherWarnings = formData.teacher_names.map((t, i) => {
+      if (i >= originalTeacherNames.length) return null;
+      const original = originalTeacherNames[i];
+      if (!original || !t.name || original === t.name) return null;
+      const result = checkNameChange(original, t.name, MAX_EDIT_DISTANCE);
+      return result.isValid ? null : { index: i, original, current: t.name, distance: result.distance };
+    }).filter(Boolean);
+
+    return { students: studentWarnings, teachers: teacherWarnings };
+  }, [formData.student_names, formData.teacher_names, originalStudentNames, originalTeacherNames, isAdmin]);
+
+  const hasWarnings = nameWarnings.students.length > 0 || nameWarnings.teachers.length > 0;
 
   // จัดการนักเรียน
   const handleStudentChange = (index, value) => {
@@ -130,10 +159,16 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
     setFormData({ ...formData, teacher_names: newTeachers });
   };
 
+  // ตรวจว่าชื่อตำแหน่งนี้มี warning ไหม
+  const getStudentWarning = (index) =>
+    nameWarnings.students.find(w => w.index === index);
+  const getTeacherWarning = (index) =>
+    nameWarnings.teachers.find(w => w.index === index);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate
+    // Validate empty names
     const emptyStudents = formData.student_names.filter(s => !s.name || !s.name.trim());
     if (emptyStudents.length > 0) {
       toast.error('กรุณากรอกชื่อนักเรียนให้ครบทุกคน');
@@ -146,9 +181,14 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
       return;
     }
 
+    // Client-side check: name change too large
+    if (!isAdmin && hasWarnings) {
+      toast.error('ชื่อเปลี่ยนแปลงมากเกินไป กรุณาแก้เฉพาะตัวสะกด หากต้องการเปลี่ยนชื่อ กรุณาติดต่อผู้ดูแลระบบ');
+      return;
+    }
+
     setLoading(true);
     try {
-      // ✅ แปลง objects กลับเป็น array of strings สำหรับ Backend
       const submitData = {
         team_name: formData.team_name,
         student_names: formData.student_names.map(s => s.name.trim()),
@@ -156,16 +196,20 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
         notes: formData.notes
       };
 
-      console.log('📝 Submitting data:', submitData);
-
       await api.put(`/registrations/${registration.id}`, submitData);
       toast.success('แก้ไขข้อมูลสำเร็จ');
       onSuccess();
       handleClose();
     } catch (error) {
       console.error('Update error:', error);
-      const message = error.response?.data?.message || 'ไม่สามารถแก้ไขข้อมูลได้';
-      toast.error(message);
+      const data = error.response?.data;
+
+      // แสดง error จาก name_changes validation
+      if (data?.errors?.name_changes) {
+        data.errors.name_changes.forEach(msg => toast.error(msg));
+      } else {
+        toast.error(data?.message || 'ไม่สามารถแก้ไขข้อมูลได้');
+      }
     } finally {
       setLoading(false);
     }
@@ -192,6 +236,17 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
           </button>
         </div>
 
+        {/* Info banner สำหรับ non-admin */}
+        {!isAdmin && (
+          <div className="mx-6 mt-4 flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <p className="font-medium">แก้ไขได้เฉพาะตัวสะกดที่ผิดเท่านั้น</p>
+              <p className="mt-1">ไม่สามารถเปลี่ยนชื่อ-นามสกุล หรือเพิ่ม/ลบรายชื่อได้ หากต้องการเปลี่ยนแปลงมาก กรุณาติดต่อผู้ดูแลระบบ</p>
+            </div>
+          </div>
+        )}
+
         {/* Body */}
         <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-180px)]">
           <div className="p-6 space-y-6">
@@ -215,38 +270,53 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
                 <label className="block text-sm font-medium text-gray-700">
                   รายชื่อนักเรียน ({formData.student_names.length}/{competition?.max_students || 0})
                 </label>
-                <button
-                  type="button"
-                  onClick={addStudent}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <Plus className="w-4 h-4" />
-                  เพิ่ม
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={addStudent}
+                    className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    เพิ่ม
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
-                {formData.student_names.map((student, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 w-8">{index + 1}.</span>
-                    <input
-                      type="text"
-                      value={student.name}
-                      onChange={(e) => handleStudentChange(index, e.target.value)}
-                      placeholder="ชื่อ-นามสกุล นักเรียน"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    {formData.student_names.length > (competition?.min_students || 1) && (
-                      <button
-                        type="button"
-                        onClick={() => removeStudent(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {formData.student_names.map((student, index) => {
+                  const warning = getStudentWarning(index);
+                  return (
+                    <div key={index}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 w-8">{index + 1}.</span>
+                        <input
+                          type="text"
+                          value={student.name}
+                          onChange={(e) => handleStudentChange(index, e.target.value)}
+                          placeholder="ชื่อ-นามสกุล นักเรียน"
+                          className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            warning ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                          }`}
+                          required
+                        />
+                        {isAdmin && formData.student_names.length > (competition?.min_students || 1) && (
+                          <button
+                            type="button"
+                            onClick={() => removeStudent(index)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {warning && (
+                        <div className="flex items-center gap-1 ml-8 mt-1 text-xs text-red-600">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>ชื่อเปลี่ยนมากเกินไป (จาก "{warning.original}") กรุณาแก้เฉพาะตัวสะกด</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -256,38 +326,53 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
                 <label className="block text-sm font-medium text-gray-700">
                   รายชื่อครูผู้ฝึกสอน ({formData.teacher_names.length}/{competition?.max_teachers || 0})
                 </label>
-                <button
-                  type="button"
-                  onClick={addTeacher}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <Plus className="w-4 h-4" />
-                  เพิ่ม
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={addTeacher}
+                    className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    เพิ่ม
+                  </button>
+                )}
               </div>
               <div className="space-y-2">
-                {formData.teacher_names.map((teacher, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 w-8">{index + 1}.</span>
-                    <input
-                      type="text"
-                      value={teacher.name}
-                      onChange={(e) => handleTeacherChange(index, e.target.value)}
-                      placeholder="ชื่อ-นามสกุล ครู"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    {formData.teacher_names.length > (competition?.min_teachers || 1) && (
-                      <button
-                        type="button"
-                        onClick={() => removeTeacher(index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {formData.teacher_names.map((teacher, index) => {
+                  const warning = getTeacherWarning(index);
+                  return (
+                    <div key={index}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 w-8">{index + 1}.</span>
+                        <input
+                          type="text"
+                          value={teacher.name}
+                          onChange={(e) => handleTeacherChange(index, e.target.value)}
+                          placeholder="ชื่อ-นามสกุล ครู"
+                          className={`flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            warning ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                          }`}
+                          required
+                        />
+                        {isAdmin && formData.teacher_names.length > (competition?.min_teachers || 1) && (
+                          <button
+                            type="button"
+                            onClick={() => removeTeacher(index)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {warning && (
+                        <div className="flex items-center gap-1 ml-8 mt-1 text-xs text-red-600">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>ชื่อเปลี่ยนมากเกินไป (จาก "{warning.original}") กรุณาแก้เฉพาะตัวสะกด</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -319,7 +404,7 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess }) => 
             <button
               type="submit"
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              disabled={loading}
+              disabled={loading || (!isAdmin && hasWarnings)}
             >
               <Save className="w-4 h-4" />
               {loading ? 'กำลังบันทึก...' : 'บันทึก'}

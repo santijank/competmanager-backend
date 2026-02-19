@@ -19,6 +19,7 @@ import api from '@/lib/api';
 import documentService from '@/services/documentService';
 import EditRegistrationModal from '@/components/registrations/EditRegistrationModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import useAuthStore from '@/stores/authStore';
 
 /**
  * 📋 My Registrations
@@ -27,6 +28,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
  */
 const MyRegistrations = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [registrations, setRegistrations] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -503,6 +505,7 @@ const MyRegistrations = () => {
             setSelectedRegistration(null);
           }}
           onSuccess={handleEditSuccess}
+          userRole={user?.role}
         />
       )}
 
