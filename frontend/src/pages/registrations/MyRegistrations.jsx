@@ -44,9 +44,23 @@ const MyRegistrations = () => {
   const [exportingPending, setExportingPending] = useState(false);
   const [exportingApproved, setExportingApproved] = useState(false);
 
+  // ✅ State สำหรับช่วงเวลาเปิดแก้ไขรายชื่อ
+  const [editNameAllowed, setEditNameAllowed] = useState(false);
+
   useEffect(() => {
     loadData();
+    fetchEditNameStatus();
   }, []);
+
+  const fetchEditNameStatus = async () => {
+    try {
+      const response = await api.get('/system-settings/edit-name');
+      setEditNameAllowed(response.data.data?.is_edit_allowed || false);
+    } catch (error) {
+      console.error('Failed to fetch edit name status:', error);
+      setEditNameAllowed(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -406,7 +420,7 @@ const MyRegistrations = () => {
                       </div>
                     </div>
 
-                    {/* ✅ ปุ่มแก้ไข และ ยกเลิก - แสดงเฉพาะสถานะ pending */}
+                    {/* ✅ ปุ่มแก้ไข - สถานะ pending */}
                     {registration.status === 'pending' && (
                       <div className="flex items-center space-x-2 ml-4">
                         <button
@@ -422,6 +436,19 @@ const MyRegistrations = () => {
                         >
                           <Trash2 className="w-4 h-4" />
                           <span>ยกเลิก</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* ✅ ปุ่มแก้ไขตัวสะกด - สถานะ approved + ช่วงเวลาเปิดแก้ไข */}
+                    {registration.status === 'approved' && editNameAllowed && (
+                      <div className="flex items-center ml-4">
+                        <button
+                          onClick={() => handleEdit(registration)}
+                          className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          <span>แก้ไขตัวสะกด</span>
                         </button>
                       </div>
                     )}

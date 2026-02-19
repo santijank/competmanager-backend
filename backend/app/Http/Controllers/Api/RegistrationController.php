@@ -739,10 +739,14 @@ class RegistrationController extends Controller
             return $registration->school->school_group_id === $user->school_group_id;
         }
 
-        // School Admin/Teacher สามารถแก้ไขได้เฉพาะของโรงเรียนตัวเอง และ status = pending
+        // School Admin/Teacher สามารถแก้ไขได้เฉพาะของโรงเรียนตัวเอง
         if (in_array($user->role, ['school_admin', 'teacher'])) {
-            return $registration->school_id === $user->school_id
-                   && $registration->status === 'pending';
+            if ($registration->school_id !== $user->school_id) return false;
+            // pending → แก้ได้ตามปกติ
+            if ($registration->status === 'pending') return true;
+            // approved → แก้ได้เฉพาะช่วงเปิดแก้ไขรายชื่อ (typo only, ตรวจใน update())
+            if ($registration->status === 'approved' && SystemSetting::isEditNameAllowed()) return true;
+            return false;
         }
 
         return false;
