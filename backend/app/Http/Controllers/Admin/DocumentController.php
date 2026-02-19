@@ -848,17 +848,23 @@ class DocumentController extends Controller
             $grandTotalTeams = 0;
 
             foreach ($categories as $category) {
-                $competitionCount = $category->competitions->count();
                 $teamCount = $category->competitions->sum('approved_registrations_count');
 
-                $competitions = [];
+                // Group by ชื่อ + ระดับ เพื่อรวมกิจกรรมที่ซ้ำจากหลายกลุ่มโรงเรียน
+                $grouped = [];
                 foreach ($category->competitions as $comp) {
-                    $competitions[] = [
-                        'name' => $comp->name ?? '-',
-                        'level' => $comp->level ?? '-',
-                        'team_count' => (int) ($comp->approved_registrations_count ?? 0),
-                    ];
+                    $key = ($comp->name ?? '-') . '|' . ($comp->level ?? '-');
+                    if (!isset($grouped[$key])) {
+                        $grouped[$key] = [
+                            'name' => $comp->name ?? '-',
+                            'level' => $comp->level ?? '-',
+                            'team_count' => 0,
+                        ];
+                    }
+                    $grouped[$key]['team_count'] += (int) ($comp->approved_registrations_count ?? 0);
                 }
+                $competitions = array_values($grouped);
+                $competitionCount = count($competitions);
 
                 $categoryData[] = [
                     'name' => $category->name ?? '-',
