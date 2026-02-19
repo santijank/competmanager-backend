@@ -9,7 +9,6 @@ use App\Models\CompetitionSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -23,7 +22,6 @@ class IdCardController extends Controller
         $registration = Registration::findOrFail($registrationId);
         $user = $request->user();
 
-        // ตรวจสิทธิ์: ต้องเป็นโรงเรียนเดียวกัน หรือ admin
         if (!$this->canAccess($user, $registration)) {
             return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
         }
@@ -37,7 +35,7 @@ class IdCardController extends Controller
                 'id' => $photo->id,
                 'person_type' => $photo->person_type,
                 'person_index' => $photo->person_index,
-                'photo_url' => Storage::disk('public')->url($photo->photo_path),
+                'photo_url' => 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data,
             ];
         }
 
@@ -45,7 +43,7 @@ class IdCardController extends Controller
     }
 
     /**
-     * อัพโหลดรูปถ่าย
+     * อัพโหลดรูปถ่าย — เก็บเป็น Base64 ใน DB
      */
     public function uploadPhoto(Request $request, $registrationId): JsonResponse
     {
@@ -68,8 +66,8 @@ class IdCardController extends Controller
 
         try {
             $file = $request->file('photo');
-            $filename = "reg_{$registrationId}_{$request->person_type}_{$request->person_index}." . $file->getClientOriginalExtension();
-            $path = $file->storeAs('photos', $filename, 'public');
+            $mimeType = $file->getMimeType();
+            $base64 = base64_encode(file_get_contents($file->getRealPath()));
 
             $photo = RegistrationPhoto::updateOrCreate(
                 [
@@ -77,14 +75,18 @@ class IdCardController extends Controller
                     'person_type' => $request->person_type,
                     'person_index' => $request->person_index,
                 ],
-                ['photo_path' => $path]
+                [
+                    'photo_data' => $base64,
+                    'mime_type' => $mimeType,
+                    'photo_path' => null,
+                ]
             );
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'id' => $photo->id,
-                    'photo_url' => Storage::disk('public')->url($path),
+                    'photo_url' => 'data:' . $mimeType . ';base64,' . $base64,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -114,16 +116,11 @@ class IdCardController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
-        $photo = RegistrationPhoto::where([
+        RegistrationPhoto::where([
             'registration_id' => $registrationId,
             'person_type' => $request->person_type,
             'person_index' => $request->person_index,
-        ])->first();
-
-        if ($photo) {
-            Storage::disk('public')->delete($photo->photo_path);
-            $photo->delete();
-        }
+        ])->delete();
 
         return response()->json(['success' => true, 'message' => 'ลบรูปสำเร็จ']);
     }
@@ -157,7 +154,6 @@ class IdCardController extends Controller
             $competition = $registration->competition;
             $school = $registration->school;
 
-            // ดึง schedule
             $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
 
             // Format วันที่
@@ -192,17 +188,16 @@ class IdCardController extends Controller
                 }
             }
 
-            // ระดับชั้น
             $level = $competition->level ?? '';
-
-            // หมวด
             $categoryName = $competition->category->name ?? '';
 
-            // ดึงรูปภาพ
+            // ดึงรูปภาพ Base64 จาก DB
             $photoMap = [];
             foreach ($registration->photos as $photo) {
-                $key = $photo->person_type . '_' . $photo->person_index;
-                $photoMap[$key] = storage_path('app/public/' . $photo->photo_path);
+                if ($photo->photo_data) {
+                    $key = $photo->person_type . '_' . $photo->person_index;
+                    $photoMap[$key] = 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data;
+                }
             }
 
             // นักเรียน
@@ -219,7 +214,7 @@ class IdCardController extends Controller
                     'venue' => $venue,
                     'date' => $dateText,
                     'time' => $time,
-                    'photo_path' => $photoMap[$photoKey] ?? null,
+                    'photo_data_uri' => $photoMap[$photoKey] ?? null,
                 ];
             }
 
@@ -237,7 +232,7 @@ class IdCardController extends Controller
                     'venue' => $venue,
                     'date' => $dateText,
                     'time' => $time,
-                    'photo_path' => $photoMap[$photoKey] ?? null,
+                    'photo_data_uri' => $photoMap[$photoKey] ?? null,
                 ];
             }
         }

@@ -13,7 +13,9 @@ return new class extends Migration
             $table->foreignId('registration_id')->constrained()->onDelete('cascade');
             $table->enum('person_type', ['student', 'teacher']);
             $table->unsignedInteger('person_index');
-            $table->string('photo_path');
+            $table->string('photo_path')->nullable();
+            $table->longText('photo_data')->nullable();
+            $table->string('mime_type')->default('image/jpeg');
             $table->timestamps();
 
             $table->unique(['registration_id', 'person_type', 'person_index']);

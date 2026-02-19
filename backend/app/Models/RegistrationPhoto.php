@@ -11,6 +11,8 @@ class RegistrationPhoto extends Model
         'person_type',
         'person_index',
         'photo_path',
+        'photo_data',
+        'mime_type',
     ];
 
     public function registration()

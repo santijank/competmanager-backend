@@ -307,8 +307,8 @@
                                 </div>
 
                                 <div class="front-photo-wrapper">
-                                    @if(!empty($person['photo_path']) && file_exists($person['photo_path']))
-                                        <img class="front-photo" src="{{ $person['photo_path'] }}">
+                                    @if(!empty($person['photo_data_uri']))
+                                        <img class="front-photo" src="{{ $person['photo_data_uri'] }}">
                                     @else
                                         <div class="front-photo-placeholder">รูปถ่าย</div>
                                     @endif
