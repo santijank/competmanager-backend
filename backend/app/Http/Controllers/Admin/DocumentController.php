@@ -817,14 +817,16 @@ class DocumentController extends Controller
 
             Log::info("DocumentController: Generating category overview PDF - START");
 
-            // ดึงหมวดหมู่ที่มีกิจกรรมที่มี approved registrations
+            // ดึงหมวดหมู่ที่มีกิจกรรม ระดับเขต ที่มี approved registrations
             $categories = Category::whereHas('competitions', function ($q) {
-                $q->whereHas('registrations', function ($r) {
+                $q->where('competition_level', 'district')
+                  ->whereHas('registrations', function ($r) {
                     $r->where('status', 'approved');
                 });
             })
             ->with(['competitions' => function ($q) {
-                $q->whereHas('registrations', function ($r) {
+                $q->where('competition_level', 'district')
+                  ->whereHas('registrations', function ($r) {
                     $r->where('status', 'approved');
                 })
                 ->withCount(['registrations as approved_registrations_count' => function ($r) {
@@ -848,22 +850,18 @@ class DocumentController extends Controller
             $grandTotalTeams = 0;
 
             foreach ($categories as $category) {
-                $teamCount = $category->competitions->sum('approved_registrations_count');
-
-                // Group by ชื่อ + ระดับ เพื่อรวมกิจกรรมที่ซ้ำจากหลายกลุ่มโรงเรียน
-                $grouped = [];
+                // District competitions ไม่ซ้ำกัน — ใช้ตรงๆ ได้เลย
+                $competitions = [];
+                $teamCount = 0;
                 foreach ($category->competitions as $comp) {
-                    $key = ($comp->name ?? '-') . '|' . ($comp->level ?? '-');
-                    if (!isset($grouped[$key])) {
-                        $grouped[$key] = [
-                            'name' => $comp->name ?? '-',
-                            'level' => $comp->level ?? '-',
-                            'team_count' => 0,
-                        ];
-                    }
-                    $grouped[$key]['team_count'] += (int) ($comp->approved_registrations_count ?? 0);
+                    $count = (int) ($comp->approved_registrations_count ?? 0);
+                    $competitions[] = [
+                        'name' => $comp->name ?? '-',
+                        'level' => $comp->level ?? '-',
+                        'team_count' => $count,
+                    ];
+                    $teamCount += $count;
                 }
-                $competitions = array_values($grouped);
                 $competitionCount = count($competitions);
 
                 $categoryData[] = [
