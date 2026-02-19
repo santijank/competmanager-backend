@@ -811,6 +811,10 @@ class DocumentController extends Controller
     public function generateCategoryOverview(Request $request)
     {
         try {
+            // เพิ่ม memory limit สำหรับ PDF ขนาดใหญ่ (1137 กิจกรรม)
+            ini_set('memory_limit', '512M');
+            set_time_limit(120);
+
             Log::info("DocumentController: Generating category overview PDF - START");
 
             // ดึงหมวดหมู่ที่มีกิจกรรมที่มี approved registrations
@@ -877,21 +881,9 @@ class DocumentController extends Controller
                 'generated_at' => now()->format('d/m/Y H:i'),
             ];
 
-            // DEBUG MODE: return JSON first to verify data works
-            if ($request->has('debug')) {
-                return response()->json([
-                    'success' => true,
-                    'data' => $data,
-                ]);
-            }
-
             Log::info("DocumentController: Rendering PDF template...");
 
-            $html = view('exports.category-overview-pdf', $data)->render();
-
-            Log::info("DocumentController: HTML rendered, length=" . strlen($html));
-
-            $pdf = Pdf::loadHTML($html)
+            $pdf = Pdf::loadView('exports.category-overview-pdf', $data)
                 ->setPaper('a4', 'portrait')
                 ->setOption('defaultFont', 'THSarabunNew');
 

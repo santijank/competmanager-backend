@@ -345,9 +345,9 @@ const documentService = {
         '/documents/category-overview',
         {
           responseType: 'blob',
+          timeout: 120000,
         }
       );
-      // Check if response is actually JSON error (not PDF)
       if (response.data.type && response.data.type.includes('json')) {
         const text = await response.data.text();
         const errorData = JSON.parse(text);
@@ -356,14 +356,15 @@ const documentService = {
       return response.data;
     } catch (error) {
       console.error('Error generating category overview:', error);
-      // Try to read error from blob response
       if (error.response && error.response.data instanceof Blob) {
         try {
           const text = await error.response.data.text();
           const errorData = JSON.parse(text);
           throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');
         } catch (parseError) {
-          // If we can't parse the blob, throw original error
+          if (parseError.message && !parseError.message.includes('JSON')) {
+            throw parseError;
+          }
         }
       }
       throw new Error(error.message || 'ไม่สามารถสร้างเอกสารสรุปหมวดหมู่ได้');

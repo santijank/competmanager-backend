@@ -67,9 +67,6 @@ Route::get('results/pdf', [\App\Http\Controllers\Api\ResultPdfController::class,
 Route::get('results/pdf/preview', [\App\Http\Controllers\Api\ResultPdfController::class, 'previewPdf']);
 Route::get('results/pdf/competition/{id}', [\App\Http\Controllers\Api\ResultPdfController::class, 'generateCompetitionPdf']);
 
-// Temporary debug route (no auth) - ลบหลัง debug เสร็จ
-Route::get('documents/category-overview-debug', [\App\Http\Controllers\Admin\DocumentController::class, 'generateCategoryOverview']);
-
 // Protected routes (require authentication)
 Route::middleware(['auth:sanctum'])->group(function () {
     // User & Auth
