@@ -215,6 +215,12 @@ export default function Sidebar({ isOpen, onClose }) {
     if (hasRole(['category_admin', 'data_entry'])) {
       items.push(
         {
+          label: 'ประกาศสถานที่แข่งขัน',
+          icon: MapPin,
+          path: '/schedules/manage',
+          roles: ['category_admin', 'data_entry'],
+        },
+        {
           label: 'จัดการการลงทะเบียน',
           icon: ClipboardList,
           path: '/registrations/manage',
@@ -224,6 +230,12 @@ export default function Sidebar({ isOpen, onClose }) {
           label: 'ผลการแข่งขัน',
           icon: BarChart3,
           path: '/scores',
+          roles: ['category_admin', 'data_entry'],
+        },
+        {
+          label: 'รายชื่อตัวแทนระดับเขตพื้นที่',
+          icon: Award,
+          path: '/school/district-competitions',
           roles: ['category_admin', 'data_entry'],
         }
       );
