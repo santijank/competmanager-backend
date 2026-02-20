@@ -59,34 +59,6 @@ Route::prefix('public')->group(function () {
 // Public announcements (no auth required)
 Route::get('announcements/public', [AnnouncementController::class, 'publicIndex']);
 
-// ⚠️ TEMP DEBUG - ลบทีหลัง
-Route::get('debug/check-competition/{id}', function ($id) {
-    $comp = \App\Models\Competition::with('category')->find($id);
-    if (!$comp) return response()->json(['error' => 'not found']);
-
-    $regs = \App\Models\Registration::where('competition_id', $id)->get();
-    $districtRegs = $regs->filter(fn($r) => $r->status === 'approved');
-
-    return response()->json([
-        'competition' => [
-            'id' => $comp->id,
-            'name' => $comp->name,
-            'level' => $comp->level,
-            'competition_level' => $comp->competition_level,
-            'category_id' => $comp->category_id,
-            'category_name' => $comp->category->name ?? null,
-            'skip_group_level' => (bool) $comp->skip_group_level,
-        ],
-        'total_registrations' => $regs->count(),
-        'approved_registrations' => $districtRegs->count(),
-        'registrations' => $regs->map(fn($r) => [
-            'id' => $r->id,
-            'school_id' => $r->school_id,
-            'status' => $r->status
-        ]),
-    ]);
-});
-
 // Public schedules (no auth required)
 Route::get('schedules/public', [\App\Http\Controllers\Api\CompetitionScheduleController::class, 'getPublishedSchedules']);
 
