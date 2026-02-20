@@ -57,7 +57,7 @@ class IdCardController extends Controller
         $validator = Validator::make($request->all(), [
             'person_type' => 'required|in:student,teacher',
             'person_index' => 'required|integer|min:0',
-            'photo' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'photo' => 'required|image|mimes:jpeg,png,jpg|max:512',
         ]);
 
         if ($validator->fails()) {
@@ -126,6 +126,37 @@ class IdCardController extends Controller
     }
 
     /**
+     * สร้าง PDF บัตรประจำตัวของ 1 registration (กิจกรรมเดียว)
+     */
+    public function generatePdf(Request $request, $registrationId)
+    {
+        $registration = Registration::with(['competition.category', 'school', 'photos'])->findOrFail($registrationId);
+        $user = $request->user();
+
+        if (!$this->canAccess($user, $registration)) {
+            return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+        }
+
+        $people = $this->buildPeopleFromRegistration($registration);
+
+        if (empty($people)) {
+            return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลบุคคลในรายการนี้'], 404);
+        }
+
+        $pdf = Pdf::loadView('exports.id-card-pdf', ['people' => $people])
+            ->setPaper('a4', 'portrait')
+            ->setOption('defaultFont', 'THSarabunNew')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true);
+
+        $competitionName = $registration->competition->name ?? 'activity';
+        $schoolName = $registration->school->name ?? 'school';
+        $filename = "บัตรประจำตัว_{$competitionName}_{$schoolName}.pdf";
+
+        return $pdf->download($filename);
+    }
+
+    /**
      * สร้าง PDF บัตรประจำตัวทั้งหมดของโรงเรียน
      */
     public function generateAllPdf(Request $request)
@@ -147,94 +178,8 @@ class IdCardController extends Controller
         }
 
         $people = [];
-        $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-                      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-
         foreach ($registrations as $registration) {
-            $competition = $registration->competition;
-            $school = $registration->school;
-
-            $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
-
-            // Format วันที่
-            $dateToUse = $schedule && $schedule->competition_date ? $schedule->competition_date : $competition->competition_date;
-            $dateText = '-';
-            if ($dateToUse) {
-                $day = $dateToUse->format('j');
-                $month = $thaiMonths[(int)$dateToUse->format('n')];
-                $rawYear = (int) $dateToUse->format('Y');
-                $year = $rawYear > 2400 ? $rawYear : $rawYear + 543;
-                $dateText = "{$day} {$month} พ.ศ.{$year}";
-            }
-
-            // สถานที่
-            $venue = '';
-            if ($schedule) {
-                $parts = [];
-                if ($schedule->venue) $parts[] = $schedule->venue;
-                if ($schedule->room) $parts[] = $schedule->room;
-                $venue = implode(' ', $parts);
-            }
-            if (empty($venue)) {
-                $venue = $competition->venue ?? '';
-            }
-
-            // เวลา
-            $time = '';
-            if ($competition->competition_start_time) {
-                $time = $competition->competition_start_time;
-                if ($competition->competition_end_time) {
-                    $time .= ' - ' . $competition->competition_end_time;
-                }
-            }
-
-            $level = $competition->level ?? '';
-            $categoryName = $competition->category->name ?? '';
-
-            // ดึงรูปภาพ Base64 จาก DB
-            $photoMap = [];
-            foreach ($registration->photos as $photo) {
-                if ($photo->photo_data) {
-                    $key = $photo->person_type . '_' . $photo->person_index;
-                    $photoMap[$key] = 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data;
-                }
-            }
-
-            // นักเรียน
-            $students = $registration->getStudentNamesList();
-            foreach ($students as $index => $name) {
-                $photoKey = "student_{$index}";
-                $people[] = [
-                    'name' => $name,
-                    'type' => 'นักเรียน',
-                    'activity' => $competition->name,
-                    'category' => $categoryName,
-                    'level' => $level,
-                    'school' => $school->name ?? '',
-                    'venue' => $venue,
-                    'date' => $dateText,
-                    'time' => $time,
-                    'photo_data_uri' => $photoMap[$photoKey] ?? null,
-                ];
-            }
-
-            // ครู
-            $teachers = $registration->getTeacherNamesList();
-            foreach ($teachers as $index => $name) {
-                $photoKey = "teacher_{$index}";
-                $people[] = [
-                    'name' => $name,
-                    'type' => 'ครูผู้ฝึกสอน',
-                    'activity' => $competition->name,
-                    'category' => $categoryName,
-                    'level' => $level,
-                    'school' => $school->name ?? '',
-                    'venue' => $venue,
-                    'date' => $dateText,
-                    'time' => $time,
-                    'photo_data_uri' => $photoMap[$photoKey] ?? null,
-                ];
-            }
+            $people = array_merge($people, $this->buildPeopleFromRegistration($registration));
         }
 
         $data = [
@@ -251,6 +196,104 @@ class IdCardController extends Controller
         $filename = "บัตรประจำตัว_{$schoolName}.pdf";
 
         return $pdf->download($filename);
+    }
+
+    /**
+     * สร้าง people array จาก registration เดียว (ใช้ร่วมกันทั้ง generatePdf และ generateAllPdf)
+     */
+    private function buildPeopleFromRegistration($registration): array
+    {
+        $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        $competition = $registration->competition;
+        $school = $registration->school;
+
+        $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
+
+        // Format วันที่
+        $dateToUse = $schedule && $schedule->competition_date ? $schedule->competition_date : $competition->competition_date;
+        $dateText = '-';
+        if ($dateToUse) {
+            $day = $dateToUse->format('j');
+            $month = $thaiMonths[(int)$dateToUse->format('n')];
+            $rawYear = (int) $dateToUse->format('Y');
+            $year = $rawYear > 2400 ? $rawYear : $rawYear + 543;
+            $dateText = "{$day} {$month} พ.ศ.{$year}";
+        }
+
+        // สถานที่
+        $venue = '';
+        if ($schedule) {
+            $parts = [];
+            if ($schedule->venue) $parts[] = $schedule->venue;
+            if ($schedule->room) $parts[] = $schedule->room;
+            $venue = implode(' ', $parts);
+        }
+        if (empty($venue)) {
+            $venue = $competition->venue ?? '';
+        }
+
+        // เวลา
+        $time = '';
+        if ($competition->competition_start_time) {
+            $time = $competition->competition_start_time;
+            if ($competition->competition_end_time) {
+                $time .= ' - ' . $competition->competition_end_time;
+            }
+        }
+
+        $level = $competition->level ?? '';
+        $categoryName = $competition->category->name ?? '';
+
+        // ดึงรูปภาพ Base64 จาก DB
+        $photoMap = [];
+        foreach ($registration->photos as $photo) {
+            if ($photo->photo_data) {
+                $key = $photo->person_type . '_' . $photo->person_index;
+                $photoMap[$key] = 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data;
+            }
+        }
+
+        $people = [];
+
+        // นักเรียน
+        $students = $registration->getStudentNamesList();
+        foreach ($students as $index => $name) {
+            $photoKey = "student_{$index}";
+            $people[] = [
+                'name' => $name,
+                'type' => 'นักเรียน',
+                'activity' => $competition->name,
+                'category' => $categoryName,
+                'level' => $level,
+                'school' => $school->name ?? '',
+                'venue' => $venue,
+                'date' => $dateText,
+                'time' => $time,
+                'photo_data_uri' => $photoMap[$photoKey] ?? null,
+            ];
+        }
+
+        // ครู
+        $teachers = $registration->getTeacherNamesList();
+        foreach ($teachers as $index => $name) {
+            $photoKey = "teacher_{$index}";
+            $people[] = [
+                'name' => $name,
+                'type' => 'ครูผู้ฝึกสอน',
+                'activity' => $competition->name,
+                'category' => $categoryName,
+                'level' => $level,
+                'school' => $school->name ?? '',
+                'venue' => $venue,
+                'date' => $dateText,
+                'time' => $time,
+                'photo_data_uri' => $photoMap[$photoKey] ?? null,
+            ];
+        }
+
+        return $people;
     }
 
     /**

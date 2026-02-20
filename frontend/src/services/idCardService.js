@@ -36,6 +36,26 @@ const idCardService = {
   },
 
   /**
+   * สร้าง PDF บัตรประจำตัวของ 1 registration (กิจกรรมเดียว)
+   */
+  async generatePdf(registrationId) {
+    const response = await api.get(`/id-cards/registrations/${registrationId}/pdf`, {
+      responseType: 'blob',
+      headers: { 'Accept': 'application/pdf' },
+      timeout: 120000,
+    });
+    return response.data;
+  },
+
+  /**
+   * เปิด PDF ของ 1 กิจกรรมใน tab ใหม่
+   */
+  async openPdf(registrationId) {
+    const blob = await this.generatePdf(registrationId);
+    documentService.openPDFInNewTab(blob);
+  },
+
+  /**
    * สร้าง PDF บัตรประจำตัวทั้งหมดของโรงเรียน
    */
   async generateAllPdf() {

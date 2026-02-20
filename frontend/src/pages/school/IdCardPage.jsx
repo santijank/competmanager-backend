@@ -20,6 +20,7 @@ const IdCardPage = () => {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [printingReg, setPrintingReg] = useState(null); // regId ที่กำลังพิมพ์
   const [photos, setPhotos] = useState({}); // { regId: { student_0: {photo_url}, ... } }
   const [uploading, setUploading] = useState({}); // { "regId_student_0": true }
   const fileInputRefs = useRef({});
@@ -144,6 +145,18 @@ const IdCardPage = () => {
     }
   };
 
+  const handlePrintOne = async (regId) => {
+    setPrintingReg(regId);
+    try {
+      await idCardService.openPdf(regId);
+    } catch (error) {
+      console.error('Print error:', error);
+      toast.error('ไม่สามารถสร้าง PDF ได้');
+    } finally {
+      setPrintingReg(null);
+    }
+  };
+
   const triggerFileInput = (refKey) => {
     fileInputRefs.current[refKey]?.click();
   };
@@ -224,18 +237,34 @@ const IdCardPage = () => {
         <div key={reg.id} className="bg-white rounded-lg shadow">
           {/* Competition header */}
           <div className="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                {reg.competition?.code || '-'}
-              </span>
-              <h2 className="text-lg font-semibold text-gray-800">
-                {reg.competition?.name || 'ไม่ทราบกิจกรรม'}
-              </h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                    {reg.competition?.code || '-'}
+                  </span>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    {reg.competition?.name || 'ไม่ทราบกิจกรรม'}
+                  </h2>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  ระดับชั้น: {reg.competition?.level || '-'} |
+                  สถานที่: {reg.competition?.venue || '-'}
+                </p>
+              </div>
+              <button
+                onClick={() => handlePrintOne(reg.id)}
+                disabled={printingReg === reg.id}
+                className="px-3 py-2 text-sm bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                {printingReg === reg.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Printer className="w-4 h-4" />
+                )}
+                {printingReg === reg.id ? 'กำลังสร้าง...' : 'พิมพ์บัตรกิจกรรมนี้'}
+              </button>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              ระดับชั้น: {reg.competition?.level || '-'} |
-              สถานที่: {reg.competition?.venue || '-'}
-            </p>
           </div>
 
           <div className="p-6 space-y-6">

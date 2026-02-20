@@ -212,6 +212,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ID Cards - บัตรประจำตัวผู้เข้าแข่งขัน
     Route::prefix('id-cards')->group(function () {
         Route::get('school/pdf', [IdCardController::class, 'generateAllPdf']);
+        Route::get('registrations/{registrationId}/pdf', [IdCardController::class, 'generatePdf']);
         Route::get('registrations/{registrationId}/photos', [IdCardController::class, 'getPhotos']);
         Route::post('registrations/{registrationId}/photos', [IdCardController::class, 'uploadPhoto']);
         Route::delete('registrations/{registrationId}/photos', [IdCardController::class, 'deletePhoto']);
