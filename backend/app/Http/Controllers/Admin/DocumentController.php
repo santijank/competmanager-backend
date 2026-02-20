@@ -594,6 +594,10 @@ class DocumentController extends Controller
     public function batchExport(Request $request)
     {
         try {
+            // เพิ่ม memory limit และ timeout สำหรับ PDF ขนาดใหญ่
+            ini_set('memory_limit', '1024M');
+            set_time_limit(300);
+
             $categoryId = $request->input('category_id');
             $type = $request->input('type');
 

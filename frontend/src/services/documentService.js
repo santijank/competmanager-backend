@@ -325,13 +325,32 @@ const documentService = {
           responseType: 'blob',
           headers: {
             'Accept': 'application/pdf'
-          }
+          },
+          timeout: 300000, // 5 นาที — รองรับ PDF ขนาดใหญ่
         }
       );
+      // ตรวจว่า response เป็น JSON error หรือไม่
+      if (response.data.type && response.data.type.includes('json')) {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || errorData.error || 'Unknown error');
+      }
       return response.data;
     } catch (error) {
       console.error('Error batch exporting:', error);
-      throw new Error('ไม่สามารถสร้างเอกสารแบบรวมได้');
+      // parse error จาก Blob response
+      if (error.response && error.response.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างเอกสารแบบรวมได้');
+        } catch (parseError) {
+          if (parseError.message && !parseError.message.includes('JSON')) {
+            throw parseError;
+          }
+        }
+      }
+      throw new Error(error.message || 'ไม่สามารถสร้างเอกสารแบบรวมได้');
     }
   },
 

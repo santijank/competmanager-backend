@@ -78,6 +78,14 @@ const RegistrationManagement = () => {
   const [showExportAllDropdown, setShowExportAllDropdown] = useState(false);
   const exportAllDropdownRef = useRef(null);
   const [categoryOverviewLoading, setCategoryOverviewLoading] = useState(false);
+  const [batchAllProgress, setBatchAllProgress] = useState({
+    isRunning: false,
+    currentCategory: '',
+    currentIndex: 0,
+    totalCategories: 0,
+    completedCategories: [],
+    failedCategories: [],
+  });
 
   const [filters, setFilters] = useState({
     status: '',
@@ -304,28 +312,78 @@ const RegistrationManagement = () => {
     }
   };
 
-  // Batch export ALL categories handler
+  // Batch export ALL categories handler — วนลูปทีละหมวด พร้อม progress bar
   const handleBatchExportAll = async (type, typeKey) => {
-    setBatchAllLoading(prev => ({ ...prev, [typeKey]: true }));
-    try {
-      toast.info('กำลังสร้างเอกสารทั้งหมดทุกหมวด กรุณารอสักครู่...');
-      const blob = await documentService.batchExport('all', type);
-      const typeNames = {
-        'student-checkin': 'ลงทะเบียนนักเรียน',
-        'teacher-checkin': 'ลงทะเบียนครู',
-        'summary': 'สรุปผู้เข้าแข่ง',
-        'committee-checkin': 'ลงทะเบียนกรรมการ',
-        'score-sheet': 'ใบลงคะแนน',
-        'cover-sheet': 'ใบปะหน้าซอง',
-      };
-      documentService.downloadPDF(blob, `${typeNames[type]}_ทุกหมวด_รวม.pdf`);
-      toast.success('สร้างเอกสารสำเร็จ');
-    } catch (error) {
-      console.error('Batch export all error:', error);
-      toast.error('ไม่สามารถสร้างเอกสารแบบรวมได้');
-    } finally {
-      setBatchAllLoading(prev => ({ ...prev, [typeKey]: false }));
+    const categoryIds = Object.keys(competitionsByCategory);
+    if (categoryIds.length === 0) {
+      toast.warning('ไม่พบหมวดหมู่ที่มีกิจกรรม');
+      return;
     }
+
+    const typeNames = {
+      'student-checkin': 'ลงทะเบียนนักเรียน',
+      'teacher-checkin': 'ลงทะเบียนครู',
+      'summary': 'สรุปผู้เข้าแข่ง',
+      'committee-checkin': 'ลงทะเบียนกรรมการ',
+      'score-sheet': 'ใบลงคะแนน',
+      'cover-sheet': 'ใบปะหน้าซอง',
+    };
+
+    setBatchAllLoading(prev => ({ ...prev, [typeKey]: true }));
+    setBatchAllProgress({
+      isRunning: true,
+      currentCategory: '',
+      currentIndex: 0,
+      totalCategories: categoryIds.length,
+      completedCategories: [],
+      failedCategories: [],
+    });
+
+    const completed = [];
+    const failed = [];
+
+    for (let i = 0; i < categoryIds.length; i++) {
+      const catId = categoryIds[i];
+      const categoryName = competitionsByCategory[catId]?.name || `หมวด ${catId}`;
+
+      setBatchAllProgress(prev => ({
+        ...prev,
+        currentCategory: categoryName,
+        currentIndex: i + 1,
+      }));
+
+      try {
+        const blob = await documentService.batchExport(parseInt(catId), type);
+        documentService.downloadPDF(blob, `${typeNames[type]}_${categoryName}_รวม.pdf`);
+        completed.push(categoryName);
+        setBatchAllProgress(prev => ({
+          ...prev,
+          completedCategories: [...prev.completedCategories, categoryName],
+        }));
+      } catch (error) {
+        console.error(`Batch export failed for ${categoryName}:`, error);
+        failed.push(categoryName);
+        setBatchAllProgress(prev => ({
+          ...prev,
+          failedCategories: [...prev.failedCategories, categoryName],
+        }));
+      }
+
+      // หน่วง 1.5 วินาทีระหว่างไฟล์ กันเบราว์เซอร์บล็อคดาวน์โหลด
+      if (i < categoryIds.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    }
+
+    // สรุปผล
+    if (failed.length === 0) {
+      toast.success(`สร้างเอกสารสำเร็จทั้งหมด ${completed.length} หมวด`);
+    } else {
+      toast.warning(`สำเร็จ ${completed.length} หมวด, ล้มเหลว ${failed.length} หมวด: ${failed.join(', ')}`);
+    }
+
+    setBatchAllLoading(prev => ({ ...prev, [typeKey]: false }));
+    setBatchAllProgress(prev => ({ ...prev, isRunning: false }));
   };
 
   // Generate Category Overview PDF
@@ -603,10 +661,11 @@ const RegistrationManagement = () => {
               <div className="relative" ref={exportAllDropdownRef}>
                 <button
                   onClick={() => setShowExportAllDropdown(!showExportAllDropdown)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  disabled={batchAllProgress.isRunning}
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>ออกเอกสารทุกหมวด</span>
+                  <span>{batchAllProgress.isRunning ? 'กำลังสร้างเอกสาร...' : 'ออกเอกสารทุกหมวด'}</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${showExportAllDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showExportAllDropdown && (
@@ -1381,6 +1440,44 @@ const RegistrationManagement = () => {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
       />
+
+      {/* Progress indicator สำหรับ batch export ทุกหมวด */}
+      {batchAllProgress.isRunning && (
+        <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 w-80">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-gray-700">
+              กำลังออกเอกสารทุกหมวด
+            </span>
+            <span className="text-xs text-gray-500">
+              {batchAllProgress.currentIndex}/{batchAllProgress.totalCategories}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+            <div
+              className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500"
+              style={{
+                width: `${(batchAllProgress.currentIndex / batchAllProgress.totalCategories) * 100}%`
+              }}
+            />
+          </div>
+          <p className="text-xs text-gray-600 flex items-center">
+            <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+            {batchAllProgress.currentCategory}
+          </p>
+          {batchAllProgress.completedCategories.length > 0 && (
+            <p className="text-xs text-green-600 mt-1">
+              <CheckCircle className="w-3 h-3 inline mr-1" />
+              สำเร็จ {batchAllProgress.completedCategories.length} หมวด
+            </p>
+          )}
+          {batchAllProgress.failedCategories.length > 0 && (
+            <p className="text-xs text-red-500 mt-1">
+              <XCircle className="w-3 h-3 inline mr-1" />
+              ล้มเหลว: {batchAllProgress.failedCategories.join(', ')}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
