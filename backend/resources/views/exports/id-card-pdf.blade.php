@@ -45,7 +45,7 @@
             page-break-after: auto;
         }
 
-        /* ===== CARD PAIR: ด้านหน้า (ซ้าย) + ด้านหลัง (ขวา) ===== */
+        /* ===== CARD ROW: ด้านหน้า (ซ้าย) + ด้านหลัง (ขวา) ===== */
         .card-row {
             width: 200mm;
             height: 138mm;
@@ -62,7 +62,7 @@
             padding: 0;
         }
 
-        /* ===== ด้านหน้า (FRONT) ===== */
+        /* ===== ด้านหน้า (FRONT) - ข้อมูล ===== */
         .card-front-td {
             width: 97mm;
             height: 136mm;
@@ -71,114 +71,82 @@
         .front-card {
             width: 97mm;
             height: 136mm;
-            background-color: #D35400;
-            border: 1px solid #C0392B;
             position: relative;
             overflow: hidden;
+            border: 0.5pt solid #ddd;
         }
 
-        /* ลายเส้นตกแต่งมุมบนขวา */
-        .front-decor-top {
+        .front-bg {
             position: absolute;
             top: 0;
-            right: 0;
-            width: 40mm;
-            height: 30mm;
-            background-color: #E67E22;
-            border-bottom-left-radius: 40mm;
-            opacity: 0.6;
-        }
-
-        /* ลายเส้นตกแต่งมุมล่างซ้าย */
-        .front-decor-bottom {
-            position: absolute;
-            bottom: 0;
             left: 0;
-            width: 40mm;
-            height: 30mm;
-            background-color: #C0392B;
-            border-top-right-radius: 40mm;
-            opacity: 0.5;
+            width: 97mm;
+            height: 136mm;
         }
 
-        .front-header {
+        .front-content {
+            position: absolute;
+            top: 18mm;
+            left: 6mm;
+            right: 6mm;
+            bottom: 20mm;
             text-align: center;
-            padding-top: 8mm;
-            position: relative;
         }
 
-        .front-title {
-            font-size: 18pt;
+        .front-activity {
+            font-size: 13pt;
             font-weight: bold;
-            color: #FFFFFF;
-            letter-spacing: 2px;
-        }
-
-        .front-subtitle {
-            font-size: 12pt;
-            color: #FFF3CD;
-            margin-top: 1mm;
-        }
-
-        .front-photo-wrapper {
-            text-align: center;
-            margin-top: 6mm;
-            position: relative;
-        }
-
-        .front-photo {
-            width: 30mm;
-            height: 36mm;
-            object-fit: cover;
-            border: 2px solid #FFFFFF;
-        }
-
-        .front-photo-placeholder {
-            width: 30mm;
-            height: 36mm;
-            background: rgba(255,255,255,0.2);
-            border: 2px dashed rgba(255,255,255,0.5);
-            display: inline-block;
-            line-height: 36mm;
-            text-align: center;
-            font-size: 10pt;
-            color: rgba(255,255,255,0.7);
+            color: #1B4F72;
+            margin-top: 8mm;
+            line-height: 1.3;
         }
 
         .front-name {
-            text-align: center;
-            margin-top: 4mm;
-            font-size: 15pt;
+            font-size: 16pt;
             font-weight: bold;
-            color: #FFFFFF;
-            position: relative;
-            padding: 0 5mm;
+            color: #333;
+            margin-top: 5mm;
         }
 
-        .front-type-badge {
-            text-align: center;
-            margin-top: 2mm;
-            position: relative;
-        }
-
-        .front-type-badge span {
-            font-size: 11pt;
+        .front-type {
+            font-size: 12pt;
             color: #D35400;
-            background: #FFFFFF;
-            padding: 1mm 5mm;
             font-weight: bold;
+            margin-top: 2mm;
         }
 
         .front-school {
-            text-align: center;
-            margin-top: 3mm;
-            font-size: 11pt;
-            color: #FFF3CD;
-            position: relative;
-            padding: 0 5mm;
+            font-size: 13pt;
+            color: #333;
+            margin-top: 4mm;
+            line-height: 1.3;
         }
 
-        /* ===== ด้านหลัง (BACK) ===== */
+        .front-level {
+            font-size: 12pt;
+            color: #555;
+            margin-top: 3mm;
+        }
+
+        .front-divider {
+            border: none;
+            border-top: 0.5pt solid #ccc;
+            margin: 4mm 10mm;
+        }
+
+        .front-venue {
+            font-size: 11pt;
+            color: #555;
+            margin-top: 2mm;
+        }
+
+        .front-datetime {
+            font-size: 11pt;
+            color: #555;
+            margin-top: 1mm;
+        }
+
+        /* ===== ด้านหลัง (BACK) - รูปถ่าย ===== */
         .card-back-td {
             width: 97mm;
             height: 136mm;
@@ -188,86 +156,44 @@
         .back-card {
             width: 97mm;
             height: 136mm;
-            background-color: #FFFFFF;
-            border: 1px solid #ddd;
             position: relative;
             overflow: hidden;
+            border: 0.5pt solid #ddd;
         }
 
-        /* แถบหัว */
-        .back-header {
-            background-color: #1B4F72;
-            padding: 4mm 5mm;
+        .back-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 97mm;
+            height: 136mm;
+        }
+
+        .back-photo-wrapper {
+            position: absolute;
+            top: 30mm;
+            left: 15mm;
+            width: 67mm;
+            height: 80mm;
             text-align: center;
         }
 
-        .back-header-title {
-            font-size: 13pt;
+        .back-photo {
+            width: 62mm;
+            height: 75mm;
+            object-fit: cover;
+            border-radius: 5mm;
+        }
+
+        .back-name {
+            position: absolute;
+            bottom: 5mm;
+            left: 5mm;
+            right: 5mm;
+            text-align: center;
+            font-size: 11pt;
             font-weight: bold;
             color: #FFFFFF;
-        }
-
-        .back-header-subtitle {
-            font-size: 10pt;
-            color: #D4E6F1;
-            margin-top: 1mm;
-        }
-
-        /* Logo */
-        .back-logo-section {
-            text-align: center;
-            padding: 3mm 0 2mm 0;
-        }
-
-        .back-logo-img {
-            width: 25mm;
-            height: auto;
-        }
-
-        /* ข้อมูล */
-        .back-info {
-            padding: 0 5mm;
-        }
-
-        .back-info-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12pt;
-        }
-
-        .back-info-table td {
-            padding: 1.5mm 0;
-            vertical-align: top;
-        }
-
-        .back-info-label {
-            width: 28mm;
-            font-weight: bold;
-            color: #1B4F72;
-            font-size: 11pt;
-        }
-
-        .back-info-value {
-            color: #333;
-            font-size: 12pt;
-        }
-
-        /* เส้นแบ่ง */
-        .back-divider {
-            border: none;
-            border-top: 0.5pt solid #BDC3C7;
-            margin: 2mm 5mm;
-        }
-
-        /* Footer */
-        .back-footer {
-            position: absolute;
-            bottom: 3mm;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            font-size: 9pt;
-            color: #999;
         }
 
         /* ===== เส้นตัด ===== */
@@ -281,8 +207,10 @@
 <body>
     @php
         $chunks = array_chunk($people, 2);
-        $logoPath = public_path('images/smart-sesao-logo.png');
-        $hasLogo = file_exists($logoPath);
+        $frontPath = public_path('images/id-card-front.png');
+        $backPath = public_path('images/id-card-back.png');
+        $hasFront = file_exists($frontPath);
+        $hasBack = file_exists($backPath);
     @endphp
 
     @foreach($chunks as $pageIndex => $pair)
@@ -295,81 +223,53 @@
             <div class="card-row">
                 <table class="card-row-table">
                     <tr>
-                        {{-- ด้านหน้า --}}
+                        {{-- ด้านหน้า (ซ้าย) — ข้อมูล --}}
                         <td class="card-front-td">
                             <div class="front-card">
-                                <div class="front-decor-top"></div>
-                                <div class="front-decor-bottom"></div>
+                                @if($hasFront)
+                                    <img class="front-bg" src="{{ $frontPath }}">
+                                @endif
 
-                                <div class="front-header">
-                                    <div class="front-title">บัตรประจำตัว</div>
-                                    <div class="front-subtitle">ผู้เข้าแข่งขัน</div>
-                                </div>
+                                <div class="front-content">
+                                    <div class="front-activity">{{ $person['activity'] }}</div>
 
-                                <div class="front-photo-wrapper">
-                                    @if(!empty($person['photo_data_uri']))
-                                        <img class="front-photo" src="{{ $person['photo_data_uri'] }}">
-                                    @else
-                                        <div class="front-photo-placeholder">รูปถ่าย</div>
+                                    <div class="front-name">{{ $person['name'] }}</div>
+
+                                    <div class="front-type">{{ $person['type'] }}</div>
+
+                                    <div class="front-school">{{ $person['school'] }}</div>
+
+                                    @if(!empty($person['level']))
+                                        <div class="front-level">ระดับชั้น: {{ $person['level'] }}</div>
                                     @endif
+
+                                    <hr class="front-divider">
+
+                                    @if(!empty($person['venue']))
+                                        <div class="front-venue">สถานที่: {{ $person['venue'] }}</div>
+                                    @endif
+
+                                    <div class="front-datetime">
+                                        {{ $person['date'] }}
+                                        @if(!empty($person['time']))
+                                            | {{ $person['time'] }}
+                                        @endif
+                                    </div>
                                 </div>
-
-                                <div class="front-name">{{ $person['name'] }}</div>
-
-                                <div class="front-type-badge">
-                                    <span>{{ $person['type'] }}</span>
-                                </div>
-
-                                <div class="front-school">{{ $person['school'] }}</div>
                             </div>
                         </td>
 
-                        {{-- ด้านหลัง --}}
+                        {{-- ด้านหลัง (ขวา) — รูปถ่าย --}}
                         <td class="card-back-td">
                             <div class="back-card">
-                                <div class="back-header">
-                                    <div class="back-header-title">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73</div>
-                                    <div class="back-header-subtitle">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</div>
-                                </div>
-
-                                @if($hasLogo)
-                                <div class="back-logo-section">
-                                    <img class="back-logo-img" src="{{ $logoPath }}">
-                                </div>
+                                @if($hasBack)
+                                    <img class="back-bg" src="{{ $backPath }}">
                                 @endif
 
-                                <div class="back-info">
-                                    <table class="back-info-table">
-                                        <tr>
-                                            <td class="back-info-label">กิจกรรม</td>
-                                            <td class="back-info-value">{{ $person['activity'] }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="back-info-label">ระดับชั้น</td>
-                                            <td class="back-info-value">{{ $person['level'] ?: '-' }}</td>
-                                        </tr>
-                                    </table>
-
-                                    <hr class="back-divider" style="margin: 2mm 0;">
-
-                                    <table class="back-info-table">
-                                        <tr>
-                                            <td class="back-info-label">สถานที่</td>
-                                            <td class="back-info-value">{{ $person['venue'] ?: '-' }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="back-info-label">วันที่</td>
-                                            <td class="back-info-value">{{ $person['date'] }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="back-info-label">เวลา</td>
-                                            <td class="back-info-value">{{ $person['time'] ?: '-' }}</td>
-                                        </tr>
-                                    </table>
-                                </div>
-
-                                <div class="back-footer">
-                                    SMART SESAO NPT1
+                                <div class="back-photo-wrapper">
+                                    @if(!empty($person['photo_data_uri']))
+                                        <img class="back-photo" src="{{ $person['photo_data_uri'] }}">
+                                    @endif
                                 </div>
                             </div>
                         </td>
