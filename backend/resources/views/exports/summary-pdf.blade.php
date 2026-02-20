@@ -188,7 +188,7 @@
 <body>
     <div class="header">
         <div class="title">สรุปการลงทะเบียนเข้าแข่งขัน</div>
-        <div class="subtitle">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ปีการศึกษา 2568</div>
+        <div class="subtitle">งานศิลปหัตถกรรมนักเรียน ครั้งที่ 74 ปีการศึกษา 2568</div>
         <div class="subtitle">ระดับเขตพื้นที่การศึกษา</div>
     </div>
 
