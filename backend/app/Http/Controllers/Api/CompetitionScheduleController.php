@@ -41,6 +41,20 @@ class CompetitionScheduleController extends Controller
             if ($user->role === 'group_admin') {
                 $query->where('school_group_id', $user->school_group_id)
                       ->where('competition_level', 'group');
+            } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                // category_admin/data_entry: เฉพาะหมวดของตน ระดับเขต
+                $query->where('competition_level', 'district');
+                if ($user->category_id) {
+                    $query->whereIn('category_id', $user->getCategoryIdsForScope());
+                    if ($user->competition_name_filter) {
+                        $filter = $user->competition_name_filter;
+                        if (str_starts_with($filter, '!')) {
+                            $query->where('name', 'NOT LIKE', '%' . substr($filter, 1) . '%');
+                        } else {
+                            $query->where('name', 'LIKE', '%' . $filter . '%');
+                        }
+                    }
+                }
             } elseif (!in_array($user->role, ['admin', 'district_admin'])) {
                 return response()->json([
                     'success' => false,
@@ -62,6 +76,9 @@ class CompetitionScheduleController extends Controller
                     if ($user->role === 'group_admin') {
                         $scheduleQuery->where('school_group_id', $user->school_group_id)
                                       ->where('level', 'group');
+                    } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                        // category_admin/data_entry: ดู schedule ระดับ district
+                        $scheduleQuery->where('level', 'district');
                     } elseif (in_array($user->role, ['admin', 'district_admin'])) {
                         // Admin/District admin สามารถดูทั้ง group และ district level
                         if ($competition->competition_level === 'district') {
@@ -146,6 +163,22 @@ class CompetitionScheduleController extends Controller
                 }
                 $schoolGroupId = $user->school_group_id;
                 $level = 'group';
+            } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                // category_admin/data_entry: จัดการเฉพาะระดับเขต ในหมวดของตน
+                if ($competition->competition_level !== 'district') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณจัดการได้เฉพาะการแข่งขันระดับเขต'
+                    ], 403);
+                }
+                if ($user->category_id && !$user->canAccessCompetition($competition)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
+                    ], 403);
+                }
+                $level = 'district';
+                $schoolGroupId = null;
             } elseif (in_array($user->role, ['admin', 'district_admin'])) {
                 if ($competition->competition_level === 'district') {
                     $level = 'district';
@@ -252,6 +285,11 @@ class CompetitionScheduleController extends Controller
                     if ($competition->school_group_id !== $user->school_group_id) continue;
                     $schoolGroupId = $user->school_group_id;
                     $level = 'group';
+                } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                    if ($competition->competition_level !== 'district') continue;
+                    if ($user->category_id && !$user->canAccessCompetition($competition)) continue;
+                    $level = 'district';
+                    $schoolGroupId = null;
                 } elseif (in_array($user->role, ['admin', 'district_admin'])) {
                     if ($competition->competition_level === 'district') {
                         $level = 'district';
@@ -365,6 +403,21 @@ class CompetitionScheduleController extends Controller
                     return response()->json([
                         'success' => false,
                         'message' => 'คุณไม่มีสิทธิ์'
+                    ], 403);
+                }
+            } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                // category_admin/data_entry: ต้องเป็น schedule ระดับ district + หมวดของตน
+                if ($schedule->level !== 'district') {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณจัดการได้เฉพาะระดับเขต'
+                    ], 403);
+                }
+                $competition = Competition::find($schedule->competition_id);
+                if ($competition && $user->category_id && !$user->canAccessCompetition($competition)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์จัดการการแข่งขันนี้'
                     ], 403);
                 }
             } elseif (!in_array($user->role, ['admin', 'district_admin'])) {
