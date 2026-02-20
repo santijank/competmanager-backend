@@ -509,11 +509,122 @@ class PublicApiController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('PublicApiController::updateAllGroupStatistics Error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * ดึงรายชื่อตัวแทนระดับเขต (Public - ไม่ต้อง login)
+     * GET /api/public/district-registrations
+     */
+    public function getDistrictRegistrations()
+    {
+        try {
+            $data = Cache::remember('public_district_registrations', 300, function () {
+                // ดึง competitions ระดับเขตที่ active
+                $competitions = Competition::with(['category'])
+                    ->where('competition_level', 'district')
+                    ->where('is_active', true)
+                    ->orderBy('category_id')
+                    ->orderBy('name')
+                    ->get();
+
+                $competitionIds = $competitions->pluck('id')->toArray();
+
+                // ดึงเฉพาะ approved registrations
+                $registrations = Registration::whereIn('competition_id', $competitionIds)
+                    ->where('status', 'approved')
+                    ->with(['school.schoolGroup', 'score'])
+                    ->get()
+                    ->groupBy('competition_id');
+
+                // กรองเฉพาะ competitions ที่มี registrations
+                $filteredCompetitions = $competitions->filter(function ($comp) use ($registrations) {
+                    return $registrations->has($comp->id) && $registrations->get($comp->id)->count() > 0;
+                });
+
+                // จัดกลุ่มตาม category
+                $categories = [];
+                $totalRegs = 0;
+                $grouped = $filteredCompetitions->groupBy(fn($comp) => $comp->category->name ?? 'อื่นๆ');
+
+                foreach ($grouped as $categoryName => $comps) {
+                    $categoryComps = [];
+                    foreach ($comps as $comp) {
+                        $compRegs = $registrations->get($comp->id, collect());
+                        $totalRegs += $compRegs->count();
+
+                        $categoryComps[] = [
+                            'id' => $comp->id,
+                            'name' => $comp->name,
+                            'code' => $comp->code,
+                            'level' => $comp->level,
+                            'competition_level' => $comp->competition_level,
+                            'skip_group_level' => (bool) $comp->skip_group_level,
+                            'registration_count' => $compRegs->count(),
+                            'is_published' => (bool) $comp->is_published,
+                            'is_finalized' => (bool) $comp->is_finalized,
+                            'registrations' => $compRegs->map(function ($reg) {
+                                $groupRank = null;
+                                if ($reg->notes && preg_match('/อันดับที่\s*(\d+)/', $reg->notes, $matches)) {
+                                    $groupRank = (int) $matches[1];
+                                }
+                                return [
+                                    'id' => $reg->id,
+                                    'team_name' => $reg->team_name,
+                                    'school_name' => $reg->school->name ?? '-',
+                                    'school_group_name' => $reg->school->schoolGroup->name ?? '-',
+                                    'student_count' => $reg->student_count,
+                                    'student_names' => $reg->student_names,
+                                    'teacher_names' => $reg->teacher_names,
+                                    'teacher_count' => $reg->teacher_count,
+                                    'status' => $reg->status,
+                                    'notes' => $reg->notes,
+                                    'score' => $reg->score ? number_format($reg->score->score, 2) : null,
+                                    'medal' => $reg->score->medal ?? null,
+                                    'rank' => $reg->score->rank ?? null,
+                                    'group_rank' => $groupRank,
+                                    'is_finalized' => $reg->score ? (bool) $reg->score->is_finalized : false,
+                                ];
+                            })->sort(function ($a, $b) {
+                                $rankA = $a['rank'] ?? $a['group_rank'] ?? PHP_INT_MAX;
+                                $rankB = $b['rank'] ?? $b['group_rank'] ?? PHP_INT_MAX;
+                                if ($rankA !== $rankB) return $rankA - $rankB;
+                                $scoreA = $a['score'] ? (float) $a['score'] : 0;
+                                $scoreB = $b['score'] ? (float) $b['score'] : 0;
+                                return $scoreB <=> $scoreA;
+                            })->values()->toArray(),
+                        ];
+                    }
+
+                    $categories[] = [
+                        'category' => $categoryName,
+                        'competition_count' => count($categoryComps),
+                        'competitions' => $categoryComps,
+                    ];
+                }
+
+                return [
+                    'data' => $categories,
+                    'total_competitions' => $filteredCompetitions->count(),
+                    'total_registrations' => $totalRegs,
+                ];
+            });
+
+            return response()->json(array_merge(['success' => true], $data));
+
+        } catch (\Exception $e) {
+            Log::error('PublicApiController::getDistrictRegistrations Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'total_competitions' => 0,
+                'total_registrations' => 0,
+            ]);
         }
     }
 }
