@@ -19,7 +19,7 @@ class IdCardController extends Controller
      */
     public function getPhotos(Request $request, $registrationId): JsonResponse
     {
-        $registration = Registration::findOrFail($registrationId);
+        $registration = Registration::with('competition')->findOrFail($registrationId);
         $user = $request->user();
 
         if (!$this->canAccess($user, $registration)) {
@@ -47,7 +47,7 @@ class IdCardController extends Controller
      */
     public function uploadPhoto(Request $request, $registrationId): JsonResponse
     {
-        $registration = Registration::findOrFail($registrationId);
+        $registration = Registration::with('competition')->findOrFail($registrationId);
         $user = $request->user();
 
         if (!$this->canAccess($user, $registration)) {
@@ -100,7 +100,7 @@ class IdCardController extends Controller
      */
     public function deletePhoto(Request $request, $registrationId): JsonResponse
     {
-        $registration = Registration::findOrFail($registrationId);
+        $registration = Registration::with('competition')->findOrFail($registrationId);
         $user = $request->user();
 
         if (!$this->canAccess($user, $registration)) {
@@ -303,6 +303,15 @@ class IdCardController extends Controller
     {
         if (in_array($user->role, ['admin', 'district_admin'])) {
             return true;
+        }
+
+        // category_admin / data_entry — ตรวจว่า registration อยู่ในหมวดของตัวเอง
+        if (in_array($user->role, ['category_admin', 'data_entry'])) {
+            $competition = $registration->competition;
+            if ($competition) {
+                return $user->canAccessCompetition($competition);
+            }
+            return false;
         }
 
         return $user->school_id === $registration->school_id;
