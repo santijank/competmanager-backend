@@ -756,6 +756,18 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
         {/* ✅ Competition List - รายการกิจกรรมระดับเขต */}
         <CompetitionListSection level="district" />
 
+        {/* ✅ ลิงก์ไปหน้ารายชื่อตัวแทนระดับเขต */}
+        <div className="flex justify-center">
+          <a
+            href="/public-district"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all font-medium shadow-lg text-lg"
+          >
+            <Users className="w-5 h-5" />
+            ดูรายชื่อตัวแทนแข่งขันระดับเขต
+            <ChevronRight className="w-5 h-5" />
+          </a>
+        </div>
+
         {/* District Schedules - ตารางสถานที่แข่งขันระดับเขต */}
         <ScheduleSection schedules={schedules} level="district" />
 

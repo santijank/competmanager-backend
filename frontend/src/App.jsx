@@ -6,6 +6,7 @@ import LandingPage from '@/pages/public/LandingPage';
 import PublicDashboard from '@/pages/PublicDashboard';
 import PublicDashboardNew from '@/pages/PublicDashboardNew';
 import PublicResults from '@/pages/public/PublicResults';
+import PublicDistrictRegistrations from '@/pages/public/PublicDistrictRegistrations';
 import AnnouncementManagement from '@/pages/announcements/AnnouncementManagement';
 import IssueList from '@/pages/issues/IssueList';
 import IssueDetail from '@/pages/issues/IssueDetail';
@@ -116,6 +117,7 @@ function App() {
         <Route element={<PublicDashboardLayout />}>
           <Route path="/" element={<PublicDashboard />} />
           <Route path="/public-dashboard" element={<PublicDashboard />} />
+          <Route path="/public-district" element={<PublicDistrictRegistrations />} />
         </Route>
 
         {/* NEW Public Dashboard - Modern Design (ทดลอง) */}
