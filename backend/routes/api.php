@@ -181,7 +181,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Committee Members - คณะทำงาน
     Route::get('committee-members/statistics', [\App\Http\Controllers\Api\CommitteeMemberController::class, 'statistics']);
     Route::get('committee-members/competitions', [\App\Http\Controllers\Api\CommitteeMemberController::class, 'getAllCompetitions']);
-    Route::get('committee-members/signin-pdf/{competitionId}', [\App\Http\Controllers\Api\CommitteeMemberController::class, 'generateSignInPdf']);
     Route::get('committee-members/staff-pdf', [\App\Http\Controllers\Api\CommitteeMemberController::class, 'generateStaffPdf']);
     Route::post('committee-members/batch', [\App\Http\Controllers\Api\CommitteeMemberController::class, 'storeBatch']);
     Route::apiResource('committee-members', \App\Http\Controllers\Api\CommitteeMemberController::class);
