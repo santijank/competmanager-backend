@@ -173,7 +173,7 @@
 <body>
     @php
         // กำหนดค่าตัวแปร
-        $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+        $groupName = ($competition->competition_level === 'district') ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 
         // ดึงสถานที่จาก schedule
         $venueName = '';

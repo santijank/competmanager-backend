@@ -47,7 +47,7 @@
         $schedule = $compData['schedule'];
         $schools = $compData['schools'];
 
-        $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+        $groupName = ($competition->competition_level === 'district') ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
         $venueName = '';
         if (isset($schedule) && $schedule) {
             $venueParts = [];

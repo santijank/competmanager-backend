@@ -183,7 +183,7 @@
 </head>
 <body>
     @php
-        $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+        $groupName = ($competition->competition_level === 'district') ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
     @endphp
 
     <!-- HEADER (เหมือนลงทะเบียนนักเรียน) -->
