@@ -608,18 +608,20 @@ class DocumentController extends Controller
                 return response()->json(['message' => 'ประเภทเอกสารไม่ถูกต้อง'], 400);
             }
 
-            // ดึง competitions ที่มี approved registrations
+            // ดึง competitions ที่มี approved registrations (เฉพาะระดับเขต)
             if ($categoryId === 'all') {
-                // ออกเอกสารทุกหมวดหมู่
-                $competitions = Competition::whereHas('registrations', fn($q) => $q->where('status', 'approved'))
+                // ออกเอกสารทุกหมวดหมู่ — เฉพาะระดับเขต
+                $competitions = Competition::where('competition_level', 'district')
+                    ->whereHas('registrations', fn($q) => $q->where('status', 'approved'))
                     ->with(['category', 'schoolGroup'])
                     ->orderBy('category_id')
                     ->orderBy('level')
                     ->orderBy('name')
                     ->get();
             } elseif ($categoryId) {
-                // ออกเอกสารเฉพาะหมวดหมู่
+                // ออกเอกสารเฉพาะหมวดหมู่ — เฉพาะระดับเขต
                 $competitions = Competition::where('category_id', $categoryId)
+                    ->where('competition_level', 'district')
                     ->whereHas('registrations', fn($q) => $q->where('status', 'approved'))
                     ->with(['category', 'schoolGroup'])
                     ->orderBy('level')
