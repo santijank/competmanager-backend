@@ -249,7 +249,7 @@
                     @endif
                 </td>
                 <td class="info-cell">
-                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 74 ระดับกลุ่มโรงเรียน</span><br>
+                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับกลุ่มโรงเรียน</span><br>
                     <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
                     <span class="header-text-green">{{ $groupName }}</span>
                 </td>

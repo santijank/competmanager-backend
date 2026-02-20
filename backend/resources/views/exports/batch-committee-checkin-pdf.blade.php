@@ -88,7 +88,7 @@
             <tr>
                 <td class="logo-cell">@if(file_exists(public_path('images/smart-sesao-logo.png')))<img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">@endif</td>
                 <td class="info-cell">
-                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 74 ระดับ {{ $groupName }}</span><br>
+                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $groupName }}</span><br>
                     <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
                     @if($venueAndDate)<span class="header-text-green">{{ $venueAndDate }}</span>@endif
                 </td>

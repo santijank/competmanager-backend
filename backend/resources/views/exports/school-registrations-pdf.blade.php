@@ -232,7 +232,7 @@
                     @endif
                 </td>
                 <td class="info-cell">
-                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 74</span><br>
+                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73</span><br>
                     <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
                     <span class="header-text-green">{{ $schoolName }}</span>
                 </td>

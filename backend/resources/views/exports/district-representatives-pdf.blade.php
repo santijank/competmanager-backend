@@ -238,7 +238,7 @@
                         @endif
                     </td>
                     <td class="info-cell">
-                        <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 74 ระดับเขตพื้นที่</span><br>
+                        <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับเขตพื้นที่</span><br>
                         <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
                         @if(!empty($venueAndDate))
                             <span class="header-text-green">{{ $venueAndDate }}</span>
