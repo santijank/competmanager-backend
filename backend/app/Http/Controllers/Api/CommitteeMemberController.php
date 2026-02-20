@@ -395,11 +395,10 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        // ดึงเฉพาะกิจกรรมระดับเขต (district) ที่ active
+        // ดึงกิจกรรมที่ active
         $query = DB::table('competitions')
             ->leftJoin('categories', 'competitions.category_id', '=', 'categories.id')
             ->where('competitions.is_active', true)
-            ->where('competitions.competition_level', 'district')
             ->select(
                 'competitions.id',
                 'competitions.name',
@@ -411,9 +410,12 @@ class CommitteeMemberController extends Controller
             )
             ->distinct();
 
-        // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดของตัวเอง
+        // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดของตัวเอง (ทุก competition_level)
         if (in_array($user->role, ['category_admin', 'data_entry'])) {
             $user->applyCategoryScopeFilter($query, 'competitions.name', 'competitions.category_id');
+        } else {
+            // role อื่นเห็นเฉพาะกิจกรรมระดับเขต (district) เหมือนเดิม
+            $query->where('competitions.competition_level', 'district');
         }
 
         $competitions = $query->orderBy('categories.name')
