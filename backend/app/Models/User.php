@@ -26,6 +26,7 @@ class User extends Authenticatable
         'school_id',
         'school_group_id',
         'category_id',
+        'competition_name_filter',
         'is_active',
         'committee_level',
         'last_activity_at',
@@ -185,6 +186,48 @@ class User extends Authenticatable
         }
 
         return [$this->category_id];
+    }
+
+    /**
+     * Apply category scope + competition name filter to a query.
+     * Use for queries on competitions table.
+     */
+    public function applyCategoryScopeFilter($query, $nameColumn = 'competitions.name', $categoryColumn = 'category_id')
+    {
+        $categoryIds = $this->getCategoryIdsForScope();
+        if (!empty($categoryIds)) {
+            $query->whereIn($categoryColumn, $categoryIds);
+        }
+
+        if ($this->competition_name_filter) {
+            $filter = $this->competition_name_filter;
+            if (str_starts_with($filter, '!')) {
+                $keyword = substr($filter, 1);
+                $query->where($nameColumn, 'NOT LIKE', "%{$keyword}%");
+            } else {
+                $query->where($nameColumn, 'LIKE', "%{$filter}%");
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * Check if user can access a specific competition (category + name filter).
+     */
+    public function canAccessCompetition($competition): bool
+    {
+        if (!in_array($this->role, ['category_admin', 'data_entry'])) return true;
+        if (!in_array($competition->category_id, $this->getCategoryIdsForScope())) return false;
+
+        if ($this->competition_name_filter) {
+            $filter = $this->competition_name_filter;
+            if (str_starts_with($filter, '!')) {
+                return !str_contains($competition->name, substr($filter, 1));
+            }
+            return str_contains($competition->name, $filter);
+        }
+        return true;
     }
 
     /**

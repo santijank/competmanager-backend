@@ -219,9 +219,9 @@ class ScoreExportController extends Controller
             return $user->school_group_id === $competition->school_group_id ||
                    $competition->competition_level === 'district';
         }
-        // category_admin/data_entry: เฉพาะหมวดหมู่ของตน
+        // category_admin/data_entry: เฉพาะหมวดหมู่ของตน + กรองชื่อกิจกรรม
         if (in_array($user->role, ['category_admin', 'data_entry'])) {
-            return $user->category_id === $competition->category_id;
+            return $user->canAccessCompetition($competition);
         }
         // school_admin/teacher สามารถ export ได้เฉพาะกิจกรรมที่ประกาศผลแล้ว
         if (in_array($user->role, ['school_admin', 'teacher'])) {

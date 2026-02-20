@@ -45,8 +45,16 @@ class RegistrationController extends Controller
                 // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
                 $categoryIds = $user->getCategoryIdsForScope();
                 if (!empty($categoryIds)) {
-                    $query->whereHas('competition', function($q) use ($categoryIds) {
+                    $query->whereHas('competition', function($q) use ($categoryIds, $user) {
                         $q->whereIn('category_id', $categoryIds);
+                        if ($user->competition_name_filter) {
+                            $filter = $user->competition_name_filter;
+                            if (str_starts_with($filter, '!')) {
+                                $q->where('name', 'NOT LIKE', '%' . substr($filter, 1) . '%');
+                            } else {
+                                $q->where('name', 'LIKE', '%' . $filter . '%');
+                            }
+                        }
                     });
                 }
             }
@@ -882,8 +890,16 @@ class RegistrationController extends Controller
                     // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
                     $categoryIds = $user->getCategoryIdsForScope();
                     if (!empty($categoryIds)) {
-                        $query->whereHas('competition', function($q) use ($categoryIds) {
+                        $query->whereHas('competition', function($q) use ($categoryIds, $user) {
                             $q->whereIn('category_id', $categoryIds);
+                            if ($user->competition_name_filter) {
+                                $filter = $user->competition_name_filter;
+                                if (str_starts_with($filter, '!')) {
+                                    $q->where('name', 'NOT LIKE', '%' . substr($filter, 1) . '%');
+                                } else {
+                                    $q->where('name', 'LIKE', '%' . $filter . '%');
+                                }
+                            }
                         });
                     }
                 }
@@ -1460,6 +1476,14 @@ class RegistrationController extends Controller
             // category_admin/data_entry: เฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
             if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
                 $query->whereIn('category_id', $user->getCategoryIdsForScope());
+                if ($user->competition_name_filter) {
+                    $filter = $user->competition_name_filter;
+                    if (str_starts_with($filter, '!')) {
+                        $query->where('name', 'NOT LIKE', '%' . substr($filter, 1) . '%');
+                    } else {
+                        $query->where('name', 'LIKE', '%' . $filter . '%');
+                    }
+                }
             }
 
             $competitions = $query->orderBy('category_id')->orderBy('name')->get();
@@ -1715,6 +1739,14 @@ class RegistrationController extends Controller
             // category_admin/data_entry: เฉพาะหมวดหมู่ของตน (รวมทุกหมวดพิเศษเรียนรวม)
             if (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
                 $compQuery->whereIn('category_id', $user->getCategoryIdsForScope());
+                if ($user->competition_name_filter) {
+                    $filter = $user->competition_name_filter;
+                    if (str_starts_with($filter, '!')) {
+                        $compQuery->where('name', 'NOT LIKE', '%' . substr($filter, 1) . '%');
+                    } else {
+                        $compQuery->where('name', 'LIKE', '%' . $filter . '%');
+                    }
+                }
             }
 
             $competitions = $compQuery->orderBy('category_id')

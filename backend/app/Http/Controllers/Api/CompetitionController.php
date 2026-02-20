@@ -100,6 +100,24 @@ class CompetitionController extends Controller
                     }
                     break;
 
+                case 'category_admin':
+                case 'data_entry':
+                    // Category Admin/Data Entry เห็นเฉพาะหมวดหมู่ของตน + กรองชื่อกิจกรรม
+                    $categoryIds = $user->getCategoryIdsForScope();
+                    if (!empty($categoryIds)) {
+                        $query->whereIn('competitions.category_id', $categoryIds);
+                    }
+                    if ($user->competition_name_filter) {
+                        $filter = $user->competition_name_filter;
+                        if (str_starts_with($filter, '!')) {
+                            $query->where('competitions.name', 'NOT LIKE', '%' . substr($filter, 1) . '%');
+                        } else {
+                            $query->where('competitions.name', 'LIKE', '%' . $filter . '%');
+                        }
+                    }
+                    $filterApplied = "Category Admin/Data Entry - หมวด " . implode(',', $categoryIds);
+                    break;
+
                 default:
                     // Role อื่นๆ เห็นเฉพาะสาธารณะ
                     $query->whereNull('competitions.school_group_id');

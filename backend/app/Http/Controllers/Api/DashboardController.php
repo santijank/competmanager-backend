@@ -461,22 +461,37 @@ class DashboardController extends Controller
 
         $category = DB::table('categories')->where('id', $user->category_id)->first();
 
+        // Helper: apply competition name filter
+        $nameFilter = $user->competition_name_filter;
+        $applyNameFilter = function ($query, $nameColumn = 'name') use ($nameFilter) {
+            if ($nameFilter) {
+                if (str_starts_with($nameFilter, '!')) {
+                    $query->where($nameColumn, 'NOT LIKE', '%' . substr($nameFilter, 1) . '%');
+                } else {
+                    $query->where($nameColumn, 'LIKE', '%' . $nameFilter . '%');
+                }
+            }
+        };
+
         // นับการแข่งขันในหมวดหมู่ (รวมทุกหมวดพิเศษเรียนรวม)
         $totalCompetitions = DB::table('competitions')
             ->where('is_active', true)
             ->whereIn('category_id', $categoryIds)
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q); })
             ->count();
 
         $districtCompetitions = DB::table('competitions')
             ->where('is_active', true)
             ->whereIn('category_id', $categoryIds)
             ->where('competition_level', 'district')
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q); })
             ->count();
 
         // นับที่ใส่คะแนนแล้ว
         $scoredCompetitions = DB::table('competitions as c')
             ->where('c.is_active', true)
             ->whereIn('c.category_id', $categoryIds)
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q, 'c.name'); })
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('scores as sc')
@@ -489,6 +504,7 @@ class DashboardController extends Controller
         $finalizedCompetitions = DB::table('competitions as c')
             ->where('c.is_active', true)
             ->whereIn('c.category_id', $categoryIds)
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q, 'c.name'); })
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('scores as sc')
@@ -502,17 +518,20 @@ class DashboardController extends Controller
         $totalRegistrations = DB::table('registrations as r')
             ->join('competitions as c', 'r.competition_id', '=', 'c.id')
             ->whereIn('c.category_id', $categoryIds)
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q, 'c.name'); })
             ->count();
 
         $pendingRegistrations = DB::table('registrations as r')
             ->join('competitions as c', 'r.competition_id', '=', 'c.id')
             ->whereIn('c.category_id', $categoryIds)
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q, 'c.name'); })
             ->where('r.status', 'pending')
             ->count();
 
         $approvedRegistrations = DB::table('registrations as r')
             ->join('competitions as c', 'r.competition_id', '=', 'c.id')
             ->whereIn('c.category_id', $categoryIds)
+            ->where(function ($q) use ($applyNameFilter) { $applyNameFilter($q, 'c.name'); })
             ->where('r.status', 'approved')
             ->count();
 
