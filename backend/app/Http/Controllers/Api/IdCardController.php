@@ -94,8 +94,8 @@ class IdCardController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Upload photo error', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'อัพโหลดรูปไม่สำเร็จ'], 500);
+            Log::error('Upload photo error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json(['success' => false, 'message' => 'อัพโหลดรูปไม่สำเร็จ', 'debug' => $e->getMessage()], 500);
         }
     }
 
