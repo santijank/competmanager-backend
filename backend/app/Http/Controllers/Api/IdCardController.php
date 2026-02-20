@@ -71,7 +71,11 @@ class IdCardController extends Controller
         try {
             $file = $request->file('photo');
             $mimeType = $file->getMimeType();
-            $base64 = base64_encode(file_get_contents($file->getRealPath()));
+            $filePath = $file->getRealPath();
+
+            // แก้ EXIF orientation — รูปจากมือถืออาจกลับหัว/หมุน
+            $imageData = $this->fixImageOrientation($filePath, $mimeType);
+            $base64 = base64_encode($imageData);
 
             $photo = RegistrationPhoto::updateOrCreate(
                 [
@@ -298,6 +302,80 @@ class IdCardController extends Controller
         }
 
         return $people;
+    }
+
+    /**
+     * แก้ EXIF orientation ของรูปภาพจากมือถือ
+     * มือถือบันทึก EXIF orientation tag แทนการหมุนภาพจริง
+     * DomPDF ไม่อ่าน EXIF ทำให้ภาพกลับหัว/หมุน
+     */
+    private function fixImageOrientation(string $filePath, string $mimeType): string
+    {
+        // เฉพาะ JPEG เท่านั้นที่มี EXIF
+        if (!in_array($mimeType, ['image/jpeg', 'image/jpg'])) {
+            return file_get_contents($filePath);
+        }
+
+        // ตรวจว่า exif extension พร้อมใช้งานหรือไม่
+        if (!function_exists('exif_read_data')) {
+            Log::warning('exif extension not available, skipping orientation fix');
+            return file_get_contents($filePath);
+        }
+
+        try {
+            $exif = @exif_read_data($filePath);
+            if (!$exif || !isset($exif['Orientation'])) {
+                return file_get_contents($filePath);
+            }
+
+            $orientation = $exif['Orientation'];
+            if ($orientation == 1) {
+                // ไม่ต้องหมุน
+                return file_get_contents($filePath);
+            }
+
+            $image = imagecreatefromjpeg($filePath);
+            if (!$image) {
+                return file_get_contents($filePath);
+            }
+
+            switch ($orientation) {
+                case 2: // Flip horizontal
+                    imageflip($image, IMG_FLIP_HORIZONTAL);
+                    break;
+                case 3: // Rotate 180
+                    $image = imagerotate($image, 180, 0);
+                    break;
+                case 4: // Flip vertical
+                    imageflip($image, IMG_FLIP_VERTICAL);
+                    break;
+                case 5: // Rotate 270 + flip horizontal
+                    $image = imagerotate($image, -90, 0);
+                    imageflip($image, IMG_FLIP_HORIZONTAL);
+                    break;
+                case 6: // Rotate 90 (CW) — มือถือถ่ายแนวตั้งมักเป็น case นี้
+                    $image = imagerotate($image, -90, 0);
+                    break;
+                case 7: // Rotate 90 + flip horizontal
+                    $image = imagerotate($image, 90, 0);
+                    imageflip($image, IMG_FLIP_HORIZONTAL);
+                    break;
+                case 8: // Rotate 270 (CCW)
+                    $image = imagerotate($image, 90, 0);
+                    break;
+            }
+
+            // Output JPEG to buffer
+            ob_start();
+            imagejpeg($image, null, 90);
+            $rotatedData = ob_get_clean();
+            imagedestroy($image);
+
+            return $rotatedData;
+        } catch (\Exception $e) {
+            Log::warning('Failed to fix image orientation', ['error' => $e->getMessage()]);
+            return file_get_contents($filePath);
+        }
     }
 
     /**
