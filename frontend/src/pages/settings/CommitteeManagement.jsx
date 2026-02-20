@@ -33,7 +33,9 @@ const CommitteeManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
-  const [activeLevel, setActiveLevel] = useState('group'); // 'group' หรือ 'district'
+  // category_admin / data_entry จัดการเฉพาะระดับเขต
+  const isCategoryRole = ['category_admin', 'data_entry'].includes(user?.role);
+  const [activeLevel, setActiveLevel] = useState(isCategoryRole ? 'district' : 'group');
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [expandedCategories, setExpandedCategories] = useState({}); // สำหรับ accordion
   const [filters, setFilters] = useState({
@@ -41,11 +43,11 @@ const CommitteeManagement = () => {
     is_active: '',
     competition_id: '',
     search: '',
-    level: 'group',
+    level: isCategoryRole ? 'district' : 'group',
   });
 
   // ทุก Role เห็นทั้งหมด แต่ school_admin ดูได้อย่างเดียว
-  const canSeeDistrictLevel = user?.role === 'district_admin' || user?.role === 'admin';
+  const canSeeDistrictLevel = ['admin', 'district_admin', 'category_admin', 'data_entry'].includes(user?.role);
   const isReadOnly = user?.role === 'school_admin'; // school_admin ดูได้อย่างเดียว
   const canAddMember = !isReadOnly && ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'].includes(user?.role);
   const canEditMember = !isReadOnly;
@@ -350,26 +352,28 @@ const CommitteeManagement = () => {
 
       {/* Level Tabs */}
       <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setActiveLevel('group')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-            activeLevel === 'group'
-              ? 'bg-blue-600 text-white shadow-lg'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-blue-50'
-          }`}
-        >
-          <Building2 className="w-5 h-5" />
-          ระดับกลุ่ม
-          {statistics?.by_level?.group !== undefined && (
-            <span className={`px-2 py-0.5 rounded-full text-xs ${
-              activeLevel === 'group' ? 'bg-blue-500' : 'bg-blue-100 text-blue-600'
-            }`}>
-              {statistics.by_level.group || 0}
-            </span>
-          )}
-        </button>
+        {!isCategoryRole && (
+          <button
+            onClick={() => setActiveLevel('group')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+              activeLevel === 'group'
+                ? 'bg-blue-600 text-white shadow-lg'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-blue-50'
+            }`}
+          >
+            <Building2 className="w-5 h-5" />
+            ระดับกลุ่ม
+            {statistics?.by_level?.group !== undefined && (
+              <span className={`px-2 py-0.5 rounded-full text-xs ${
+                activeLevel === 'group' ? 'bg-blue-500' : 'bg-blue-100 text-blue-600'
+              }`}>
+                {statistics.by_level.group || 0}
+              </span>
+            )}
+          </button>
+        )}
 
-        {canSeeDistrictLevel && (
+        {(canSeeDistrictLevel || isCategoryRole) && (
           <button
             onClick={() => setActiveLevel('district')}
             className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${

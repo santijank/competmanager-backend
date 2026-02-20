@@ -36,8 +36,10 @@ class CommitteeMemberController extends Controller
             });
         }
 
-        // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดของตัวเอง
+        // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดตัวเอง + ระดับเขตเท่านั้น
         if (in_array($user->role, ['category_admin', 'data_entry'])) {
+            $query->where('committee_members.level', 'district');
+
             $allowedCompIds = DB::table('competitions')
                 ->where('is_active', true);
             $user->applyCategoryScopeFilter($allowedCompIds, 'competitions.name', 'competitions.category_id');
@@ -132,6 +134,11 @@ class CommitteeMemberController extends Controller
             $validated['level'] = 'group'; // Group admin และ School admin เพิ่มได้เฉพาะระดับกลุ่ม
         }
 
+        // category_admin / data_entry เพิ่มได้เฉพาะระดับเขต
+        if (in_array($user->role, ['category_admin', 'data_entry'])) {
+            $validated['level'] = 'district';
+        }
+
         // category_admin / data_entry ตรวจว่า competition อยู่ในหมวดตัวเอง
         if (in_array($user->role, ['category_admin', 'data_entry']) && !empty($validated['competition_id'])) {
             $competition = DB::table('competitions')->find($validated['competition_id']);
@@ -187,6 +194,11 @@ class CommitteeMemberController extends Controller
         if (in_array($user->role, ['group_admin', 'school_admin'])) {
             $schoolGroupId = $user->school_group_id;
             $level = 'group';
+        }
+
+        // category_admin / data_entry เพิ่มได้เฉพาะระดับเขต
+        if (in_array($user->role, ['category_admin', 'data_entry'])) {
+            $level = 'district';
         }
 
         // category_admin / data_entry ตรวจว่า competition อยู่ในหมวดตัวเอง
@@ -539,8 +551,10 @@ class CommitteeMemberController extends Controller
                 });
             }
 
-            // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดตัวเอง
+            // category_admin / data_entry เห็นเฉพาะหมวดตัวเอง + ระดับเขตเท่านั้น
             if (in_array($user->role, ['category_admin', 'data_entry'])) {
+                $query->where('committee_members.level', 'district');
+
                 $allowedCompIds = DB::table('competitions')
                     ->where('is_active', true);
                 $user->applyCategoryScopeFilter($allowedCompIds, 'competitions.name', 'competitions.category_id');
