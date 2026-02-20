@@ -329,7 +329,7 @@ export default function Sidebar({ isOpen, onClose }) {
       label: 'คณะทำงาน',
       icon: Users,
       path: '/settings/committee',
-      roles: ['admin', 'district_admin', 'group_admin', 'school_admin', 'category_admin'],
+      roles: ['admin', 'district_admin', 'group_admin', 'school_admin', 'category_admin', 'data_entry'],
     },
   ];
 

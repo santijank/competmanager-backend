@@ -36,6 +36,19 @@ class CommitteeMemberController extends Controller
             });
         }
 
+        // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดของตัวเอง
+        if (in_array($user->role, ['category_admin', 'data_entry'])) {
+            $allowedCompIds = DB::table('competitions')
+                ->where('is_active', true);
+            $user->applyCategoryScopeFilter($allowedCompIds, 'competitions.name', 'competitions.category_id');
+            $allowedIds = $allowedCompIds->pluck('id');
+
+            $query->where(function($q) use ($allowedIds) {
+                $q->whereIn('committee_members.competition_id', $allowedIds)
+                  ->orWhereNull('committee_members.competition_id');
+            });
+        }
+
         // Apply filters
         if ($request->filled('member_type')) {
             $query->where('member_type', $request->member_type);
@@ -119,6 +132,14 @@ class CommitteeMemberController extends Controller
             $validated['level'] = 'group'; // Group admin และ School admin เพิ่มได้เฉพาะระดับกลุ่ม
         }
 
+        // category_admin / data_entry ตรวจว่า competition อยู่ในหมวดตัวเอง
+        if (in_array($user->role, ['category_admin', 'data_entry']) && !empty($validated['competition_id'])) {
+            $competition = DB::table('competitions')->find($validated['competition_id']);
+            if ($competition && !$user->canAccessCompetition($competition)) {
+                return response()->json(['success' => false, 'message' => 'คุณไม่มีสิทธิ์เพิ่มคณะทำงานในกิจกรรมนี้'], 403);
+            }
+        }
+
         $validated['created_by'] = $user->id;
 
         $member = CommitteeMember::create($validated);
@@ -166,6 +187,14 @@ class CommitteeMemberController extends Controller
         if (in_array($user->role, ['group_admin', 'school_admin'])) {
             $schoolGroupId = $user->school_group_id;
             $level = 'group';
+        }
+
+        // category_admin / data_entry ตรวจว่า competition อยู่ในหมวดตัวเอง
+        if (in_array($user->role, ['category_admin', 'data_entry']) && !empty($validated['competition_id'])) {
+            $competition = DB::table('competitions')->find($validated['competition_id']);
+            if ($competition && !$user->canAccessCompetition($competition)) {
+                return response()->json(['success' => false, 'message' => 'คุณไม่มีสิทธิ์เพิ่มคณะทำงานในกิจกรรมนี้'], 403);
+            }
         }
 
         $created = [];
@@ -231,6 +260,14 @@ class CommitteeMemberController extends Controller
             ], 403);
         }
 
+        // Permission check for category_admin / data_entry
+        if (in_array($user->role, ['category_admin', 'data_entry']) && $member->competition_id) {
+            $competition = DB::table('competitions')->find($member->competition_id);
+            if ($competition && !$user->canAccessCompetition($competition)) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+            }
+        }
+
         return response()->json([
             'success' => true,
             'data' => $member
@@ -252,6 +289,14 @@ class CommitteeMemberController extends Controller
                 'success' => false,
                 'message' => 'Unauthorized access'
             ], 403);
+        }
+
+        // Permission check for category_admin / data_entry
+        if (in_array($user->role, ['category_admin', 'data_entry']) && $member->competition_id) {
+            $competition = DB::table('competitions')->find($member->competition_id);
+            if ($competition && !$user->canAccessCompetition($competition)) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+            }
         }
 
         $validated = $request->validate([
@@ -301,8 +346,8 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        // School admin ไม่มีสิทธิ์ลบ
-        if ($user->role === 'school_admin') {
+        // school_admin / data_entry ไม่มีสิทธิ์ลบ
+        if (in_array($user->role, ['school_admin', 'data_entry'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'คุณไม่มีสิทธิ์ลบคณะทำงาน'
@@ -317,6 +362,14 @@ class CommitteeMemberController extends Controller
                 'success' => false,
                 'message' => 'Unauthorized access'
             ], 403);
+        }
+
+        // Permission check for category_admin
+        if ($user->role === 'category_admin' && $member->competition_id) {
+            $competition = DB::table('competitions')->find($member->competition_id);
+            if ($competition && !$user->canAccessCompetition($competition)) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+            }
         }
 
         $memberName = $member->name;
@@ -358,6 +411,11 @@ class CommitteeMemberController extends Controller
             )
             ->distinct();
 
+        // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดของตัวเอง
+        if (in_array($user->role, ['category_admin', 'data_entry'])) {
+            $user->applyCategoryScopeFilter($query, 'competitions.name', 'competitions.category_id');
+        }
+
         $competitions = $query->orderBy('categories.name')
             ->orderBy('competitions.code')
             ->get()
@@ -390,7 +448,7 @@ class CommitteeMemberController extends Controller
         $user = Auth::user();
 
         // ตรวจสอบสิทธิ์
-        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'school_admin'])) {
+        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'school_admin', 'category_admin', 'data_entry'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'คุณไม่มีสิทธิ์ดาวน์โหลดเอกสารนี้'
@@ -413,6 +471,14 @@ class CommitteeMemberController extends Controller
                 'success' => false,
                 'message' => 'ไม่พบการแข่งขัน'
             ], 404);
+        }
+
+        // category_admin / data_entry ตรวจว่า competition อยู่ในหมวดตัวเอง
+        if (in_array($user->role, ['category_admin', 'data_entry']) && !$user->canAccessCompetition($competition)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'คุณไม่มีสิทธิ์เข้าถึงการแข่งขันนี้'
+            ], 403);
         }
 
         // Group admin และ School admin สามารถดูได้เฉพาะกลุ่มตัวเอง
@@ -471,6 +537,19 @@ class CommitteeMemberController extends Controller
                 });
             }
 
+            // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดตัวเอง
+            if (in_array($user->role, ['category_admin', 'data_entry'])) {
+                $allowedCompIds = DB::table('competitions')
+                    ->where('is_active', true);
+                $user->applyCategoryScopeFilter($allowedCompIds, 'competitions.name', 'competitions.category_id');
+                $allowedIds = $allowedCompIds->pluck('id');
+
+                $query->where(function($q) use ($allowedIds) {
+                    $q->whereIn('committee_members.competition_id', $allowedIds)
+                      ->orWhereNull('committee_members.competition_id');
+                });
+            }
+
             // Filter by level if specified
             if ($request->filled('level')) {
                 $query->where('level', $request->level);
@@ -509,7 +588,7 @@ class CommitteeMemberController extends Controller
     {
         $user = Auth::user();
 
-        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin'])) {
+        if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'คุณไม่มีสิทธิ์ดาวน์โหลดเอกสารนี้'

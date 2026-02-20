@@ -47,9 +47,9 @@ const CommitteeManagement = () => {
   // ทุก Role เห็นทั้งหมด แต่ school_admin ดูได้อย่างเดียว
   const canSeeDistrictLevel = user?.role === 'district_admin' || user?.role === 'admin';
   const isReadOnly = user?.role === 'school_admin'; // school_admin ดูได้อย่างเดียว
-  const canAddMember = !isReadOnly && ['admin', 'district_admin', 'group_admin'].includes(user?.role);
+  const canAddMember = !isReadOnly && ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'].includes(user?.role);
   const canEditMember = !isReadOnly;
-  const canDeleteMember = ['admin', 'district_admin', 'group_admin'].includes(user?.role); // School admin ไม่มีสิทธิ์ลบ
+  const canDeleteMember = ['admin', 'district_admin', 'group_admin', 'category_admin'].includes(user?.role); // data_entry + school_admin ไม่มีสิทธิ์ลบ
 
   useEffect(() => {
     loadData();
