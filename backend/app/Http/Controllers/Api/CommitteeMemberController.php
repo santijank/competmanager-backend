@@ -419,12 +419,32 @@ class CommitteeMemberController extends Controller
                 'competitions.competition_level',
                 'categories.id as category_id',
                 'categories.name as category_name'
-            )
-            ->distinct();
+            );
 
         // category_admin / data_entry เห็นเฉพาะกิจกรรมในหมวดของตัวเอง (ทุก competition_level)
         if (in_array($user->role, ['category_admin', 'data_entry'])) {
-            $user->applyCategoryScopeFilter($query, 'competitions.name', 'competitions.category_id');
+            $categoryIds = $user->getCategoryIdsForScope();
+            Log::info("getAllCompetitions category filter", [
+                'user_id' => $user->id,
+                'role' => $user->role,
+                'category_id' => $user->category_id,
+                'competition_name_filter' => $user->competition_name_filter,
+                'categoryIds' => $categoryIds,
+            ]);
+
+            if (!empty($categoryIds)) {
+                $query->whereIn('competitions.category_id', $categoryIds);
+            }
+
+            if ($user->competition_name_filter) {
+                $filter = $user->competition_name_filter;
+                if (str_starts_with($filter, '!')) {
+                    $keyword = substr($filter, 1);
+                    $query->where('competitions.name', 'NOT LIKE', "%{$keyword}%");
+                } else {
+                    $query->where('competitions.name', 'LIKE', "%{$filter}%");
+                }
+            }
         } else {
             // role อื่นเห็นเฉพาะกิจกรรมระดับเขต (district) เหมือนเดิม
             $query->where('competitions.competition_level', 'district');
@@ -446,6 +466,8 @@ class CommitteeMemberController extends Controller
                     ],
                 ];
             });
+
+        Log::info("getAllCompetitions result count: " . $competitions->count());
 
         return response()->json([
             'success' => true,
