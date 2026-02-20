@@ -13,7 +13,6 @@ import {
   XCircle,
   Building2,
   MapPin,
-  FileText,
   Download,
   ChevronDown,
   ChevronRight,
@@ -140,33 +139,6 @@ const CommitteeManagement = () => {
 
   const handleSuccess = () => {
     loadData();
-  };
-
-  // ดาวน์โหลด PDF สำหรับกรรมการเซ็นชื่อ
-  const handleDownloadPdf = async (competitionId, competitionName) => {
-    try {
-      toast.info('กำลังสร้าง PDF...');
-
-      const response = await api.get(`/committee-members/signin-pdf/${competitionId}`, {
-        responseType: 'blob'
-      });
-
-      // สร้าง URL สำหรับดาวน์โหลด
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `committee_signin_${competitionId}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success('ดาวน์โหลด PDF สำเร็จ');
-    } catch (error) {
-      console.error('Download PDF error:', error);
-      toast.error('ไม่สามารถดาวน์โหลด PDF ได้');
-    }
   };
 
   // ดาวน์โหลด PDF สำหรับคณะกรรมการดำเนินงาน (ทั้งหมดในกลุ่ม)
@@ -624,18 +596,6 @@ const CommitteeManagement = () => {
                               {compData.members.length} คน
                             </span>
                           </div>
-                          {compData.competition && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleDownloadPdf(compData.competition.id, compData.competition.name)}
-                                className="flex items-center gap-1 px-2 py-1 text-red-600 hover:bg-red-50 rounded text-sm"
-                                title="ดาวน์โหลดใบลงทะเบียนกรรมการ"
-                              >
-                                <FileText className="w-4 h-4" />
-                                <span className="hidden sm:inline">กรรมการ</span>
-                              </button>
-                            </div>
-                          )}
                         </div>
 
                         {/* Members Table */}
