@@ -114,8 +114,12 @@ const RegistrationManagement = () => {
 
   useEffect(() => {
     loadData();
-    loadCompetitionsWithApprovedRegistrations();
   }, [filters, activeLevel, selectedGroupId]);
+
+  // โหลดรายการกิจกรรมสำหรับออกเอกสาร (ระดับเขตเสมอ) — โหลดครั้งเดียว
+  useEffect(() => {
+    loadCompetitionsWithApprovedRegistrations();
+  }, []);
 
   // Click-outside เพื่อปิด dropdown ออกเอกสารทุกหมวด
   useEffect(() => {
@@ -214,17 +218,8 @@ const RegistrationManagement = () => {
 
   const loadCompetitionsWithApprovedRegistrations = async () => {
     try {
-      const params = { paginate: false };
-
-      if (isDistrictAdmin() || isGroupAdmin()) {
-        params.competition_level = activeLevel;
-      }
-      if (isCategoryScoped) {
-        params.competition_level = 'district';
-      }
-      if (isDistrictAdmin() && activeLevel === 'group' && selectedGroupId !== 'all') {
-        params.school_group_id = selectedGroupId;
-      }
+      // สำหรับออกเอกสาร — ดึงเฉพาะกิจกรรมระดับเขต (district) เสมอ
+      const params = { paginate: false, competition_level: 'district' };
 
       const regResponse = await api.get('/registrations', { params });
 
