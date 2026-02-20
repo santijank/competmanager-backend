@@ -113,7 +113,8 @@ const IdCardPage = () => {
       toast.success('อัพโหลดรูปสำเร็จ');
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('อัพโหลดรูปไม่สำเร็จ');
+      const errMsg = error.response?.data?.message || error.response?.data?.errors?.photo?.[0] || 'อัพโหลดรูปไม่สำเร็จ';
+      toast.error(errMsg);
     } finally {
       setUploading((prev) => ({ ...prev, [key]: false }));
     }

@@ -57,11 +57,15 @@ class IdCardController extends Controller
         $validator = Validator::make($request->all(), [
             'person_type' => 'required|in:student,teacher',
             'person_index' => 'required|integer|min:0',
-            'photo' => 'required|image|mimes:jpeg,png,jpg|max:512',
+            'photo' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        ], [
+            'photo.max' => 'รูปภาพต้องมีขนาดไม่เกิน 2 MB',
+            'photo.image' => 'ไฟล์ต้องเป็นรูปภาพเท่านั้น',
+            'photo.mimes' => 'รองรับเฉพาะไฟล์ jpeg, png, jpg',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            return response()->json(['success' => false, 'message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
         }
 
         try {
