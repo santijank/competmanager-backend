@@ -20,6 +20,7 @@ class AnnouncementController extends Controller
             $query = DB::table('announcements as a')
                 ->leftJoin('school_groups as sg', 'a.school_group_id', '=', 'sg.id')
                 ->leftJoin('competitions as c', 'a.competition_id', '=', 'c.id')
+                ->leftJoin('categories as cat', 'a.category_id', '=', 'cat.id')
                 ->select([
                     'a.id',
                     'a.title',
@@ -27,6 +28,7 @@ class AnnouncementController extends Controller
                     'a.type',
                     'a.scope',
                     'a.school_group_id',
+                    'a.category_id',
                     'a.priority',
                     'a.is_pinned',
                     'a.published_at',
@@ -36,6 +38,7 @@ class AnnouncementController extends Controller
                     'a.image_url',
                     'sg.name as school_group_name',
                     'c.name as competition_name',
+                    'cat.name as category_name',
                     'a.created_at'
                 ])
                 ->where('a.published_at', '<=', now())
@@ -79,6 +82,7 @@ class AnnouncementController extends Controller
                 ->leftJoin('school_groups as sg', 'a.school_group_id', '=', 'sg.id')
                 ->leftJoin('competitions as c', 'a.competition_id', '=', 'c.id')
                 ->leftJoin('users as u', 'a.created_by', '=', 'u.id')
+                ->leftJoin('categories as cat', 'a.category_id', '=', 'cat.id')
                 ->select([
                     'a.id',
                     'a.title',
@@ -86,6 +90,7 @@ class AnnouncementController extends Controller
                     'a.type',
                     'a.scope',
                     'a.school_group_id',
+                    'a.category_id',
                     'a.priority',
                     'a.is_pinned',
                     'a.published_at',
@@ -96,15 +101,16 @@ class AnnouncementController extends Controller
                     'a.created_by',
                     'sg.name as school_group_name',
                     'c.name as competition_name',
+                    'cat.name as category_name',
                     'u.name as created_by_name',
                     'a.created_at'
                 ]);
 
             // กรองตาม role
-            // category_admin / data_entry เห็นเฉพาะประกาศที่ตัวเองสร้าง + ประกาศระดับเขต
+            // category_admin / data_entry เห็นเฉพาะประกาศของหมวดหมู่ตัวเอง + ที่ตัวเองสร้าง
             if (in_array($user->role, ['category_admin', 'data_entry'])) {
                 $query->where(function($q) use ($user) {
-                    $q->where('a.scope', 'district')
+                    $q->where('a.category_id', $user->category_id)
                       ->orWhere('a.created_by', $user->id);
                 });
             } elseif ($user->role === 'group_admin') {
@@ -196,10 +202,11 @@ class AnnouncementController extends Controller
                 $sendToAllGroups = false; // Group admin ไม่สามารถส่งทุกกลุ่ม
             }
 
-            // Category Admin / Data Entry สร้างประกาศระดับเขต (ครอบคลุมทุกกลุ่ม)
+            // Category Admin / Data Entry สร้างประกาศระดับเขต + ผูก category_id
             if (in_array($user->role, ['category_admin', 'data_entry'])) {
                 $data['scope'] = 'district';
                 $data['school_group_id'] = null;
+                $data['category_id'] = $user->category_id;
                 $sendToAllGroups = false;
             }
 

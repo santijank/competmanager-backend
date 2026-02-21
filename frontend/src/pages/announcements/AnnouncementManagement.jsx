@@ -136,6 +136,28 @@ const AnnouncementManagement = () => {
   );
 };
 
+const CATEGORY_COLORS = [
+  { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' },
+  { bg: 'bg-sky-100', text: 'text-sky-800', border: 'border-sky-300' },
+  { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' },
+  { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' },
+  { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-300' },
+  { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300' },
+  { bg: 'bg-teal-100', text: 'text-teal-800', border: 'border-teal-300' },
+  { bg: 'bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-300' },
+  { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300' },
+  { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-300' },
+  { bg: 'bg-lime-100', text: 'text-lime-800', border: 'border-lime-300' },
+  { bg: 'bg-fuchsia-100', text: 'text-fuchsia-800', border: 'border-fuchsia-300' },
+  { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300' },
+  { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300' },
+];
+
+const getCategoryColor = (categoryId) => {
+  if (!categoryId) return null;
+  return CATEGORY_COLORS[(categoryId - 1) % CATEGORY_COLORS.length];
+};
+
 const AnnouncementCard = ({ announcement, onEdit, onDelete, onTogglePin, userRole }) => {
   const priorityColors = {
     normal: 'bg-blue-100 text-blue-800',
@@ -182,6 +204,14 @@ const AnnouncementCard = ({ announcement, onEdit, onDelete, onTogglePin, userRol
             <span className="px-2 py-1 rounded text-xs bg-indigo-100 text-indigo-800">
               {scopeLabels[announcement.scope]}
             </span>
+            {announcement.category_name && (() => {
+              const catColor = getCategoryColor(announcement.category_id);
+              return (
+                <span className={`px-2 py-1 rounded text-xs font-semibold border ${catColor?.bg || 'bg-gray-100'} ${catColor?.text || 'text-gray-800'} ${catColor?.border || 'border-gray-300'}`}>
+                  {announcement.category_name}
+                </span>
+              );
+            })()}
             {announcement.school_group_name && (
               <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
                 {announcement.school_group_name}
