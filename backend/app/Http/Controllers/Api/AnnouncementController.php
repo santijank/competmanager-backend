@@ -101,7 +101,13 @@ class AnnouncementController extends Controller
                 ]);
 
             // กรองตาม role
-            if ($user->role === 'group_admin') {
+            // category_admin / data_entry เห็นเฉพาะประกาศที่ตัวเองสร้าง + ประกาศระดับเขต
+            if (in_array($user->role, ['category_admin', 'data_entry'])) {
+                $query->where(function($q) use ($user) {
+                    $q->where('a.scope', 'district')
+                      ->orWhere('a.created_by', $user->id);
+                });
+            } elseif ($user->role === 'group_admin') {
                 // Group admin เห็นเฉพาะประกาศของกลุ่มตัวเอง + ประกาศระดับเขต
                 $query->where(function($q) use ($user) {
                     $q->where('a.scope', 'district')
@@ -145,7 +151,7 @@ class AnnouncementController extends Controller
             $user = $request->user();
 
             // ตรวจสอบสิทธิ์
-            if (!in_array($user->role, ['district_admin', 'admin', 'group_admin'])) {
+            if (!in_array($user->role, ['district_admin', 'admin', 'group_admin', 'category_admin', 'data_entry'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'คุณไม่มีสิทธิ์สร้างประกาศ'
@@ -188,6 +194,13 @@ class AnnouncementController extends Controller
                 $data['school_group_id'] = $user->school_group_id;
                 $data['scope'] = 'group';
                 $sendToAllGroups = false; // Group admin ไม่สามารถส่งทุกกลุ่ม
+            }
+
+            // Category Admin / Data Entry สร้างประกาศระดับเขต (ครอบคลุมทุกกลุ่ม)
+            if (in_array($user->role, ['category_admin', 'data_entry'])) {
+                $data['scope'] = 'district';
+                $data['school_group_id'] = null;
+                $sendToAllGroups = false;
             }
 
             // ถ้าเป็น district scope ให้ล้าง school_group_id
@@ -282,7 +295,7 @@ class AnnouncementController extends Controller
             }
 
             // ตรวจสอบสิทธิ์ในการเข้าถึง
-            if (!in_array($user->role, ['district_admin', 'admin'])) {
+            if (!in_array($user->role, ['district_admin', 'admin', 'category_admin', 'data_entry'])) {
                 if ($announcement->school_group_id && $announcement->school_group_id !== $user->school_group_id) {
                     return response()->json([
                         'success' => false,
@@ -327,6 +340,14 @@ class AnnouncementController extends Controller
                         return response()->json([
                             'success' => false,
                             'message' => 'คุณไม่มีสิทธิ์แก้ไขประกาศนี้'
+                        ], 403);
+                    }
+                } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                    // แก้ไขได้เฉพาะประกาศที่ตัวเองสร้าง
+                    if ($announcement->created_by !== $user->id) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'คุณแก้ไขได้เฉพาะประกาศที่ตัวเองสร้าง'
                         ], 403);
                     }
                 } else {
@@ -445,7 +466,16 @@ class AnnouncementController extends Controller
                             'message' => 'คุณไม่มีสิทธิ์ลบประกาศนี้'
                         ], 403);
                     }
+                } elseif ($user->role === 'category_admin') {
+                    // Category admin ลบได้เฉพาะประกาศที่ตัวเองสร้าง
+                    if ($announcement->created_by !== $user->id) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'คุณลบได้เฉพาะประกาศที่ตัวเองสร้าง'
+                        ], 403);
+                    }
                 } else {
+                    // data_entry และ role อื่นลบไม่ได้
                     return response()->json([
                         'success' => false,
                         'message' => 'คุณไม่มีสิทธิ์ลบประกาศ'
@@ -493,6 +523,13 @@ class AnnouncementController extends Controller
                         return response()->json([
                             'success' => false,
                             'message' => 'คุณไม่มีสิทธิ์แก้ไขประกาศนี้'
+                        ], 403);
+                    }
+                } elseif (in_array($user->role, ['category_admin', 'data_entry'])) {
+                    if ($announcement->created_by !== $user->id) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'คุณแก้ไขได้เฉพาะประกาศที่ตัวเองสร้าง'
                         ], 403);
                     }
                 } else {

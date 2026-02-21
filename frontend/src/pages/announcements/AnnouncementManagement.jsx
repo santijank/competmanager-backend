@@ -8,9 +8,14 @@ const AnnouncementManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     fetchAnnouncements();
+    api.get('/auth/me').then(res => {
+      const u = res.data?.data || res.data;
+      setUserRole(u?.role);
+    }).catch(() => {});
   }, []);
 
   const fetchAnnouncements = async () => {
@@ -104,6 +109,7 @@ const AnnouncementManagement = () => {
           <AnnouncementCard
             key={announcement.id}
             announcement={announcement}
+            userRole={userRole}
             onEdit={(id) => {
               setEditingId(id);
               setShowForm(true);
@@ -130,7 +136,7 @@ const AnnouncementManagement = () => {
   );
 };
 
-const AnnouncementCard = ({ announcement, onEdit, onDelete, onTogglePin }) => {
+const AnnouncementCard = ({ announcement, onEdit, onDelete, onTogglePin, userRole }) => {
   const priorityColors = {
     normal: 'bg-blue-100 text-blue-800',
     high: 'bg-orange-100 text-orange-800',
@@ -263,12 +269,14 @@ const AnnouncementCard = ({ announcement, onEdit, onDelete, onTogglePin }) => {
           >
             <Edit className="w-5 h-5" />
           </button>
-          <button
-            onClick={() => onDelete(announcement.id)}
-            className="p-2 text-red-600 hover:bg-red-50 rounded"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          {userRole !== 'data_entry' && (
+            <button
+              onClick={() => onDelete(announcement.id)}
+              className="p-2 text-red-600 hover:bg-red-50 rounded"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -317,6 +325,15 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
           ...prev,
           scope: 'group',
           school_group_id: user.school_group_id || ''
+        }));
+      }
+
+      // Category Admin / Data Entry → ตั้งค่า scope=district อัตโนมัติ
+      if (['category_admin', 'data_entry'].includes(user.role) && !announcementId) {
+        setFormData(prev => ({
+          ...prev,
+          scope: 'district',
+          school_group_id: ''
         }));
       }
     } catch (error) {
@@ -439,6 +456,7 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
   };
 
   const isGroupAdmin = currentUser?.role === 'group_admin';
+  const isCategoryOrDataEntry = ['category_admin', 'data_entry'].includes(currentUser?.role);
 
   // ตรวจสอบว่าเป็น Google Drive link หรือไม่
   const isGoogleDriveLink = (url) => {
@@ -578,7 +596,7 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
                   value={formData.scope}
                   onChange={(e) => setFormData({ ...formData, scope: e.target.value, school_group_id: '' })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  disabled={isGroupAdmin}
+                  disabled={isGroupAdmin || isCategoryOrDataEntry}
                 >
                   <option value="district">ระดับเขต</option>
                   <option value="group">ระดับกลุ่ม</option>
@@ -586,6 +604,11 @@ const AnnouncementForm = ({ announcementId, onClose, onSuccess }) => {
                 {isGroupAdmin && (
                   <p className="text-xs text-blue-600 mt-1">
                     📌 คุณสร้างประกาศได้เฉพาะกลุ่มของคุณเท่านั้น
+                  </p>
+                )}
+                {isCategoryOrDataEntry && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    📌 ประกาศจะแสดงในระดับเขตอัตโนมัติ
                   </p>
                 )}
               </div>

@@ -277,12 +277,12 @@ export default function Sidebar({ isOpen, onClose }) {
     });
 
     // ===== จัดการประกาศ =====
-    if (hasRole(['admin', 'district_admin', 'group_admin'])) {
+    if (hasRole(['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
       items.push({
         label: 'จัดการประกาศ',
         icon: Megaphone,
         path: '/announcements',
-        roles: ['admin', 'district_admin', 'group_admin'],
+        roles: ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'],
       });
     }
 
