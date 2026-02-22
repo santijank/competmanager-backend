@@ -1033,8 +1033,7 @@ class RegistrationController extends Controller
                 'teacher_id' => $groupReg->teacher_id,
                 'status' => 'approved',
                 'notes' => 'ส่งเข้าระดับเขตโดย admin (จากลงทะเบียนกลุ่ม #' . $groupReg->id . ')',
-                'registered_at' => now(),
-                'registered_by' => $user->id,
+                'registration_date' => now()->toDateString(),
                 'approved_at' => now(),
                 'approved_by' => $user->id,
             ]);
