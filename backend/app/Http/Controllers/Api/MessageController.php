@@ -406,7 +406,7 @@ class MessageController extends Controller
 
         $users = $query->with('school:id,name')
             ->orderBy('name')
-            ->limit(50)
+            ->limit(500)
             ->get()
             ->map(fn($u) => [
                 'id' => $u->id,

@@ -14,62 +14,72 @@ const roleLabels = {
   judge: 'กรรมการตัดสิน',
 };
 
+const rolePriority = {
+  admin: 0,
+  district_admin: 1,
+  category_admin: 2,
+  data_entry: 3,
+  group_admin: 4,
+  school_admin: 5,
+  teacher: 6,
+  committee: 7,
+  judge: 8,
+};
+
 export default function UserSearchSelect({ selectedUsers, onSelect, onRemove, multiple = false }) {
   const [search, setSearch] = useState('');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const wrapperRef = useRef(null);
-  const debounceRef = useRef(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterRole, setFilterRole] = useState('all');
 
+  // โหลด user ทั้งหมดตอน mount
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (!search.trim()) {
-      setResults([]);
-      return;
-    }
-
-    debounceRef.current = setTimeout(async () => {
+    const fetchAllUsers = async () => {
       setLoading(true);
       try {
-        const res = await api.get('/messages/users/search', { params: { q: search } });
+        const res = await api.get('/messages/users/search', { params: { q: '' } });
         const data = res.data?.data || [];
-        // Filter out already selected
-        const selectedIds = selectedUsers.map(u => u.id);
-        setResults(data.filter(u => !selectedIds.includes(u.id)));
-        setShowDropdown(true);
+        // เรียงตาม role priority แล้วตามชื่อ
+        data.sort((a, b) => {
+          const rp = (rolePriority[a.role] ?? 99) - (rolePriority[b.role] ?? 99);
+          if (rp !== 0) return rp;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+        setAllUsers(data);
       } catch {
-        setResults([]);
+        setAllUsers([]);
       } finally {
         setLoading(false);
       }
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [search, selectedUsers]);
+    fetchAllUsers();
+  }, []);
+
+  // กรองตาม search + role + selected
+  const selectedIds = selectedUsers.map(u => u.id);
+  const filtered = allUsers.filter(u => {
+    if (selectedIds.includes(u.id)) return false;
+    if (filterRole !== 'all' && u.role !== filterRole) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.school_name?.toLowerCase().includes(q)
+    );
+  });
+
+  // หา roles ที่มีใน user list (สำหรับ filter tabs)
+  const availableRoles = [...new Set(allUsers.map(u => u.role))].sort(
+    (a, b) => (rolePriority[a] ?? 99) - (rolePriority[b] ?? 99)
+  );
 
   const handleSelect = (user) => {
     onSelect(user);
-    setSearch('');
-    setResults([]);
-    setShowDropdown(false);
   };
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div>
       {/* Selected users */}
       {selectedUsers.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -91,34 +101,68 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove, mu
       )}
 
       {/* Search input */}
-      <div className="relative">
+      <div className="relative mb-2">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onFocus={() => search.trim() && results.length > 0 && setShowDropdown(true)}
-          placeholder="ค้นหาชื่อหรืออีเมล..."
+          placeholder="ค้นหาชื่อ, อีเมล, โรงเรียน..."
           className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
         />
-        {loading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-          </div>
-        )}
       </div>
 
-      {/* Dropdown results */}
-      {showDropdown && results.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-          {results.map((user) => (
+      {/* Role filter tabs */}
+      <div className="flex flex-wrap gap-1 mb-2">
+        <button
+          onClick={() => setFilterRole('all')}
+          className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
+            filterRole === 'all'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          ทั้งหมด ({allUsers.filter(u => !selectedIds.includes(u.id)).length})
+        </button>
+        {availableRoles.map(role => {
+          const count = allUsers.filter(u => u.role === role && !selectedIds.includes(u.id)).length;
+          if (count === 0) return null;
+          return (
+            <button
+              key={role}
+              onClick={() => setFilterRole(role)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition ${
+                filterRole === role
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {roleLabels[role] || role} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* User list */}
+      <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+            <span className="ml-2 text-sm text-gray-500">กำลังโหลดรายชื่อ...</span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-4 text-center text-sm text-gray-500">
+            ไม่พบผู้ใช้
+          </div>
+        ) : (
+          filtered.map((user) => (
             <button
               key={user.id}
               onClick={() => handleSelect(user)}
-              className="w-full text-left px-4 py-2.5 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
+              className="w-full text-left px-3 py-2 hover:bg-blue-50 flex items-center gap-3 border-b border-gray-50 last:border-0 transition"
             >
-              <div className="bg-gray-200 rounded-full p-1.5">
-                <User className="w-4 h-4 text-gray-600" />
+              <div className="bg-gray-200 rounded-full p-1.5 shrink-0">
+                <User className="w-3.5 h-3.5 text-gray-600" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-sm text-gray-800 truncate">{user.name}</div>
@@ -128,13 +172,12 @@ export default function UserSearchSelect({ selectedUsers, onSelect, onRemove, mu
                 </div>
               </div>
             </button>
-          ))}
-        </div>
-      )}
-
-      {showDropdown && search.trim() && results.length === 0 && !loading && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-sm text-gray-500">
-          ไม่พบผู้ใช้
+          ))
+        )}
+      </div>
+      {!loading && (
+        <div className="text-xs text-gray-400 mt-1 text-right">
+          แสดง {filtered.length} จาก {allUsers.length} คน
         </div>
       )}
     </div>
