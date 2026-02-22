@@ -976,6 +976,86 @@ class RegistrationController extends Controller
     }
 
     /**
+     * ✅ ส่งทีมเข้าระดับเขต (สำหรับ admin ใหญ่เท่านั้น)
+     * สร้างลงทะเบียนเขตจากข้อมูลลงทะเบียนกลุ่ม
+     */
+    public function promoteToDistrict(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            // เฉพาะ admin เท่านั้น
+            if ($user->role !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'เฉพาะ admin ใหญ่เท่านั้น'
+                ], 403);
+            }
+
+            $validated = $request->validate([
+                'group_registration_id' => 'required|integer|exists:registrations,id',
+                'district_competition_id' => 'required|integer|exists:competitions,id',
+            ]);
+
+            $groupReg = Registration::with(['school', 'competition'])->findOrFail($validated['group_registration_id']);
+            $districtComp = Competition::findOrFail($validated['district_competition_id']);
+
+            // เช็คว่า district competition เป็น district + skip_group_level
+            if ($districtComp->competition_level !== 'district') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'กิจกรรมปลายทางต้องเป็นระดับเขต'
+                ], 422);
+            }
+
+            // เช็คว่าซ้ำหรือไม่
+            $existing = Registration::where('competition_id', $districtComp->id)
+                ->where('school_id', $groupReg->school_id)
+                ->where('status', '!=', 'cancelled')
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'โรงเรียนนี้สมัครระดับเขตกิจกรรมนี้แล้ว (ID: ' . $existing->id . ')'
+                ], 422);
+            }
+
+            // สร้างลงทะเบียนเขตใหม่จากข้อมูลกลุ่ม
+            $newReg = Registration::create([
+                'competition_id' => $districtComp->id,
+                'school_id' => $groupReg->school_id,
+                'team_name' => $groupReg->team_name,
+                'student_names' => $groupReg->student_names,
+                'student_count' => $groupReg->student_count,
+                'teacher_names' => $groupReg->teacher_names,
+                'teacher_count' => $groupReg->teacher_count,
+                'teacher_id' => $groupReg->teacher_id,
+                'status' => 'approved',
+                'notes' => 'ส่งเข้าระดับเขตโดย admin (จากลงทะเบียนกลุ่ม #' . $groupReg->id . ')',
+                'registered_at' => now(),
+                'registered_by' => $user->id,
+                'approved_at' => now(),
+                'approved_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "ส่ง \"{$groupReg->team_name}\" ({$groupReg->school->name}) เข้าระดับเขตสำเร็จ",
+                'data' => $newReg->load(['competition', 'school']),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Promote to district error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * ✅ Delete registration
      * Permissions: Group Admin (own group), District Admin, Admin
      */

@@ -124,6 +124,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('registrations/reset', [RegistrationController::class, 'reset']);
     Route::post('registrations/bulk-approve', [RegistrationController::class, 'bulkApprove']);
     Route::get('registrations/check-missed-district', [RegistrationController::class, 'checkMissedDistrict']);
+    Route::post('registrations/promote-to-district', [RegistrationController::class, 'promoteToDistrict']);
     Route::apiResource('registrations', RegistrationController::class);
     Route::post('registrations/{id}/approve', [RegistrationController::class, 'approve']);
     Route::post('registrations/{id}/reject', [RegistrationController::class, 'reject']);
