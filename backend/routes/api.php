@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\IssueController;
 use App\Http\Controllers\Api\SystemSettingController;
 use App\Http\Controllers\Api\IdCardController;
+use App\Http\Controllers\Api\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -157,6 +158,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Announcements
     Route::apiResource('announcements', AnnouncementController::class);
     Route::post('announcements/{id}/toggle-pin', [AnnouncementController::class, 'togglePin']);
+
+    // Messages - ระบบส่งข้อความ
+    Route::prefix('messages')->group(function () {
+        Route::get('/conversations', [MessageController::class, 'index']);
+        Route::post('/conversations', [MessageController::class, 'store']);
+        Route::get('/conversations/broadcast', [MessageController::class, 'getBroadcast']);
+        Route::get('/conversations/{id}', [MessageController::class, 'show']);
+        Route::post('/conversations/{id}/messages', [MessageController::class, 'sendMessage']);
+        Route::post('/conversations/{id}/read', [MessageController::class, 'markAsRead']);
+        Route::get('/unread-count', [MessageController::class, 'unreadCount']);
+        Route::get('/users/search', [MessageController::class, 'searchUsers']);
+    });
 
     // Issues / Tickets - ระบบแจ้งปัญหา
     Route::prefix('issues')->group(function () {

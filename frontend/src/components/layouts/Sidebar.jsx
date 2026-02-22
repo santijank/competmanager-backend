@@ -21,15 +21,24 @@ import {
   ClipboardList,
   CalendarCheck,
   MessageCircle,
+  MessageSquare,
   SkipForward,
   CreditCard,
+  FileWarning,
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
 import OnlineUsersIndicator from '@/components/common/OnlineUsersIndicator';
+import useMessageStore from '@/stores/messageStore';
 
 export default function Sidebar({ isOpen, onClose }) {
   const { user, hasRole, logout } = useAuthStore();
+  const { unreadCount, subscribe, unsubscribe } = useMessageStore();
+
+  useEffect(() => {
+    subscribe();
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     onClose();
@@ -83,6 +92,12 @@ export default function Sidebar({ isOpen, onClose }) {
           label: 'ข้ามระดับกลุ่ม',
           icon: SkipForward,
           path: '/competitions/skip-group',
+          roles: ['admin', 'district_admin'],
+        },
+        {
+          label: 'ตรวจสอบทีมตกหล่น',
+          icon: FileWarning,
+          path: '/registrations/check-missed',
           roles: ['admin', 'district_admin'],
         },
         {
@@ -286,6 +301,14 @@ export default function Sidebar({ isOpen, onClose }) {
       });
     }
 
+    // ===== ข้อความ (ทุก Role) =====
+    items.push({
+      label: 'ข้อความ',
+      icon: MessageSquare,
+      path: '/messages',
+      badge: true,
+    });
+
     // ===== แจ้งปัญหา (ทุก Role) =====
     items.push({
       label: 'แจ้งปัญหา',
@@ -346,7 +369,7 @@ export default function Sidebar({ isOpen, onClose }) {
   ];
 
   const renderMenuItem = (item, index) => {
-    if (!hasRole(item.roles)) return null;
+    if (item.roles && !hasRole(item.roles)) return null;
 
     return (
       <NavLink
@@ -361,7 +384,12 @@ export default function Sidebar({ isOpen, onClose }) {
         }
       >
         <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate flex-1">{item.label}</span>
+        {item.badge && unreadCount > 0 && (
+          <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </NavLink>
     );
   };

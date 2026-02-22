@@ -7,6 +7,7 @@ import PublicDashboard from '@/pages/PublicDashboard';
 import PublicDashboardNew from '@/pages/PublicDashboardNew';
 import PublicResults from '@/pages/public/PublicResults';
 import PublicDistrictRegistrations from '@/pages/public/PublicDistrictRegistrations';
+import PublicSchoolActivities from '@/pages/public/PublicSchoolActivities';
 import AnnouncementManagement from '@/pages/announcements/AnnouncementManagement';
 import IssueList from '@/pages/issues/IssueList';
 import IssueDetail from '@/pages/issues/IssueDetail';
@@ -79,6 +80,8 @@ import ActivityLogs from '@/pages/admin/ActivityLogs';
 import CompetitionExclusionManager from '@/pages/admin/CompetitionExclusionManager';
 import GroupExclusionView from '@/pages/admin/GroupExclusionView';
 import SkipGroupLevelManager from '@/pages/admin/SkipGroupLevelManager';
+import MissedDistrictCheck from '@/pages/admin/MissedDistrictCheck';
+import MessagesPage from '@/pages/messages/MessagesPage';
 
 // School Pages
 import SchoolSchedules from '@/pages/school/SchoolSchedules';
@@ -118,6 +121,7 @@ function App() {
           <Route path="/" element={<PublicDashboard />} />
           <Route path="/public-dashboard" element={<PublicDashboard />} />
           <Route path="/public-district" element={<PublicDistrictRegistrations />} />
+          <Route path="/public-schools" element={<PublicSchoolActivities />} />
         </Route>
 
         {/* NEW Public Dashboard - Modern Design (ทดลอง) */}
@@ -140,6 +144,7 @@ function App() {
             {/* Dashboard */}
             <Route path="/dashboard" element={<DashboardHome />} />
            <Route path="/announcements" element={<AnnouncementManagement />} />
+           <Route path="/messages" element={<MessagesPage />} />
            <Route path="/issues" element={<IssueList />} />
            <Route path="/issues/:id" element={<IssueDetail />} />
 
@@ -170,6 +175,7 @@ function App() {
             <Route path="/competitions/exclusions" element={<CompetitionExclusionManager />} />
             <Route path="/competitions/group-view" element={<GroupExclusionView />} />
             <Route path="/competitions/skip-group" element={<SkipGroupLevelManager />} />
+            <Route path="/registrations/check-missed" element={<MissedDistrictCheck />} />
 
             {/* Registration Routes - New System */}
             {/* Teacher Routes */}
