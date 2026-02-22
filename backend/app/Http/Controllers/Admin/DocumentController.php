@@ -823,23 +823,22 @@ class DocumentController extends Controller
 
             Log::info("DocumentController: Generating category overview PDF - START");
 
-            // ดึงหมวดหมู่ที่มีกิจกรรม ระดับเขต + active ที่มี approved registrations
+            // ดึงหมวดหมู่ที่มีกิจกรรม active + มี approved registrations (ทั้ง group + district)
             $categories = Category::whereHas('competitions', function ($q) {
-                $q->where('competition_level', 'district')
-                  ->where('is_active', true)
+                $q->where('is_active', true)
                   ->whereHas('registrations', function ($r) {
                     $r->where('status', 'approved');
                 });
             })
             ->with(['competitions' => function ($q) {
-                $q->where('competition_level', 'district')
-                  ->where('is_active', true)
+                $q->where('is_active', true)
                   ->whereHas('registrations', function ($r) {
                     $r->where('status', 'approved');
                 })
                 ->withCount(['registrations as approved_registrations_count' => function ($r) {
                     $r->where('status', 'approved');
                 }])
+                ->orderBy('competition_level')
                 ->orderBy('level')
                 ->orderBy('name');
             }])
@@ -852,44 +851,69 @@ class DocumentController extends Controller
                 return response()->json(['message' => 'ไม่พบหมวดหมู่ที่มีการลงทะเบียนอนุมัติแล้ว'], 404);
             }
 
-            // สร้าง data สำหรับแต่ละหมวดหมู่
+            // สร้าง data แยกระดับกลุ่ม / ระดับเขต
             $categoryData = [];
-            $grandTotalCompetitions = 0;
-            $grandTotalTeams = 0;
+            $grandGroupComps = 0;
+            $grandGroupTeams = 0;
+            $grandDistrictComps = 0;
+            $grandDistrictTeams = 0;
 
             foreach ($categories as $category) {
-                // District competitions ไม่ซ้ำกัน — ใช้ตรงๆ ได้เลย
-                $competitions = [];
-                $teamCount = 0;
+                $groupComps = [];
+                $groupTeams = 0;
+                $districtComps = [];
+                $districtTeams = 0;
+
                 foreach ($category->competitions as $comp) {
                     $count = (int) ($comp->approved_registrations_count ?? 0);
-                    $competitions[] = [
+                    $item = [
                         'name' => $comp->name ?? '-',
                         'level' => $comp->level ?? '-',
                         'team_count' => $count,
                     ];
-                    $teamCount += $count;
+
+                    if ($comp->competition_level === 'group') {
+                        // group-level: group by name+level เพื่อรวมจากหลายกลุ่มโรงเรียน
+                        $key = ($comp->name ?? '-') . '|' . ($comp->level ?? '-');
+                        if (!isset($groupComps[$key])) {
+                            $groupComps[$key] = $item;
+                        } else {
+                            $groupComps[$key]['team_count'] += $count;
+                        }
+                        $groupTeams += $count;
+                    } else {
+                        $districtComps[] = $item;
+                        $districtTeams += $count;
+                    }
                 }
-                $competitionCount = count($competitions);
+
+                $groupCompsList = array_values($groupComps);
 
                 $categoryData[] = [
                     'name' => $category->name ?? '-',
-                    'competition_count' => $competitionCount,
-                    'team_count' => $teamCount,
-                    'competitions' => $competitions,
+                    'group_competitions' => $groupCompsList,
+                    'group_competition_count' => count($groupCompsList),
+                    'group_team_count' => $groupTeams,
+                    'district_competitions' => $districtComps,
+                    'district_competition_count' => count($districtComps),
+                    'district_team_count' => $districtTeams,
                 ];
 
-                $grandTotalCompetitions += $competitionCount;
-                $grandTotalTeams += $teamCount;
+                $grandGroupComps += count($groupCompsList);
+                $grandGroupTeams += $groupTeams;
+                $grandDistrictComps += count($districtComps);
+                $grandDistrictTeams += $districtTeams;
             }
 
-            Log::info("DocumentController: Data prepared - {$grandTotalCompetitions} competitions, {$grandTotalTeams} teams");
+            Log::info("DocumentController: Data prepared - Group: {$grandGroupComps} comps/{$grandGroupTeams} teams, District: {$grandDistrictComps} comps/{$grandDistrictTeams} teams");
 
             $data = [
                 'categories' => $categoryData,
-                'grand_total_competitions' => $grandTotalCompetitions,
-                'grand_total_teams' => $grandTotalTeams,
                 'total_categories' => count($categoryData),
+                'grand_group_competitions' => $grandGroupComps,
+                'grand_group_teams' => $grandGroupTeams,
+                'grand_district_competitions' => $grandDistrictComps,
+                'grand_district_teams' => $grandDistrictTeams,
                 'generated_at' => now()->format('d/m/Y H:i'),
             ];
 
