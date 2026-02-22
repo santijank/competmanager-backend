@@ -985,10 +985,10 @@ class RegistrationController extends Controller
             $user = $request->user();
 
             // เฉพาะ admin เท่านั้น
-            if ($user->role !== 'admin') {
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'เฉพาะ admin ใหญ่เท่านั้น'
+                    'message' => 'เฉพาะ admin / district_admin เท่านั้น'
                 ], 403);
             }
 
