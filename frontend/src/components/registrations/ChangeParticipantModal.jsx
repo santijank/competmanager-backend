@@ -4,16 +4,20 @@ import {
   X,
   UserMinus,
   UserPlus,
-  AlertTriangle,
   CheckCircle,
   Info,
+  Users,
+  GraduationCap,
 } from 'lucide-react';
 import api from '@/lib/api';
 
 /**
- * Modal เปลี่ยนตัวผู้เข้าแข่งขัน (ระดับเขต)
+ * Modal เปลี่ยนตัวผู้เข้าแข่งขัน + ครูผู้ฝึกสอน (ระดับเขต)
+ * - นักเรียน: มีโควตาตามเกณฑ์
+ * - ครู: เปลี่ยนได้ไม่จำกัด
  */
 const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) => {
+  const [activeTab, setActiveTab] = useState('student'); // 'student' | 'teacher'
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [newName, setNewName] = useState('');
   const [reason, setReason] = useState('');
@@ -25,13 +29,17 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
     ? registration.student_names
     : [];
 
-  // คำนวณโควตา
+  const teachers = Array.isArray(registration.teacher_names)
+    ? registration.teacher_names
+    : [];
+
+  // คำนวณโควตานักเรียน
   const studentCount = students.length;
-  const maxChanges = registration.max_changes_allowed ?? calculateMaxChanges(studentCount);
+  const hasBeenInitialized = registration.original_student_names && registration.original_student_names.length > 0;
+  const maxChanges = hasBeenInitialized ? (registration.max_changes_allowed || 0) : calculateMaxChanges(studentCount);
   const changeCount = registration.change_count ?? 0;
   const remaining = Math.max(0, maxChanges - changeCount);
 
-  // Original names สำหรับเทียบ
   const originalNames = Array.isArray(registration.original_student_names)
     ? registration.original_student_names
     : [];
@@ -45,28 +53,41 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
     return 5;
   }
 
-  const getStudentName = (student) => {
-    return typeof student === 'string' ? student : (student?.name || '-');
+  const getName = (person) => {
+    return typeof person === 'string' ? person : (person?.name || '-');
   };
 
-  const isChanged = (student, index) => {
+  const isStudentChanged = (student, index) => {
     if (!originalNames.length) return false;
-    const origName = getStudentName(originalNames[index]);
-    const currName = getStudentName(student);
+    const origName = getName(originalNames[index]);
+    const currName = getName(student);
     return origName !== currName;
   };
 
+  const resetForm = () => {
+    setSelectedIndex(null);
+    setNewName('');
+    setReason('');
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    resetForm();
+  };
+
+  const currentList = activeTab === 'student' ? students : teachers;
+
   const handleSubmit = async () => {
     if (selectedIndex === null) {
-      toast.warning('กรุณาเลือกผู้เข้าแข่งขันที่ต้องการเปลี่ยนตัว');
+      toast.warning(`กรุณาเลือก${activeTab === 'student' ? 'ผู้เข้าแข่งขัน' : 'ครูผู้ฝึกสอน'}ที่ต้องการเปลี่ยน`);
       return;
     }
     if (!newName.trim()) {
-      toast.warning('กรุณาใส่ชื่อผู้เข้าแข่งขันคนใหม่');
+      toast.warning('กรุณาใส่ชื่อใหม่');
       return;
     }
 
-    const oldName = getStudentName(students[selectedIndex]);
+    const oldName = getName(currentList[selectedIndex]);
 
     try {
       setSubmitting(true);
@@ -74,6 +95,7 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
         old_name: oldName,
         new_name: newName.trim(),
         reason: reason.trim() || null,
+        change_type: activeTab,
       });
 
       if (response.data.success) {
@@ -81,11 +103,11 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
         onSuccess?.();
         onClose();
       } else {
-        toast.error(response.data.message || 'ไม่สามารถเปลี่ยนตัวได้');
+        toast.error(response.data.message || 'ไม่สามารถเปลี่ยนได้');
       }
     } catch (error) {
-      console.error('Change participant error:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการเปลี่ยนตัว');
+      console.error('Change error:', error);
+      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +122,7 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
             <div className="flex items-center space-x-3">
               <UserMinus className="w-6 h-6" />
               <div>
-                <h2 className="text-lg font-bold">เปลี่ยนตัวผู้เข้าแข่งขัน</h2>
+                <h2 className="text-lg font-bold">เปลี่ยนตัว</h2>
                 <p className="text-orange-100 text-sm">{registration.competition?.name}</p>
               </div>
             </div>
@@ -110,81 +132,129 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
           </div>
         </div>
 
-        {/* โควตาเปลี่ยนตัว */}
-        <div className={`mx-5 mt-4 p-4 rounded-xl border-2 ${
-          remaining > 0
-            ? 'bg-blue-50 border-blue-200'
-            : 'bg-red-50 border-red-200'
-        }`}>
-          <div className="flex items-center space-x-2 mb-2">
-            <Info className={`w-5 h-5 ${remaining > 0 ? 'text-blue-600' : 'text-red-600'}`} />
-            <span className={`font-bold ${remaining > 0 ? 'text-blue-800' : 'text-red-800'}`}>
-              โควตาเปลี่ยนตัว
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">
-              ผู้เข้าแข่งขัน {studentCount} คน เปลี่ยนได้สูงสุด {maxChanges} คน
-            </span>
-          </div>
-          <div className="mt-2 flex items-center space-x-3">
-            <div className="flex-1 bg-gray-200 rounded-full h-3">
-              <div
-                className={`h-3 rounded-full transition-all ${
-                  remaining > 0 ? 'bg-blue-500' : 'bg-red-500'
-                }`}
-                style={{ width: `${maxChanges > 0 ? (changeCount / maxChanges) * 100 : 100}%` }}
-              />
-            </div>
-            <span className={`text-sm font-bold ${remaining > 0 ? 'text-blue-700' : 'text-red-700'}`}>
-              {changeCount}/{maxChanges}
-            </span>
-          </div>
-          {remaining > 0 ? (
-            <p className="text-sm text-blue-600 mt-1">เปลี่ยนได้อีก {remaining} คน</p>
-          ) : (
-            <p className="text-sm text-red-600 mt-1 font-bold">เปลี่ยนครบโควตาแล้ว</p>
-          )}
+        {/* Tab: นักเรียน / ครู */}
+        <div className="grid grid-cols-2 gap-2 mx-5 mt-4">
+          <button
+            onClick={() => handleTabChange('student')}
+            className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-xl text-sm font-bold transition-all border-2 ${
+              activeTab === 'student'
+                ? 'bg-orange-600 text-white border-orange-600 shadow-md'
+                : 'bg-orange-50 text-orange-700 border-orange-300 hover:bg-orange-100'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>นักเรียน ({students.length})</span>
+          </button>
+          <button
+            onClick={() => handleTabChange('teacher')}
+            className={`flex items-center justify-center space-x-2 px-4 py-3 rounded-xl text-sm font-bold transition-all border-2 ${
+              activeTab === 'teacher'
+                ? 'bg-teal-600 text-white border-teal-600 shadow-md'
+                : 'bg-teal-50 text-teal-700 border-teal-300 hover:bg-teal-100'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>ครูผู้ฝึกสอน ({teachers.length})</span>
+          </button>
         </div>
 
-        {remaining <= 0 ? (
-          <div className="p-5 text-center">
-            <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-            <p className="text-gray-600">ไม่สามารถเปลี่ยนตัวได้อีก เนื่องจากใช้โควตาครบแล้ว</p>
-            <button
-              onClick={onClose}
-              className="mt-4 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-            >
-              ปิด
-            </button>
+        {/* โควตา (เฉพาะ tab นักเรียน) */}
+        {activeTab === 'student' && (
+          <div className={`mx-5 mt-4 p-4 rounded-xl border-2 ${
+            remaining > 0
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-red-50 border-red-200'
+          }`}>
+            <div className="flex items-center space-x-2 mb-2">
+              <Info className={`w-5 h-5 ${remaining > 0 ? 'text-blue-600' : 'text-red-600'}`} />
+              <span className={`font-bold ${remaining > 0 ? 'text-blue-800' : 'text-red-800'}`}>
+                โควตาเปลี่ยนตัวนักเรียน
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              ผู้เข้าแข่งขัน {studentCount} คน เปลี่ยนได้สูงสุด {maxChanges} คน
+            </div>
+            <div className="mt-2 flex items-center space-x-3">
+              <div className="flex-1 bg-gray-200 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all ${
+                    remaining > 0 ? 'bg-blue-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${maxChanges > 0 ? (changeCount / maxChanges) * 100 : 100}%` }}
+                />
+              </div>
+              <span className={`text-sm font-bold ${remaining > 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                {changeCount}/{maxChanges}
+              </span>
+            </div>
+            {remaining > 0 ? (
+              <p className="text-sm text-blue-600 mt-1">เปลี่ยนได้อีก {remaining} คน</p>
+            ) : (
+              <p className="text-sm text-red-600 mt-1 font-bold">เปลี่ยนครบโควตาแล้ว</p>
+            )}
+          </div>
+        )}
+
+        {/* ข้อความสำหรับ tab ครู */}
+        {activeTab === 'teacher' && (
+          <div className="mx-5 mt-4 p-4 rounded-xl border-2 bg-teal-50 border-teal-200">
+            <div className="flex items-center space-x-2">
+              <Info className="w-5 h-5 text-teal-600" />
+              <span className="font-bold text-teal-800">เปลี่ยนครูผู้ฝึกสอน</span>
+            </div>
+            <p className="text-sm text-teal-700 mt-1">สามารถเปลี่ยนได้ไม่จำกัดจำนวน</p>
+          </div>
+        )}
+
+        {/* ถ้าเป็นนักเรียนและโควตาหมด */}
+        {activeTab === 'student' && remaining <= 0 ? (
+          <div className="p-5 text-center text-gray-500">
+            <p>ไม่สามารถเปลี่ยนตัวนักเรียนได้อีก</p>
+            <p className="text-sm mt-1">ลองเปลี่ยนครูผู้ฝึกสอนแทนได้</p>
+          </div>
+        ) : currentList.length === 0 ? (
+          <div className="p-5 text-center text-gray-500">
+            <p>ไม่มีรายชื่อ{activeTab === 'student' ? 'นักเรียน' : 'ครูผู้ฝึกสอน'}</p>
           </div>
         ) : (
           <>
-            {/* รายชื่อผู้เข้าแข่งขัน */}
+            {/* รายชื่อ */}
             <div className="p-5">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">เลือกผู้เข้าแข่งขันที่ต้องการเปลี่ยนตัว:</h3>
+              <h3 className="text-sm font-bold text-gray-700 mb-3">
+                เลือก{activeTab === 'student' ? 'นักเรียน' : 'ครูผู้ฝึกสอน'}ที่ต้องการเปลี่ยน:
+              </h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {students.map((student, index) => {
-                  const name = getStudentName(student);
-                  const changed = isChanged(student, index);
+                {currentList.map((person, index) => {
+                  const name = getName(person);
+                  const changed = activeTab === 'student' ? isStudentChanged(person, index) : false;
+                  const accentColor = activeTab === 'student' ? 'orange' : 'teal';
                   return (
                     <button
                       key={index}
                       onClick={() => setSelectedIndex(index)}
                       className={`w-full flex items-center justify-between p-3 rounded-xl border-2 text-left transition-all ${
                         selectedIndex === index
-                          ? 'border-orange-500 bg-orange-50'
+                          ? `border-${accentColor}-500 bg-${accentColor}-50`
                           : changed
                             ? 'border-green-300 bg-green-50 hover:border-green-400'
                             : 'border-gray-200 bg-white hover:border-gray-300'
                       }`}
+                      style={selectedIndex === index ? {
+                        borderColor: activeTab === 'student' ? '#f97316' : '#14b8a6',
+                        backgroundColor: activeTab === 'student' ? '#fff7ed' : '#f0fdfa',
+                      } : {}}
                     >
                       <div className="flex items-center space-x-3">
-                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                          selectedIndex === index
-                            ? 'bg-orange-500 text-white'
-                            : 'bg-gray-200 text-gray-700'
-                        }`}>
+                        <span
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                          style={selectedIndex === index ? {
+                            backgroundColor: activeTab === 'student' ? '#f97316' : '#14b8a6',
+                            color: 'white',
+                          } : {
+                            backgroundColor: '#e5e7eb',
+                            color: '#374151',
+                          }}
+                        >
                           {index + 1}
                         </span>
                         <span className="text-sm font-medium text-gray-900">{name}</span>
@@ -203,22 +273,28 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
             {/* ฟอร์มใส่ชื่อใหม่ */}
             {selectedIndex !== null && (
               <div className="px-5 pb-5 space-y-3">
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-                  <p className="text-sm text-orange-800">
-                    <span className="font-bold">เปลี่ยนจาก:</span> {getStudentName(students[selectedIndex])}
+                <div
+                  className="border rounded-xl p-3"
+                  style={{
+                    backgroundColor: activeTab === 'student' ? '#fff7ed' : '#f0fdfa',
+                    borderColor: activeTab === 'student' ? '#fed7aa' : '#99f6e4',
+                  }}
+                >
+                  <p className="text-sm" style={{ color: activeTab === 'student' ? '#9a3412' : '#134e4a' }}>
+                    <span className="font-bold">เปลี่ยนจาก:</span> {getName(currentList[selectedIndex])}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">
                     <UserPlus className="w-4 h-4 inline mr-1" />
-                    ชื่อผู้เข้าแข่งขันคนใหม่ *
+                    ชื่อ{activeTab === 'student' ? 'นักเรียน' : 'ครูผู้ฝึกสอน'}คนใหม่ *
                   </label>
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="เช่น ด.ช.สมชาย ใจดี"
+                    placeholder={activeTab === 'student' ? 'เช่น ด.ช.สมชาย ใจดี' : 'เช่น นายสมศักดิ์ รักเรียน'}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                   />
                 </div>
@@ -231,7 +307,7 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
                     type="text"
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="เช่น ป่วย, ติดธุระ"
+                    placeholder="เช่น ป่วย, ติดธุระ, ย้ายโรงเรียน"
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                   />
                 </div>
@@ -249,14 +325,17 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
               <button
                 onClick={handleSubmit}
                 disabled={submitting || selectedIndex === null || !newName.trim()}
-                className="flex items-center space-x-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center space-x-2 px-5 py-2.5 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: activeTab === 'student' ? '#ea580c' : '#0d9488',
+                }}
               >
                 {submitting ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <CheckCircle className="w-4 h-4" />
                 )}
-                <span>ยืนยันเปลี่ยนตัว</span>
+                <span>ยืนยันเปลี่ยน{activeTab === 'student' ? 'ตัว' : 'ครู'}</span>
               </button>
             </div>
           </>

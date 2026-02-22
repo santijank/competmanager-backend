@@ -664,6 +664,7 @@ class RegistrationController extends Controller
                 'old_name' => 'required|string',
                 'new_name' => 'required|string|max:255',
                 'reason' => 'nullable|string|max:500',
+                'change_type' => 'sometimes|string|in:student,teacher',
             ]);
 
             if ($validator->fails()) {
@@ -673,6 +674,55 @@ class RegistrationController extends Controller
                     'errors' => $validator->errors()
                 ], 422);
             }
+
+            $changeType = $request->input('change_type', 'student');
+            $oldName = $request->old_name;
+            $newName = $request->new_name;
+
+            if ($changeType === 'teacher') {
+                // ===== เปลี่ยนครูผู้ฝึกสอน (ไม่จำกัดโควตา) =====
+                $teacherNames = $registration->teacher_names ?? [];
+                $found = false;
+
+                foreach ($teacherNames as $index => $teacher) {
+                    $name = is_array($teacher) ? ($teacher['name'] ?? '') : $teacher;
+                    if ($name === $oldName) {
+                        if (is_array($teacher)) {
+                            $teacherNames[$index]['name'] = $newName;
+                        } else {
+                            $teacherNames[$index] = $newName;
+                        }
+                        $found = true;
+                        break;
+                    }
+                }
+
+                if (!$found) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "ไม่พบชื่อ \"{$oldName}\" ในรายชื่อครูผู้ฝึกสอน"
+                    ], 422);
+                }
+
+                $registration->teacher_names = $teacherNames;
+                $registration->save();
+
+                Log::info('Teacher changed', [
+                    'registration_id' => $id,
+                    'old_name' => $oldName,
+                    'new_name' => $newName,
+                    'reason' => $request->reason,
+                    'changed_by' => $user->id,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "เปลี่ยนครูสำเร็จ: \"{$oldName}\" → \"{$newName}\"",
+                    'data' => $registration->fresh()->load(['competition', 'school'])
+                ]);
+            }
+
+            // ===== เปลี่ยนนักเรียน (มีโควตา) =====
 
             // ตั้ง original_student_names ครั้งแรก (ถ้ายังไม่มี)
             if (empty($registration->original_student_names)) {
@@ -692,14 +742,11 @@ class RegistrationController extends Controller
 
             // หาชื่อเดิมใน student_names
             $studentNames = $registration->student_names ?? [];
-            $oldName = $request->old_name;
-            $newName = $request->new_name;
             $found = false;
 
             foreach ($studentNames as $index => $student) {
                 $name = is_array($student) ? ($student['name'] ?? '') : $student;
                 if ($name === $oldName) {
-                    // แทนที่ชื่อ
                     if (is_array($student)) {
                         $studentNames[$index]['name'] = $newName;
                     } else {
