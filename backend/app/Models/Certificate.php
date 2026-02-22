@@ -12,17 +12,23 @@ class Certificate extends Model
 
     protected $fillable = [
         'certificate_code',
+        'score_id',
         'result_id',
         'competition_id',
         'template_id',
         'student_name',
         'school_name',
         'competition_name',
+        'category_name',
+        'teacher_names',
         'level',
         'rank',
         'medal',
+        'score',
         'judges',
         'committee',
+        'signed_by',
+        'signer_position',
         'issue_date',
         'generated_by',
         'generated_at',
@@ -32,75 +38,38 @@ class Certificate extends Model
     protected $casts = [
         'judges' => 'array',
         'committee' => 'array',
+        'teacher_names' => 'array',
+        'score' => 'decimal:2',
         'issue_date' => 'date',
         'generated_at' => 'datetime',
     ];
 
-    /**
-     * Get the result that owns the certificate
-     */
-    public function result(): BelongsTo
+    public function scoreRecord(): BelongsTo
     {
-        return $this->belongsTo(Result::class);
+        return $this->belongsTo(Score::class, 'score_id');
     }
 
-    /**
-     * Get the competition
-     */
     public function competition(): BelongsTo
     {
         return $this->belongsTo(Competition::class);
     }
 
-    /**
-     * Get the template
-     */
-    public function template(): BelongsTo
-    {
-        return $this->belongsTo(CertificateTemplate::class, 'template_id');
-    }
-
-    /**
-     * Get the user who generated the certificate
-     */
     public function generator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'generated_by');
     }
 
-    /**
-     * Get the full PDF URL
-     */
-    public function getPdfUrlAttribute(): ?string
-    {
-        return $this->pdf_path ? asset('storage/' . $this->pdf_path) : null;
-    }
-
-    /**
-     * Check if certificate has been generated
-     */
-    public function isGenerated(): bool
-    {
-        return !is_null($this->pdf_path);
-    }
-
-    /**
-     * Get medal label in Thai
-     */
     public function getMedalLabelAttribute(): string
     {
         return match($this->medal) {
             'gold' => 'เหรียญทอง',
             'silver' => 'เหรียญเงิน',
             'bronze' => 'เหรียญทองแดง',
-            'none' => 'ไม่มีเหรียญ',
-            default => $this->medal ?? 'ไม่มีเหรียญ',
+            'participant' => 'เข้าร่วม',
+            default => $this->medal ?? '-',
         };
     }
 
-    /**
-     * Get level label in Thai
-     */
     public function getLevelLabelAttribute(): string
     {
         return match($this->level) {
@@ -110,27 +79,23 @@ class Certificate extends Model
         };
     }
 
-    /**
-     * Scope: Only generated certificates
-     */
     public function scopeGenerated($query)
     {
         return $query->whereNotNull('pdf_path');
     }
 
-    /**
-     * Scope: Filter by competition
-     */
     public function scopeForCompetition($query, int $competitionId)
     {
         return $query->where('competition_id', $competitionId);
     }
 
-    /**
-     * Scope: Filter by level
-     */
     public function scopeForLevel($query, string $level)
     {
         return $query->where('level', $level);
+    }
+
+    public function scopeForMedal($query, string $medal)
+    {
+        return $query->where('medal', $medal);
     }
 }

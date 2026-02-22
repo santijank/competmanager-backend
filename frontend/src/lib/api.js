@@ -156,67 +156,46 @@ export const resultService = {
 };
 
 // ============================================
-// Certificate Services (✅ อัพเดตใหม่ครบถ้วน)
+// Certificate Services
 // ============================================
 
 export const certificateService = {
-  // Get all certificates
-  getAll: (params = {}) => {
-    return api.get('/certificates', { params });
+  getAll: (params = {}) => api.get('/certificates', { params }),
+  getEligible: (params = {}) => api.get('/certificates/eligible', { params }),
+  generate: (data) => api.post('/certificates/generate', data),
+  destroy: (id) => api.delete(`/certificates/${id}`),
+
+  download: async (id) => {
+    const response = await api.get(`/certificates/${id}/download`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `certificate_${id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 
-  // Get single certificate
-  getById: (id) => {
-    return api.get(`/certificates/${id}`);
+  batchDownload: async (ids) => {
+    const response = await api.get('/certificates/batch-download', {
+      params: { ids },
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `certificates_batch.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   },
 
-  // ✅ เพิ่มใหม่: Get eligible students for certificates (นักเรียนที่มีสิทธิ์ได้เกียรติบัตร)
-  getEligible: (params = {}) => {
-    return api.get('/certificates/eligible', { params });
-  },
-
-  // ✅ เพิ่มใหม่: Preview certificate
-  preview: (resultId, params = {}) => {
-    return api.get(`/certificates/results/${resultId}/preview`, { params });
-  },
-
-  // Generate certificate from result
-  generateFromResult: (resultId, data = {}) => {
-    return api.post(`/certificates/results/${resultId}/generate`, data);
-  },
-
-  // Regenerate PDF
-  generatePDF: (certificateId, data = {}) => {
-    return api.post(`/certificates/${certificateId}/generate-pdf`, data);
-  },
-
-  // Bulk generate certificates
-  bulkGenerate: (competitionId, data = {}) => {
-    return api.post(`/certificates/competitions/${competitionId}/bulk-generate`, data);
-  },
-
-  // Download certificate
-  download: async (certificateId) => {
-    try {
-      const response = await api.get(`/certificates/${certificateId}/download`, {
-        responseType: 'blob'
-      });
-      
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `certificate_${certificateId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      return response;
-    } catch (error) {
-      console.error('Download error:', error);
-      throw error;
-    }
+  previewUrl: (params) => {
+    const baseUrl = api.defaults.baseURL || '';
+    const qs = new URLSearchParams(params).toString();
+    return `${baseUrl}/certificates/preview?${qs}`;
   },
 };
 

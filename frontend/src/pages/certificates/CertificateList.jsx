@@ -1,528 +1,568 @@
-import { useState, useEffect } from 'react';
-import { Search, Award, Download, FileText, Filter, Eye, CheckSquare, Square, Loader } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Search, Award, Download, Eye, Trash2, Loader,
+  CheckSquare, Square, Filter, FileDown, ChevronDown,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
-import { certificateService, competitionService, certificateTemplateService } from '@/lib/api';
+import api, { certificateService, categoryService } from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
 
-export default function CertificateList() {
-  const { isAdmin, isCommittee, isDistrictAdmin } = useAuthStore();
-  const [certificates, setCertificates] = useState([]);
-  const [eligibleStudents, setEligibleStudents] = useState([]);
-  const [competitions, setCompetitions] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('generated');
-  
-  const [filterCompetition, setFilterCompetition] = useState('');
-  const [filterLevel, setFilterLevel] = useState('all');
-  const [filterMedal, setFilterMedal] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [bulkGenerating, setBulkGenerating] = useState(false);
+const medalLabels = {
+  gold: 'เหรียญทอง',
+  silver: 'เหรียญเงิน',
+  bronze: 'เหรียญทองแดง',
+  participant: 'เข้าร่วม',
+};
 
+const medalColors = {
+  gold: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  silver: 'bg-gray-100 text-gray-700 border-gray-300',
+  bronze: 'bg-orange-100 text-orange-800 border-orange-300',
+  participant: 'bg-blue-100 text-blue-800 border-blue-300',
+};
+
+export default function CertificateList() {
+  const { user } = useAuthStore();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState('eligible');
+
+  // Eligible tab state
+  const [eligible, setEligible] = useState([]);
+  const [eligibleSummary, setEligibleSummary] = useState({});
+  const [eligibleLoading, setEligibleLoading] = useState(false);
+  const [selectedScoreIds, setSelectedScoreIds] = useState([]);
+  const [generating, setGenerating] = useState(false);
+
+  // Generated tab state
+  const [certificates, setCertificates] = useState([]);
+  const [certSummary, setCertSummary] = useState({});
+  const [certMeta, setCertMeta] = useState({});
+  const [certLoading, setCertLoading] = useState(false);
+  const [selectedCertIds, setSelectedCertIds] = useState([]);
+
+  // Shared filters
+  const [categories, setCategories] = useState([]);
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterMedal, setFilterMedal] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Load categories
   useEffect(() => {
-    fetchData();
+    categoryService.getAll().then(res => {
+      setCategories(res.data?.data || []);
+    }).catch(() => {});
   }, []);
 
+  // Load eligible
+  const loadEligible = useCallback(async () => {
+    setEligibleLoading(true);
+    try {
+      const params = {};
+      if (filterCategory) params.category_id = filterCategory;
+      if (filterMedal) params.medal = filterMedal;
+      const res = await certificateService.getEligible(params);
+      setEligible(res.data?.data || []);
+      setEligibleSummary(res.data?.summary || {});
+    } catch {
+      toast.error('ไม่สามารถโหลดรายการได้');
+    } finally {
+      setEligibleLoading(false);
+    }
+  }, [filterCategory, filterMedal]);
+
+  // Load certificates
+  const loadCertificates = useCallback(async () => {
+    setCertLoading(true);
+    try {
+      const params = {};
+      if (filterCategory) params.category_id = filterCategory;
+      if (filterMedal) params.medal = filterMedal;
+      if (search) params.search = search;
+      const res = await certificateService.getAll(params);
+      setCertificates(res.data?.data || []);
+      setCertSummary(res.data?.summary || {});
+      setCertMeta(res.data?.meta || {});
+    } catch {
+      toast.error('ไม่สามารถโหลดเกียรติบัตรได้');
+    } finally {
+      setCertLoading(false);
+    }
+  }, [filterCategory, filterMedal, search]);
+
   useEffect(() => {
-    if (view === 'generated') {
-      fetchCertificates();
-    } else {
-      fetchEligibleStudents();
-    }
-  }, [view, filterCompetition, filterLevel, filterMedal]);
+    if (activeTab === 'eligible') loadEligible();
+    else loadCertificates();
+  }, [activeTab, loadEligible, loadCertificates]);
 
-  const fetchData = async () => {
-    try {
-      const [competitionsRes, templatesRes] = await Promise.all([
-        competitionService.getAll(),
-        certificateTemplateService.getAll()
-      ]);
-      setCompetitions(competitionsRes?.data?.data || []);
-      const templateList = templatesRes?.data?.data || [];
-      setTemplates(templateList);
-      setSelectedTemplate(templateList.find(t => t.code === 'default')?.id || templateList[0]?.id || '');
-    } catch (error) {
-      console.error('Fetch data error:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลได้');
-    }
-  };
-
-  const fetchCertificates = async () => {
-    try {
-      setLoading(true);
-      const params = {};
-      if (filterCompetition) params.competition_id = filterCompetition;
-      if (filterLevel !== 'all') params.level = filterLevel;
-      if (filterMedal !== 'all') params.medal = filterMedal;
-
-      const response = await certificateService.getAll(params);
-      setCertificates(response?.data?.data || []);
-    } catch (error) {
-      console.error('Fetch certificates error:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลเกียรติบัตรได้');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEligibleStudents = async () => {
-    try {
-      setLoading(true);
-      const params = {};
-      if (filterCompetition) params.competition_id = filterCompetition;
-      if (filterMedal !== 'all') params.medal = filterMedal;
-
-      const response = await certificateService.getEligible(params);
-      setEligibleStudents(response?.data?.data || []);
-    } catch (error) {
-      console.error('Fetch eligible error:', error);
-      toast.error('ไม่สามารถโหลดรายการนักเรียนได้');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownload = async (certificateId) => {
-    try {
-      await certificateService.download(certificateId);
-      toast.success('กำลังดาวน์โหลดเกียรติบัตร');
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('ไม่สามารถดาวน์โหลดเกียรติบัตรได้');
-    }
-  };
-
-  const handleGenerateSingle = async (resultId) => {
-    if (!selectedTemplate) {
-      toast.warning('กรุณาเลือกเทมเพลต');
-      return;
-    }
-
-    try {
-      await certificateService.generateFromResult(resultId, { template_id: selectedTemplate });
-      toast.success('สร้างเกียรติบัตรสำเร็จ');
-      fetchData();
-      setView('generated');
-    } catch (error) {
-      console.error('Generate error:', error);
-      toast.error('ไม่สามารถสร้างเกียรติบัตรได้');
-    }
-  };
-
-  const handleToggleSelect = (id) => {
-    setSelectedItems(prev => 
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedItems.length === filteredItems.length) {
-      setSelectedItems([]);
-    } else {
-      setSelectedItems(filteredItems.map(item => item.result_id || item.id));
-    }
-  };
-
-  const handleBulkGenerate = async () => {
-    if (selectedItems.length === 0) {
-      toast.warning('กรุณาเลือกรายการที่ต้องการสร้างเกียรติบัตร');
-      return;
-    }
-
-    if (!selectedTemplate) {
-      toast.warning('กรุณาเลือกเทมเพลต');
-      return;
-    }
-
-    if (!confirm(`ต้องการสร้างเกียรติบัตร ${selectedItems.length} รายการใช่หรือไม่?`)) {
-      return;
-    }
-
-    try {
-      setBulkGenerating(true);
-      
-      const competitionId = filterCompetition || competitions[0]?.id;
-      const response = await certificateService.bulkGenerate(competitionId, {
-        result_ids: selectedItems,
-        template_id: selectedTemplate,
-      });
-
-      if (response.data.success) {
-        const { created, failed } = response.data.data.summary;
-        
-        if (created > 0) {
-          toast.success(`สร้างเกียรติบัตรสำเร็จ ${created} รายการ`);
-        }
-        
-        if (failed > 0) {
-          toast.warning(`สร้างไม่สำเร็จ ${failed} รายการ`);
-        }
-
-        setSelectedItems([]);
-        fetchData();
-        setView('generated');
-      }
-    } catch (error) {
-      console.error('Bulk generate error:', error);
-      toast.error('เกิดข้อผิดพลาดในการสร้างเกียรติบัตร');
-    } finally {
-      setBulkGenerating(false);
-    }
-  };
-
-  const getMedalBadge = (medal) => {
-    const badges = {
-      gold: { text: 'ทอง', class: 'bg-yellow-100 text-yellow-800', icon: '🥇' },
-      silver: { text: 'เงิน', class: 'bg-gray-100 text-gray-800', icon: '🥈' },
-      bronze: { text: 'ทองแดง', class: 'bg-orange-100 text-orange-800', icon: '🥉' },
-    };
-    const badge = badges[medal];
-    if (!badge) return null;
-
+  // Filter eligible by search locally
+  const filteredEligible = eligible.filter(item => {
+    if (!search) return true;
+    const q = search.toLowerCase();
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badge.class}`}>
-        <span className="mr-1">{badge.icon}</span>
-        {badge.text}
-      </span>
+      item.competition_name?.toLowerCase().includes(q) ||
+      item.school_name?.toLowerCase().includes(q) ||
+      item.student_names?.some(n => n.toLowerCase().includes(q))
     );
-  };
-
-  const getLevelBadge = (level) => {
-    const badges = {
-      group: { text: 'กลุ่มโรงเรียน', class: 'badge-primary' },
-      district: { text: 'เขตพื้นที่', class: 'badge-success' },
-    };
-    const badge = badges[level] || { text: level, class: 'badge-gray' };
-    return <span className={`badge ${badge.class}`}>{badge.text}</span>;
-  };
-
-  const filteredItems = (view === 'generated' ? certificates : eligibleStudents).filter(item => {
-    const studentName = item?.student_name?.toLowerCase() || '';
-    const schoolName = item?.school_name?.toLowerCase() || '';
-    const certCode = item?.certificate_code?.toLowerCase() || '';
-    const search = searchTerm?.toLowerCase() || '';
-    
-    return studentName.includes(search) || 
-           schoolName.includes(search) || 
-           certCode.includes(search);
   });
 
-  const canManage = isAdmin() || isCommittee() || isDistrictAdmin();
+  // === Eligible Tab Actions ===
+
+  const toggleSelectScore = (id) => {
+    setSelectedScoreIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllEligible = () => {
+    const notGenerated = filteredEligible.filter(e => !e.has_certificate).map(e => e.score_id);
+    if (selectedScoreIds.length === notGenerated.length) {
+      setSelectedScoreIds([]);
+    } else {
+      setSelectedScoreIds(notGenerated);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (selectedScoreIds.length === 0) {
+      toast.warning('กรุณาเลือกรายการ');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await certificateService.generate({ score_ids: selectedScoreIds });
+      toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
+      setSelectedScoreIds([]);
+      loadEligible();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleGenerateAll = async () => {
+    const notGenerated = filteredEligible.filter(e => !e.has_certificate).map(e => e.score_id);
+    if (notGenerated.length === 0) {
+      toast.info('สร้างเกียรติบัตรครบแล้ว');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await certificateService.generate({ score_ids: notGenerated });
+      toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
+      setSelectedScoreIds([]);
+      loadEligible();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handlePreviewScore = (scoreId) => {
+    const token = localStorage.getItem('token');
+    const baseUrl = api.defaults.baseURL || '';
+    window.open(`${baseUrl}/certificates/preview?score_id=${scoreId}&token=${token}`, '_blank');
+  };
+
+  // === Generated Tab Actions ===
+
+  const toggleSelectCert = (id) => {
+    setSelectedCertIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllCerts = () => {
+    if (selectedCertIds.length === certificates.length) {
+      setSelectedCertIds([]);
+    } else {
+      setSelectedCertIds(certificates.map(c => c.id));
+    }
+  };
+
+  const handleDownload = async (id) => {
+    try {
+      await certificateService.download(id);
+    } catch {
+      toast.error('ไม่สามารถดาวน์โหลดได้');
+    }
+  };
+
+  const handleBatchDownload = async () => {
+    if (selectedCertIds.length === 0) {
+      toast.warning('กรุณาเลือกเกียรติบัตร');
+      return;
+    }
+    try {
+      await certificateService.batchDownload(selectedCertIds);
+    } catch {
+      toast.error('ไม่สามารถดาวน์โหลดได้');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('ต้องการลบเกียรติบัตรนี้?')) return;
+    try {
+      await certificateService.destroy(id);
+      toast.success('ลบเกียรติบัตรสำเร็จ');
+      loadCertificates();
+    } catch {
+      toast.error('ไม่สามารถลบได้');
+    }
+  };
+
+  const handlePreviewCert = (certId) => {
+    const token = localStorage.getItem('token');
+    const baseUrl = api.defaults.baseURL || '';
+    window.open(`${baseUrl}/certificates/preview?certificate_id=${certId}&token=${token}`, '_blank');
+  };
+
+  // === Summary Badge ===
+  const SummaryBadges = ({ summary }) => (
+    <div className="flex flex-wrap gap-2 text-sm">
+      {summary.total > 0 && (
+        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+          ทั้งหมด {summary.total}
+        </span>
+      )}
+      {summary.gold > 0 && (
+        <span className="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+          ทอง {summary.gold}
+        </span>
+      )}
+      {summary.silver > 0 && (
+        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+          เงิน {summary.silver}
+        </span>
+      )}
+      {summary.bronze > 0 && (
+        <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
+          ทองแดง {summary.bronze}
+        </span>
+      )}
+      {summary.participant > 0 && (
+        <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+          เข้าร่วม {summary.participant}
+        </span>
+      )}
+      {summary.already_generated > 0 && (
+        <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+          สร้างแล้ว {summary.already_generated}
+        </span>
+      )}
+    </div>
+  );
 
   return (
-    <div>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">เกียรติบัตร</h1>
-          <p className="text-gray-600 mt-1">จัดการเกียรติบัตรทั้งหมด</p>
-        </div>
-        
-        {canManage && view === 'eligible' && selectedItems.length > 0 && (
-          <button
-            onClick={handleBulkGenerate}
-            disabled={bulkGenerating}
-            className="btn btn-primary"
-          >
-            {bulkGenerating ? (
-              <>
-                <Loader className="h-4 w-4 mr-2 animate-spin" />
-                กำลังสร้าง...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-2" />
-                สร้างเกียรติบัตร ({selectedItems.length})
-              </>
-            )}
-          </button>
-        )}
+      <div className="flex items-center gap-3 mb-6">
+        <Award className="w-7 h-7 text-yellow-600" />
+        <h1 className="text-2xl font-bold text-gray-900">เกียรติบัตร</h1>
       </div>
 
-      {/* View Toggle */}
-      {canManage && (
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setView('generated')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              view === 'generated'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            เกียรติบัตรที่สร้างแล้ว
-          </button>
-          <button
-            onClick={() => setView('eligible')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              view === 'eligible'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            รายการที่มีสิทธิ์
-          </button>
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex border-b mb-4">
+        <button
+          onClick={() => setActiveTab('eligible')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            activeTab === 'eligible'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          ออกเกียรติบัตร
+        </button>
+        <button
+          onClick={() => setActiveTab('generated')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            activeTab === 'generated'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          เกียรติบัตรที่สร้างแล้ว
+          {certSummary.total > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+              {certSummary.total}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Filters */}
-      <div className="card mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {/* Search */}
-          <div>
-            <label htmlFor="search" className="text-sm font-medium mb-1 block">
-              ค้นหา
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                id="search"
-                placeholder="ชื่อนักเรียน, โรงเรียน..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input pl-10"
-              />
-            </div>
+      <div className="bg-white rounded-lg border p-4 mb-4">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ, โรงเรียน, กิจกรรม..."
+              className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
           </div>
-
-          {/* Competition */}
-          <div>
-            <label htmlFor="competition" className="text-sm font-medium mb-1 block">
-              การแข่งขัน
-            </label>
-            <select
-              id="competition"
-              value={filterCompetition}
-              onChange={(e) => setFilterCompetition(e.target.value)}
-              className="input"
-            >
-              <option value="">ทั้งหมด</option>
-              {competitions.map((comp) => (
-                <option key={comp.id} value={comp.id}>
-                  {comp.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Level */}
-          {view === 'generated' && (
-            <div>
-              <label htmlFor="level" className="text-sm font-medium mb-1 block">
-                ระดับ
-              </label>
-              <select
-                id="level"
-                value={filterLevel}
-                onChange={(e) => setFilterLevel(e.target.value)}
-                className="input"
-              >
-                <option value="all">ทั้งหมด</option>
-                <option value="group">กลุ่มโรงเรียน</option>
-                <option value="district">เขตพื้นที่</option>
-              </select>
-            </div>
-          )}
-
-          {/* Medal */}
-          <div>
-            <label htmlFor="medal" className="text-sm font-medium mb-1 block">
-              เหรียญ
-            </label>
-            <select
-              id="medal"
-              value={filterMedal}
-              onChange={(e) => setFilterMedal(e.target.value)}
-              className="input"
-            >
-              <option value="all">ทั้งหมด</option>
-              <option value="gold">🥇 ทอง</option>
-              <option value="silver">🥈 เงิน</option>
-              <option value="bronze">🥉 ทองแดง</option>
-            </select>
-          </div>
-
-          {/* Template */}
-          {canManage && view === 'eligible' && (
-            <div>
-              <label htmlFor="template" className="text-sm font-medium mb-1 block">
-                เทมเพลต
-              </label>
-              <select
-                id="template"
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                className="input"
-              >
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">ทุกหมวดหมู่</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <select
+            value={filterMedal}
+            onChange={(e) => setFilterMedal(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">ทุกระดับเหรียญ</option>
+            <option value="gold">เหรียญทอง</option>
+            <option value="silver">เหรียญเงิน</option>
+            <option value="bronze">เหรียญทองแดง</option>
+            <option value="participant">เข้าร่วม</option>
+          </select>
         </div>
       </div>
 
-      {/* Select All */}
-      {canManage && view === 'eligible' && filteredItems.length > 0 && (
-        <div className="mb-4">
-          <button
-            onClick={handleSelectAll}
-            className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            {selectedItems.length === filteredItems.length ? (
-              <CheckSquare className="h-5 w-5" />
-            ) : (
-              <Square className="h-5 w-5" />
-            )}
-            {selectedItems.length === filteredItems.length ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด'}
-          </button>
-        </div>
-      )}
-
-      {/* Certificates Grid */}
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">กำลังโหลด...</p>
-        </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="card text-center py-12">
-          <Award className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">
-            {view === 'generated' ? 'ไม่พบเกียรติบัตร' : 'ไม่พบรายการที่มีสิทธิ์'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
-            <div key={item.id || item.result_id} className="card hover:shadow-lg transition-shadow">
-              {/* Selection Checkbox */}
-              {canManage && view === 'eligible' && !item.has_certificate && (
-                <div className="flex items-center mb-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedItems.includes(item.result_id)}
-                    onChange={() => handleToggleSelect(item.result_id)}
-                    className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <label className="ml-2 text-sm text-gray-600">เลือก</label>
-                </div>
-              )}
-
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Award className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-500">
-                      {item?.certificate_code || 'รอสร้าง'}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    {item?.student_name || 'N/A'}
-                  </h3>
-                  <p className="text-sm text-gray-600">{item?.school_name || 'N/A'}</p>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {item?.competition_name || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {item?.level && getLevelBadge(item.level)}
-                  {item?.medal && getMedalBadge(item.medal)}
-                </div>
-                {item?.rank && (
-                  <div className="text-sm text-gray-600">
-                    อันดับที่ <span className="font-semibold">{item.rank}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-4 border-t border-gray-200">
-                {view === 'generated' ? (
-                  <>
-                    {item?.pdf_path ? (
-                      <button
-                        onClick={() => handleDownload(item.id)}
-                        className="flex-1 btn btn-primary text-sm"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        ดาวน์โหลด
-                      </button>
-                    ) : (
-                      <div className="flex-1 text-center text-sm text-gray-500 py-2">
-                        กำลังสร้าง PDF...
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {!item?.has_certificate && canManage ? (
-                      <button
-                        onClick={() => handleGenerateSingle(item.result_id)}
-                        className="flex-1 btn btn-primary text-sm"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        สร้าง
-                      </button>
-                    ) : (
-                      <div className="flex-1 text-center text-sm text-green-600 py-2">
-                        ✓ สร้างแล้ว
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+      {/* =================== ELIGIBLE TAB =================== */}
+      {activeTab === 'eligible' && (
+        <div>
+          {/* Summary + Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <SummaryBadges summary={eligibleSummary} />
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerate}
+                disabled={generating || selectedScoreIds.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generating ? <Loader className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                สร้างที่เลือก ({selectedScoreIds.length})
+              </button>
+              <button
+                onClick={handleGenerateAll}
+                disabled={generating}
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                <Award className="w-4 h-4" />
+                สร้างทั้งหมด
+              </button>
             </div>
-          ))}
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-lg border overflow-hidden">
+            {eligibleLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader className="w-6 h-6 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-500">กำลังโหลด...</span>
+              </div>
+            ) : filteredEligible.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                ไม่พบรายการที่มีสิทธิ์ออกเกียรติบัตร
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-3 text-center w-10">
+                        <button onClick={selectAllEligible}>
+                          {selectedScoreIds.length === filteredEligible.filter(e => !e.has_certificate).length && filteredEligible.filter(e => !e.has_certificate).length > 0
+                            ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                            : <Square className="w-4 h-4 text-gray-400" />
+                          }
+                        </button>
+                      </th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">กิจกรรม</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">โรงเรียน</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">ผู้เข้าแข่งขัน</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">คะแนน</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">เหรียญ</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">อันดับ</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">สถานะ</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600 w-20">ดำเนินการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredEligible.map((item) => (
+                      <tr key={item.score_id} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
+                        <td className="px-3 py-2 text-center">
+                          {item.has_certificate ? (
+                            <span className="text-green-500 text-xs font-medium">&#10003;</span>
+                          ) : (
+                            <button onClick={() => toggleSelectScore(item.score_id)}>
+                              {selectedScoreIds.includes(item.score_id)
+                                ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                                : <Square className="w-4 h-4 text-gray-400" />
+                              }
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-gray-900 truncate max-w-[200px]">{item.competition_name}</div>
+                          <div className="text-xs text-gray-500">{item.category_name} | {item.competition_level}</div>
+                        </td>
+                        <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{item.school_name}</td>
+                        <td className="px-3 py-2">
+                          <div className="text-gray-800 text-xs">
+                            {item.student_names?.join(', ') || '-'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-center text-gray-700">{item.score ?? '-'}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${medalColors[item.medal] || 'bg-gray-100'}`}>
+                            {medalLabels[item.medal] || item.medal}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center text-gray-700">{item.rank ?? '-'}</td>
+                        <td className="px-3 py-2 text-center">
+                          {item.has_certificate ? (
+                            <span className="text-xs text-green-600 font-medium">สร้างแล้ว</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">รอสร้าง</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            onClick={() => handlePreviewScore(item.score_id)}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600"
+                            title="ดูตัวอย่าง"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Summary Stats */}
-      {filteredItems.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-          <div className="card text-center">
-            <Award className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{filteredItems.length}</p>
-            <p className="text-sm text-gray-600">
-              {view === 'generated' ? 'เกียรติบัตรทั้งหมด' : 'รายการทั้งหมด'}
-            </p>
+      {/* =================== GENERATED TAB =================== */}
+      {activeTab === 'generated' && (
+        <div>
+          {/* Summary + Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <SummaryBadges summary={certSummary} />
+            <div className="flex gap-2">
+              <button
+                onClick={handleBatchDownload}
+                disabled={selectedCertIds.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileDown className="w-4 h-4" />
+                ดาวน์โหลดที่เลือก ({selectedCertIds.length})
+              </button>
+            </div>
           </div>
-          <div className="card text-center bg-yellow-50">
-            <Award className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-yellow-900">
-              {filteredItems.filter(c => c.medal === 'gold').length}
-            </p>
-            <p className="text-sm text-yellow-700">เหรียญทอง</p>
+
+          {/* Table */}
+          <div className="bg-white rounded-lg border overflow-hidden">
+            {certLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader className="w-6 h-6 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-500">กำลังโหลด...</span>
+              </div>
+            ) : certificates.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                ยังไม่มีเกียรติบัตรที่สร้างแล้ว
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-3 text-center w-10">
+                        <button onClick={selectAllCerts}>
+                          {selectedCertIds.length === certificates.length && certificates.length > 0
+                            ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                            : <Square className="w-4 h-4 text-gray-400" />
+                          }
+                        </button>
+                      </th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">รหัส</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">กิจกรรม</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">ผู้เข้าแข่งขัน</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">โรงเรียน</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">เหรียญ</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">อันดับ</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600 w-32">ดำเนินการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {certificates.map((cert) => (
+                      <tr key={cert.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-center">
+                          <button onClick={() => toggleSelectCert(cert.id)}>
+                            {selectedCertIds.includes(cert.id)
+                              ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                              : <Square className="w-4 h-4 text-gray-400" />
+                            }
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-gray-500 font-mono">{cert.certificate_code}</td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-gray-900 truncate max-w-[200px]">{cert.competition_name}</div>
+                          {cert.category_name && (
+                            <div className="text-xs text-gray-500">{cert.category_name}</div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-gray-700 text-xs max-w-[200px] truncate">{cert.student_name}</td>
+                        <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{cert.school_name}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${medalColors[cert.medal] || 'bg-gray-100'}`}>
+                            {medalLabels[cert.medal] || cert.medal}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center text-gray-700">{cert.rank ?? '-'}</td>
+                        <td className="px-3 py-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => handlePreviewCert(cert.id)}
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600"
+                              title="ดูตัวอย่าง"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDownload(cert.id)}
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-green-600"
+                              title="ดาวน์โหลด"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(cert.id)}
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-red-600"
+                              title="ลบ"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          <div className="card text-center bg-gray-50">
-            <Award className="h-8 w-8 text-gray-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">
-              {filteredItems.filter(c => c.medal === 'silver').length}
-            </p>
-            <p className="text-sm text-gray-700">เหรียญเงิน</p>
-          </div>
-          <div className="card text-center bg-orange-50">
-            <Award className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-orange-900">
-              {filteredItems.filter(c => c.medal === 'bronze').length}
-            </p>
-            <p className="text-sm text-orange-700">เหรียญทองแดง</p>
-          </div>
+
+          {/* Pagination info */}
+          {certMeta.total > 0 && (
+            <div className="text-xs text-gray-500 mt-2 text-right">
+              แสดง {certificates.length} จาก {certMeta.total} รายการ
+            </div>
+          )}
         </div>
       )}
     </div>

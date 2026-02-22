@@ -4,48 +4,72 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
-use App\Models\CertificateTemplate;
-use App\Models\Result;
-use App\Models\Registration;
+use App\Models\Score;
+use App\Models\Competition;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class CertificateController extends Controller
 {
+    /**
+     * รายการเกียรติบัตรที่สร้างแล้ว
+     */
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Certificate::with(['competition', 'template']);
+            $query = Certificate::with(['competition']);
 
-            if ($request->has('competition_id')) {
+            if ($request->filled('competition_id')) {
                 $query->where('competition_id', $request->competition_id);
             }
 
-            if ($request->has('level') && $request->level !== 'all') {
+            if ($request->filled('category_id')) {
+                $query->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
+            }
+
+            if ($request->filled('level')) {
                 $query->where('level', $request->level);
             }
 
-            if ($request->has('medal') && $request->medal !== 'all') {
+            if ($request->filled('medal')) {
                 $query->where('medal', $request->medal);
             }
 
-            if ($request->has('search')) {
+            if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('student_name', 'like', "%{$search}%")
                       ->orWhere('school_name', 'like', "%{$search}%")
+                      ->orWhere('competition_name', 'like', "%{$search}%")
                       ->orWhere('certificate_code', 'like', "%{$search}%");
                 });
             }
 
             $certificates = $query->orderBy('created_at', 'desc')->paginate(50);
 
+            // สรุปจำนวน
+            $summaryQuery = Certificate::query();
+            if ($request->filled('competition_id')) {
+                $summaryQuery->where('competition_id', $request->competition_id);
+            }
+            if ($request->filled('category_id')) {
+                $summaryQuery->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
+            }
+
+            $summary = [
+                'total' => (clone $summaryQuery)->count(),
+                'gold' => (clone $summaryQuery)->where('medal', 'gold')->count(),
+                'silver' => (clone $summaryQuery)->where('medal', 'silver')->count(),
+                'bronze' => (clone $summaryQuery)->where('medal', 'bronze')->count(),
+                'participant' => (clone $summaryQuery)->where('medal', 'participant')->count(),
+            ];
+
             return response()->json([
                 'success' => true,
                 'data' => $certificates->items(),
+                'summary' => $summary,
                 'meta' => [
                     'current_page' => $certificates->currentPage(),
                     'last_page' => $certificates->lastPage(),
@@ -57,247 +81,187 @@ class CertificateController extends Controller
             Log::error('Certificate index error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถโหลดข้อมูลเกียรติบัตรได้',
-                'error' => $e->getMessage()
+                'message' => 'ไม่สามารถโหลดข้อมูลเกียรติบัตรได้'
             ], 500);
         }
     }
 
-    public function getEligibleStudents(Request $request): JsonResponse
+    /**
+     * รายการทีมที่มีสิทธิ์ออกเกียรติบัตร (finalized scores ที่ไม่ใช่ absent)
+     */
+    public function eligible(Request $request): JsonResponse
     {
         try {
-            $query = Registration::with(['competition', 'school', 'students'])
-                ->whereHas('result', function($q) {
-                    $q->whereIn('medal', ['gold', 'silver', 'bronze'])
-                      ->whereNotNull('medal');
-                });
+            $query = Score::with([
+                'registration.school',
+                'registration.competition.category',
+            ])
+            ->where('is_finalized', true)
+            ->where('medal', '!=', 'absent');
 
-            if ($request->has('competition_id')) {
+            if ($request->filled('competition_id')) {
                 $query->where('competition_id', $request->competition_id);
             }
 
-            if ($request->has('school_group_id')) {
-                $query->whereHas('school', function($q) use ($request) {
-                    $q->where('school_group_id', $request->school_group_id);
-                });
+            if ($request->filled('category_id')) {
+                $query->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
             }
 
-            if ($request->has('medal') && $request->medal !== 'all') {
-                $query->whereHas('result', function($q) use ($request) {
-                    $q->where('medal', $request->medal);
-                });
+            if ($request->filled('medal')) {
+                $query->where('medal', $request->medal);
             }
 
-            $registrations = $query->get()->map(function($registration) {
-                $result = $registration->result->first();
-                
+            $scores = $query->orderBy('competition_id')
+                ->orderBy('rank')
+                ->get();
+
+            // ดึง score_ids ที่มี certificate แล้ว
+            $existingScoreIds = Certificate::whereIn('score_id', $scores->pluck('id'))
+                ->pluck('score_id')
+                ->toArray();
+
+            $data = $scores->map(function ($score) use ($existingScoreIds) {
+                $reg = $score->registration;
+                $comp = $reg?->competition;
+                $school = $reg?->school;
+
                 return [
-                    'registration_id' => $registration->id,
-                    'result_id' => $result?->id,
-                    'student_name' => $registration->students->first()?->name ?? 'N/A',
-                    'school_name' => $registration->school->name ?? 'N/A',
-                    'school_group_id' => $registration->school->school_group_id ?? null,
-                    'competition_id' => $registration->competition_id,
-                    'competition_name' => $registration->competition->name ?? 'N/A',
-                    'level' => $registration->competition->level ?? 'group',
-                    'medal' => $result?->medal ?? 'none',
-                    'rank' => $result?->rank ?? null,
-                    'score' => $result?->score ?? null,
-                    'has_certificate' => Certificate::where('result_id', $result?->id)->exists(),
+                    'score_id' => $score->id,
+                    'competition_id' => $score->competition_id,
+                    'competition_name' => $comp?->name ?? '-',
+                    'competition_level' => $comp?->level ?? '-',
+                    'category_name' => $comp?->category?->name ?? '-',
+                    'category_id' => $comp?->category_id,
+                    'school_name' => $school?->name ?? '-',
+                    'student_names' => $reg?->getStudentNamesList() ?? [],
+                    'teacher_names' => $reg?->getTeacherNamesList() ?? [],
+                    'team_name' => $reg?->team_name,
+                    'score' => $score->score,
+                    'medal' => $score->medal,
+                    'rank' => $score->rank,
+                    'has_certificate' => in_array($score->id, $existingScoreIds),
                 ];
             });
 
+            // สรุป
+            $summary = [
+                'total' => $data->count(),
+                'gold' => $data->where('medal', 'gold')->count(),
+                'silver' => $data->where('medal', 'silver')->count(),
+                'bronze' => $data->where('medal', 'bronze')->count(),
+                'participant' => $data->where('medal', 'participant')->count(),
+                'already_generated' => $data->where('has_certificate', true)->count(),
+            ];
+
             return response()->json([
                 'success' => true,
-                'data' => $registrations
+                'data' => $data->values(),
+                'summary' => $summary,
             ]);
         } catch (\Exception $e) {
-            Log::error('Get eligible students error: ' . $e->getMessage());
+            Log::error('Certificate eligible error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถโหลดรายการนักเรียนได้',
-                'error' => $e->getMessage()
+                'message' => 'ไม่สามารถโหลดรายการได้'
             ], 500);
         }
     }
 
-    public function show(int $id): JsonResponse
+    /**
+     * สร้างเกียรติบัตร (รายเดียวหรือหลายรายการ)
+     */
+    public function generate(Request $request): JsonResponse
     {
         try {
-            $certificate = Certificate::with(['competition', 'template', 'generator'])
-                ->findOrFail($id);
-
-            return response()->json([
-                'success' => true,
-                'data' => $certificate
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'ไม่พบเกียรติบัตร'
-            ], 404);
-        }
-    }
-
-    public function generate(int $resultId, Request $request): JsonResponse
-    {
-        try {
-            $result = Result::with(['registration.competition', 'registration.school', 'registration.students'])
-                ->findOrFail($resultId);
-
-            $existingCert = Certificate::where('result_id', $resultId)->first();
-            if ($existingCert && $existingCert->pdf_path) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'เกียรติบัตรนี้ถูกสร้างแล้ว'
-                ], 400);
-            }
-
-            $template_id = $request->input('template_id', 1);
-            $template = CertificateTemplate::findOrFail($template_id);
-
-            $certCode = $this->generateCertificateCode($result);
-
-            $certificate = Certificate::updateOrCreate(
-                ['result_id' => $resultId],
-                [
-                    'certificate_code' => $certCode,
-                    'competition_id' => $result->registration->competition_id,
-                    'template_id' => $template_id,
-                    'student_name' => $result->registration->students->first()?->name ?? 'N/A',
-                    'school_name' => $result->registration->school->name ?? 'N/A',
-                    'competition_name' => $result->registration->competition->name ?? 'N/A',
-                    'level' => $result->registration->competition->level ?? 'group',
-                    'rank' => $result->rank,
-                    'medal' => $result->medal,
-                    'issue_date' => now(),
-                    'generated_by' => auth()->id(),
-                    'generated_at' => now(),
-                ]
-            );
-
-            $pdfPath = $this->createPDF($certificate, $template);
-            $certificate->update(['pdf_path' => $pdfPath]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'สร้างเกียรติบัตรสำเร็จ',
-                'data' => $certificate->fresh()
+            $request->validate([
+                'score_ids' => 'required|array|min:1',
+                'score_ids.*' => 'integer|exists:scores,id',
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Generate certificate error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'ไม่สามารถสร้างเกียรติบัตรได้',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function bulkGenerate(int $competitionId, Request $request): JsonResponse
-    {
-        try {
-            $resultIds = $request->input('result_ids', []);
-            $template_id = $request->input('template_id', 1);
-            $template = CertificateTemplate::findOrFail($template_id);
-
-            $created = [];
+            $scoreIds = $request->score_ids;
+            $created = 0;
+            $skipped = 0;
             $errors = [];
 
-            foreach ($resultIds as $resultId) {
+            foreach ($scoreIds as $scoreId) {
                 try {
-                    $result = Result::with(['registration.competition', 'registration.school', 'registration.students'])
-                        ->findOrFail($resultId);
-
-                    $existingCert = Certificate::where('result_id', $resultId)->first();
-                    if ($existingCert && $existingCert->pdf_path) {
+                    // ข้ามถ้ามี certificate แล้ว
+                    if (Certificate::where('score_id', $scoreId)->exists()) {
+                        $skipped++;
                         continue;
                     }
 
-                    $certCode = $this->generateCertificateCode($result);
+                    $score = Score::with([
+                        'registration.school',
+                        'registration.competition.category',
+                    ])->findOrFail($scoreId);
 
-                    $certificate = Certificate::updateOrCreate(
-                        ['result_id' => $resultId],
-                        [
-                            'certificate_code' => $certCode,
-                            'competition_id' => $competitionId,
-                            'template_id' => $template_id,
-                            'student_name' => $result->registration->students->first()?->name ?? 'N/A',
-                            'school_name' => $result->registration->school->name ?? 'N/A',
-                            'competition_name' => $result->registration->competition->name ?? 'N/A',
-                            'level' => $result->registration->competition->level ?? 'group',
-                            'rank' => $result->rank,
-                            'medal' => $result->medal,
-                            'issue_date' => now(),
-                            'generated_by' => auth()->id(),
-                            'generated_at' => now(),
-                        ]
-                    );
+                    if (!$score->is_finalized || $score->medal === 'absent') {
+                        $errors[] = "Score #{$scoreId}: ยังไม่ finalize หรือเป็น absent";
+                        continue;
+                    }
 
-                    $pdfPath = $this->createPDF($certificate, $template);
-                    $certificate->update(['pdf_path' => $pdfPath]);
+                    $reg = $score->registration;
+                    $comp = $reg->competition;
+                    $school = $reg->school;
 
-                    $created[] = $certificate;
+                    $certCode = $this->generateCode($comp);
 
+                    Certificate::create([
+                        'certificate_code' => $certCode,
+                        'score_id' => $score->id,
+                        'competition_id' => $comp->id,
+                        'student_name' => $reg->getStudentNamesString(', '),
+                        'school_name' => $school->name ?? '-',
+                        'competition_name' => $comp->name,
+                        'category_name' => $comp->category?->name,
+                        'teacher_names' => $reg->getTeacherNamesList(),
+                        'level' => $comp->competition_level ?? 'group',
+                        'rank' => $score->rank,
+                        'medal' => $score->medal,
+                        'score' => $score->score,
+                        'issue_date' => now(),
+                        'generated_by' => auth()->id(),
+                        'generated_at' => now(),
+                    ]);
+
+                    $created++;
                 } catch (\Exception $e) {
-                    Log::error("Error generating certificate for result {$resultId}: " . $e->getMessage());
-                    $errors[] = [
-                        'result_id' => $resultId,
-                        'error' => $e->getMessage()
-                    ];
+                    $errors[] = "Score #{$scoreId}: " . $e->getMessage();
                 }
             }
 
             return response()->json([
-                'success' => count($created) > 0,
-                'message' => "สร้างเกียรติบัตรสำเร็จ " . count($created) . " รายการ",
+                'success' => $created > 0 || $skipped > 0,
+                'message' => "สร้างเกียรติบัตรสำเร็จ {$created} รายการ" .
+                    ($skipped > 0 ? " (ข้าม {$skipped} รายการที่มีแล้ว)" : ''),
                 'data' => [
                     'created' => $created,
+                    'skipped' => $skipped,
                     'errors' => $errors,
-                    'summary' => [
-                        'total' => count($resultIds),
-                        'created' => count($created),
-                        'failed' => count($errors),
-                    ]
                 ]
             ]);
-
         } catch (\Exception $e) {
-            Log::error('Bulk generate error: ' . $e->getMessage());
+            Log::error('Certificate generate error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถสร้างเกียรติบัตรได้',
-                'error' => $e->getMessage()
+                'message' => 'ไม่สามารถสร้างเกียรติบัตรได้: ' . $e->getMessage()
             ], 500);
         }
     }
 
+    /**
+     * ดาวน์โหลด PDF เกียรติบัตรรายฉบับ (generate on-the-fly)
+     */
     public function download(int $id)
     {
         try {
             $certificate = Certificate::findOrFail($id);
+            $pdf = $this->renderPdf(collect([$certificate]));
 
-            if (!$certificate->pdf_path) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'เกียรติบัตรยังไม่ถูกสร้าง'
-                ], 404);
-            }
-
-            $filePath = storage_path('app/' . $certificate->pdf_path);
-
-            if (!file_exists($filePath)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'ไม่พบไฟล์ PDF'
-                ], 404);
-            }
-
-            return response()->download($filePath, $certificate->certificate_code . '.pdf');
-
+            return $pdf->stream("certificate_{$certificate->certificate_code}.pdf");
         } catch (\Exception $e) {
-            Log::error('Download certificate error: ' . $e->getMessage());
+            Log::error('Certificate download error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'ไม่สามารถดาวน์โหลดได้'
@@ -305,113 +269,127 @@ class CertificateController extends Controller
         }
     }
 
-    public function previewCertificate(int $resultId, Request $request): JsonResponse
+    /**
+     * ดาวน์โหลด PDF หลายฉบับรวมเป็นไฟล์เดียว
+     */
+    public function batchDownload(Request $request)
     {
         try {
-            $result = Result::with(['registration.competition', 'registration.school', 'registration.students'])
-                ->findOrFail($resultId);
+            $ids = $request->input('ids', []);
+            if (empty($ids)) {
+                return response()->json(['success' => false, 'message' => 'กรุณาเลือกเกียรติบัตร'], 400);
+            }
 
-            $template_id = $request->input('template_id', 1);
-            $template = CertificateTemplate::findOrFail($template_id);
+            $certificates = Certificate::whereIn('id', $ids)
+                ->orderBy('competition_name')
+                ->orderBy('rank')
+                ->get();
 
-            $certificate = new Certificate([
-                'certificate_code' => 'PREVIEW-' . time(),
-                'student_name' => $result->registration->students->first()?->name ?? 'N/A',
-                'school_name' => $result->registration->school->name ?? 'N/A',
-                'competition_name' => $result->registration->competition->name ?? 'N/A',
-                'level' => $result->registration->competition->level ?? 'group',
-                'rank' => $result->rank,
-                'medal' => $result->medal,
-                'issue_date' => now(),
-            ]);
+            if ($certificates->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบเกียรติบัตร'], 404);
+            }
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'certificate' => $certificate,
-                    'template' => $template,
-                ]
-            ]);
-
+            $pdf = $this->renderPdf($certificates);
+            return $pdf->stream('certificates_batch_' . now()->format('Ymd_His') . '.pdf');
         } catch (\Exception $e) {
-            Log::error('Preview certificate error: ' . $e->getMessage());
+            Log::error('Certificate batch download error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถแสดงตัวอย่างได้',
-                'error' => $e->getMessage()
+                'message' => 'ไม่สามารถดาวน์โหลดได้'
             ], 500);
         }
     }
 
-    public function generatePdf(int $id, Request $request): JsonResponse
+    /**
+     * Preview เกียรติบัตร (stream PDF)
+     */
+    public function preview(Request $request)
+    {
+        try {
+            if ($request->filled('score_id')) {
+                // Preview จาก score ที่ยังไม่สร้าง certificate
+                $score = Score::with([
+                    'registration.school',
+                    'registration.competition.category',
+                ])->findOrFail($request->score_id);
+
+                $reg = $score->registration;
+                $comp = $reg->competition;
+
+                $certificate = new Certificate([
+                    'certificate_code' => 'PREVIEW',
+                    'student_name' => $reg->getStudentNamesString(', '),
+                    'school_name' => $reg->school->name ?? '-',
+                    'competition_name' => $comp->name,
+                    'category_name' => $comp->category?->name,
+                    'teacher_names' => $reg->getTeacherNamesList(),
+                    'level' => $comp->competition_level ?? 'group',
+                    'rank' => $score->rank,
+                    'medal' => $score->medal,
+                    'score' => $score->score,
+                    'issue_date' => now(),
+                ]);
+            } elseif ($request->filled('certificate_id')) {
+                $certificate = Certificate::findOrFail($request->certificate_id);
+            } else {
+                return response()->json(['success' => false, 'message' => 'ต้องระบุ score_id หรือ certificate_id'], 400);
+            }
+
+            $pdf = $this->renderPdf(collect([$certificate]));
+            return $pdf->stream('preview_certificate.pdf');
+        } catch (\Exception $e) {
+            Log::error('Certificate preview error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถแสดงตัวอย่างได้'
+            ], 500);
+        }
+    }
+
+    /**
+     * ลบเกียรติบัตร
+     */
+    public function destroy(int $id): JsonResponse
     {
         try {
             $certificate = Certificate::findOrFail($id);
-            
-            $template_id = $request->input('template_id', $certificate->template_id ?? 1);
-            $template = CertificateTemplate::findOrFail($template_id);
-
-            if ($certificate->pdf_path) {
-                Storage::delete($certificate->pdf_path);
-            }
-
-            $pdfPath = $this->createPDF($certificate, $template);
-            $certificate->update([
-                'pdf_path' => $pdfPath,
-                'template_id' => $template_id,
-                'generated_at' => now(),
-            ]);
+            $certificate->delete();
 
             return response()->json([
                 'success' => true,
-                'message' => 'สร้าง PDF สำเร็จ',
-                'data' => $certificate->fresh()
+                'message' => 'ลบเกียรติบัตรสำเร็จ'
             ]);
-
         } catch (\Exception $e) {
-            Log::error('Regenerate PDF error: ' . $e->getMessage());
+            Log::error('Certificate destroy error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถสร้าง PDF ได้',
-                'error' => $e->getMessage()
+                'message' => 'ไม่สามารถลบเกียรติบัตรได้'
             ], 500);
         }
     }
 
-    private function createPDF(Certificate $certificate, CertificateTemplate $template): string
+    /**
+     * Render PDF จาก Certificate collection
+     */
+    private function renderPdf($certificates)
     {
-        $layout = $template->getLayoutWithDefaults();
-        $settings = $template->settings ?? [];
-
-        $data = [
-            'certificate' => $certificate,
-            'template' => $template,
-            'layout' => $layout,
-            'settings' => $settings,
-            'medal_label' => $certificate->medal_label,
-            'level_label' => $certificate->level_label,
-        ];
-
-        $pdf = Pdf::loadView('certificates.template', $data)
-            ->setPaper('a4', $settings['orientation'] ?? 'landscape')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true);
-
-        $fileName = 'certificate_' . $certificate->certificate_code . '_' . time() . '.pdf';
-        $filePath = 'certificates/' . date('Y/m/') . $fileName;
-        
-        Storage::put($filePath, $pdf->output());
-
-        return $filePath;
+        return Pdf::loadView('certificates.certificate', [
+            'certificates' => $certificates,
+        ])
+        ->setPaper('a4', 'landscape')
+        ->setOption('isHtml5ParserEnabled', true)
+        ->setOption('isRemoteEnabled', true);
     }
 
-    private function generateCertificateCode(Result $result): string
+    /**
+     * Generate unique certificate code
+     */
+    private function generateCode(Competition $competition): string
     {
-        $competition = $result->registration->competition;
-        $year = date('Y');
-        $code = strtoupper(substr($competition->code ?? 'CERT', 0, 4));
-        $random = strtoupper(substr(md5(uniqid()), 0, 6));
-        
+        $code = strtoupper(substr($competition->code ?? 'CERT', 0, 6));
+        $year = date('Y') + 543;
+        $random = strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 6));
+
         return "{$code}-{$year}-{$random}";
     }
 }

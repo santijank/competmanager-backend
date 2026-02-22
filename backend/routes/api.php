@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\IssueController;
 use App\Http\Controllers\Api\SystemSettingController;
 use App\Http\Controllers\Api\IdCardController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\CertificateController;
 
 /*
 |--------------------------------------------------------------------------
@@ -169,6 +170,17 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/conversations/{id}/read', [MessageController::class, 'markAsRead']);
         Route::get('/unread-count', [MessageController::class, 'unreadCount']);
         Route::get('/users/search', [MessageController::class, 'searchUsers']);
+    });
+
+    // Certificates - ระบบเกียรติบัตร
+    Route::prefix('certificates')->group(function () {
+        Route::get('/', [CertificateController::class, 'index']);
+        Route::get('/eligible', [CertificateController::class, 'eligible']);
+        Route::post('/generate', [CertificateController::class, 'generate']);
+        Route::get('/preview', [CertificateController::class, 'preview']);
+        Route::get('/batch-download', [CertificateController::class, 'batchDownload']);
+        Route::get('/{id}/download', [CertificateController::class, 'download']);
+        Route::delete('/{id}', [CertificateController::class, 'destroy']);
     });
 
     // Issues / Tickets - ระบบแจ้งปัญหา
