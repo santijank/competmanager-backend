@@ -797,6 +797,185 @@ class RegistrationController extends Controller
     }
 
     /**
+     * ✅ ตรวจสอบทีมที่ตกหล่น (สมัครระดับกลุ่มแต่ยังไม่สมัครระดับเขต)
+     * สำหรับกิจกรรมที่ skip_group_level = true
+     */
+    public function checkMissedDistrict(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+
+            // เฉพาะ admin/district_admin
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ไม่มีสิทธิ์เข้าถึง'
+                ], 403);
+            }
+
+            // 1. ดึง district competitions ที่ skip_group_level = true
+            $skipDistrictComps = DB::table('competitions')
+                ->where('competition_level', 'district')
+                ->where('skip_group_level', true)
+                ->select('id', 'name', 'code', 'category_id', 'level')
+                ->get();
+
+            if ($skipDistrictComps->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'summary' => [
+                        'total_skip_competitions' => 0,
+                        'total_missed' => 0,
+                        'total_already_registered' => 0,
+                    ],
+                    'missed' => [],
+                ]);
+            }
+
+            $skipDistrictIds = $skipDistrictComps->pluck('id')->toArray();
+            $skipDistrictNames = $skipDistrictComps->pluck('name')->toArray();
+
+            // 2. หา group competitions ที่ตรงกับ district (ผ่าน parent_competition_id หรือ name matching)
+            $groupComps = DB::table('competitions')
+                ->where('competition_level', 'group')
+                ->where(function ($q) use ($skipDistrictIds, $skipDistrictNames) {
+                    $q->whereIn('parent_competition_id', $skipDistrictIds)
+                      ->orWhereIn('name', $skipDistrictNames);
+                })
+                ->select('id', 'name', 'code', 'category_id', 'level', 'parent_competition_id', 'school_group_id')
+                ->get();
+
+            if ($groupComps->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'summary' => [
+                        'total_skip_competitions' => $skipDistrictComps->count(),
+                        'total_missed' => 0,
+                        'total_already_registered' => 0,
+                    ],
+                    'missed' => [],
+                    'message' => 'ไม่พบกิจกรรมระดับกลุ่มที่ตรงกับกิจกรรม skip_group_level',
+                ]);
+            }
+
+            $groupCompIds = $groupComps->pluck('id')->toArray();
+
+            // สร้าง mapping: group_comp_id => district_comp
+            $groupToDistrict = [];
+            foreach ($groupComps as $gc) {
+                // ลองหาจาก parent_competition_id ก่อน
+                $matchedDistrict = $skipDistrictComps->firstWhere('id', $gc->parent_competition_id);
+                // ถ้าไม่มี ลอง match ด้วยชื่อ
+                if (!$matchedDistrict) {
+                    $matchedDistrict = $skipDistrictComps->firstWhere('name', $gc->name);
+                }
+                if ($matchedDistrict) {
+                    $groupToDistrict[$gc->id] = $matchedDistrict;
+                }
+            }
+
+            // 3. ดึง registrations ระดับกลุ่มที่ไม่ใช่ cancelled
+            $groupRegistrations = DB::table('registrations as r')
+                ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+                ->join('schools as s', 'r.school_id', '=', 's.id')
+                ->leftJoin('categories as cat', 'c.category_id', '=', 'cat.id')
+                ->whereIn('r.competition_id', $groupCompIds)
+                ->where('r.status', '!=', 'cancelled')
+                ->select([
+                    'r.id as registration_id',
+                    'r.competition_id',
+                    'r.school_id',
+                    'r.team_name',
+                    'r.student_names',
+                    'r.teacher_names',
+                    'r.status as group_status',
+                    's.name as school_name',
+                    'c.name as competition_name',
+                    'c.code as competition_code',
+                    'cat.name as category_name',
+                ])
+                ->get();
+
+            // 4. ดึง registrations ระดับเขต (เพื่อเช็คว่าโรงเรียนสมัครเขตแล้วหรือยัง)
+            $districtRegistrations = DB::table('registrations')
+                ->whereIn('competition_id', $skipDistrictIds)
+                ->where('status', '!=', 'cancelled')
+                ->select('school_id', 'competition_id', 'status')
+                ->get();
+
+            // สร้าง set: "school_id-district_comp_id" => status
+            $districtRegSet = [];
+            foreach ($districtRegistrations as $dr) {
+                $key = $dr->school_id . '-' . $dr->competition_id;
+                $districtRegSet[$key] = $dr->status;
+            }
+
+            // 5. เปรียบเทียบ
+            $missed = [];
+            $alreadyRegistered = 0;
+
+            foreach ($groupRegistrations as $gr) {
+                $districtComp = $groupToDistrict[$gr->competition_id] ?? null;
+                if (!$districtComp) continue;
+
+                $key = $gr->school_id . '-' . $districtComp->id;
+
+                if (isset($districtRegSet[$key])) {
+                    $alreadyRegistered++;
+                } else {
+                    $studentNames = $gr->student_names;
+                    if (is_string($studentNames)) {
+                        $studentNames = json_decode($studentNames, true);
+                    }
+                    $teacherNames = $gr->teacher_names;
+                    if (is_string($teacherNames)) {
+                        $teacherNames = json_decode($teacherNames, true);
+                    }
+
+                    $missed[] = [
+                        'school_name' => $gr->school_name,
+                        'school_id' => $gr->school_id,
+                        'competition_name' => $gr->competition_name,
+                        'competition_code' => $gr->competition_code,
+                        'category_name' => $gr->category_name,
+                        'district_competition_id' => $districtComp->id,
+                        'group_registration_id' => $gr->registration_id,
+                        'group_status' => $gr->group_status,
+                        'team_name' => $gr->team_name,
+                        'student_names' => $studentNames,
+                        'teacher_names' => $teacherNames,
+                    ];
+                }
+            }
+
+            // เรียงตามชื่อกิจกรรม แล้วโรงเรียน
+            usort($missed, function ($a, $b) {
+                $cmp = strcmp($a['competition_name'], $b['competition_name']);
+                return $cmp !== 0 ? $cmp : strcmp($a['school_name'], $b['school_name']);
+            });
+
+            return response()->json([
+                'success' => true,
+                'summary' => [
+                    'total_skip_competitions' => $skipDistrictComps->count(),
+                    'total_group_registrations' => $groupRegistrations->count(),
+                    'total_missed' => count($missed),
+                    'total_already_registered' => $alreadyRegistered,
+                ],
+                'missed' => $missed,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Check missed district error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * ✅ Delete registration
      * Permissions: Group Admin (own group), District Admin, Admin
      */
