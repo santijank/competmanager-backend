@@ -626,6 +626,130 @@ class RegistrationController extends Controller
     }
 
     /**
+     * ✅ เปลี่ยนตัวผู้เข้าแข่งขัน (ระดับเขต)
+     * เกณฑ์: 2-3 คน=1, 4-6=2, 7-10=3, 11-20=4, 21+=5
+     */
+    public function changeParticipant(Request $request, int $id): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $registration = Registration::with(['competition', 'school'])->findOrFail($id);
+
+            // ตรวจสอบว่าเป็นระดับเขตและอนุมัติแล้ว
+            if ($registration->competition->competition_level !== 'district') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'การเปลี่ยนตัวใช้ได้เฉพาะการแข่งขันระดับเขตเท่านั้น'
+                ], 422);
+            }
+
+            if ($registration->status !== 'approved') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'สามารถเปลี่ยนตัวได้เฉพาะรายการที่อนุมัติแล้ว'
+                ], 422);
+            }
+
+            // ตรวจสอบสิทธิ์ (ครูเจ้าของ, school_admin โรงเรียนเดียวกัน, admin)
+            if (!$this->isAdminRole($user)) {
+                if ($user->school_id !== $registration->school_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'คุณไม่มีสิทธิ์เปลี่ยนตัวผู้เข้าแข่งขันนี้'
+                    ], 403);
+                }
+            }
+
+            $validator = Validator::make($request->all(), [
+                'old_name' => 'required|string',
+                'new_name' => 'required|string|max:255',
+                'reason' => 'nullable|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ข้อมูลไม่ถูกต้อง',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // ตั้ง original_student_names ครั้งแรก (ถ้ายังไม่มี)
+            if (empty($registration->original_student_names)) {
+                $registration->original_student_names = $registration->student_names;
+                $studentCount = is_array($registration->student_names) ? count($registration->student_names) : 0;
+                $registration->max_changes_allowed = Registration::calculateMaxChanges($studentCount);
+                $registration->change_count = 0;
+            }
+
+            // ตรวจสอบโควตา
+            if (!$registration->canChangeParticipant()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "ไม่สามารถเปลี่ยนตัวได้อีก (เปลี่ยนครบ {$registration->max_changes_allowed} คนแล้ว)"
+                ], 422);
+            }
+
+            // หาชื่อเดิมใน student_names
+            $studentNames = $registration->student_names ?? [];
+            $oldName = $request->old_name;
+            $newName = $request->new_name;
+            $found = false;
+
+            foreach ($studentNames as $index => $student) {
+                $name = is_array($student) ? ($student['name'] ?? '') : $student;
+                if ($name === $oldName) {
+                    // แทนที่ชื่อ
+                    if (is_array($student)) {
+                        $studentNames[$index]['name'] = $newName;
+                    } else {
+                        $studentNames[$index] = $newName;
+                    }
+                    $found = true;
+                    break;
+                }
+            }
+
+            if (!$found) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "ไม่พบชื่อ \"{$oldName}\" ในรายชื่อผู้เข้าแข่งขัน"
+                ], 422);
+            }
+
+            // อัพเดท
+            $registration->student_names = $studentNames;
+            $registration->change_count = ($registration->change_count ?? 0) + 1;
+            $registration->save();
+
+            Log::info('Participant changed', [
+                'registration_id' => $id,
+                'old_name' => $oldName,
+                'new_name' => $newName,
+                'reason' => $request->reason,
+                'change_count' => $registration->change_count,
+                'max_allowed' => $registration->max_changes_allowed,
+                'changed_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "เปลี่ยนตัวสำเร็จ: \"{$oldName}\" → \"{$newName}\" (เปลี่ยนไปแล้ว {$registration->change_count}/{$registration->max_changes_allowed} คน)",
+                'data' => $registration->fresh()->load(['competition', 'school'])
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Change participant error', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการเปลี่ยนตัว',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * ✅ Delete registration
      * Permissions: Group Admin (own group), District Admin, Admin
      */

@@ -126,6 +126,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('registrations', RegistrationController::class);
     Route::post('registrations/{id}/approve', [RegistrationController::class, 'approve']);
     Route::post('registrations/{id}/reject', [RegistrationController::class, 'reject']);
+    Route::post('registrations/{id}/change-participant', [RegistrationController::class, 'changeParticipant']);
 
     // System Settings - ตั้งค่าช่วงเวลาเปิดแก้ไขรายชื่อ
     Route::get('system-settings/edit-name', [SystemSettingController::class, 'getEditNameSettings']);

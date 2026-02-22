@@ -19,6 +19,11 @@ class Registration extends Model
         'student_count',     // จำนวนนักเรียน
         'teacher_names',     // ✅ เพิ่ม - JSON array - ครูหลายคน
         'teacher_count',     // ✅ เพิ่ม - จำนวนครู
+
+        // ✅ ระบบเปลี่ยนตัวผู้เข้าแข่งขัน
+        'original_student_names',  // JSON - รายชื่อเดิมตอนผ่านเข้ารอบ
+        'max_changes_allowed',     // จำนวนที่เปลี่ยนได้สูงสุด
+        'change_count',            // จำนวนที่เปลี่ยนไปแล้ว
         
         'teacher_id',        // FK - ครูที่ลงทะเบียน (backward compatibility)
         'status',
@@ -35,11 +40,14 @@ class Registration extends Model
     protected $casts = [
         'student_names' => 'array',      // Cast JSON เป็น array
         'teacher_names' => 'array',      // ✅ เพิ่ม - Cast JSON เป็น array
+        'original_student_names' => 'array', // ✅ รายชื่อเดิม
         'registered_at' => 'datetime',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
         'student_count' => 'integer',
         'teacher_count' => 'integer',    // ✅ เพิ่ม
+        'max_changes_allowed' => 'integer',
+        'change_count' => 'integer',
     ];
 
     // Relationships
@@ -265,6 +273,36 @@ class Registration extends Model
         $validTeachers = $competition->isValidTeacherCount($this->teacher_count);
         
         return $validStudents && $validTeachers;
+    }
+
+    /**
+     * ✅ คำนวณจำนวนที่เปลี่ยนตัวได้สูงสุด ตามเกณฑ์
+     * 2-3 คน = 1, 4-6 = 2, 7-10 = 3, 11-20 = 4, 21+ = 5
+     */
+    public static function calculateMaxChanges(int $studentCount): int
+    {
+        if ($studentCount <= 1) return 0;
+        if ($studentCount <= 3) return 1;
+        if ($studentCount <= 6) return 2;
+        if ($studentCount <= 10) return 3;
+        if ($studentCount <= 20) return 4;
+        return 5;
+    }
+
+    /**
+     * ✅ ตรวจสอบว่ายังเปลี่ยนตัวได้อีกหรือไม่
+     */
+    public function canChangeParticipant(): bool
+    {
+        return $this->change_count < $this->max_changes_allowed;
+    }
+
+    /**
+     * ✅ จำนวนที่ยังเปลี่ยนตัวได้
+     */
+    public function remainingChanges(): int
+    {
+        return max(0, $this->max_changes_allowed - $this->change_count);
     }
 
     /**
