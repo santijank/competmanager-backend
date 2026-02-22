@@ -359,10 +359,26 @@ class MessageController extends Controller
 
     /**
      * จำนวน unread ทั้งหมด (สำหรับ badge)
+     * Auto-join broadcast conversation ด้วย
      */
     public function unreadCount(Request $request)
     {
         $user = $request->user();
+
+        // Auto-join broadcast conversation ถ้ายังไม่ได้เข้า
+        $broadcast = Conversation::where('type', 'broadcast')->first();
+        if ($broadcast) {
+            $inBroadcast = ConversationParticipant::where('conversation_id', $broadcast->id)
+                ->where('user_id', $user->id)
+                ->exists();
+
+            if (!$inBroadcast) {
+                ConversationParticipant::create([
+                    'conversation_id' => $broadcast->id,
+                    'user_id' => $user->id,
+                ]);
+            }
+        }
 
         $totalUnread = 0;
 
