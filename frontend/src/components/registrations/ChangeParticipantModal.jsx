@@ -8,13 +8,14 @@ import {
   Info,
   Users,
   GraduationCap,
+  Plus,
 } from 'lucide-react';
 import api from '@/lib/api';
 
 /**
  * Modal เปลี่ยนตัวผู้เข้าแข่งขัน + ครูผู้ฝึกสอน (ระดับเขต)
  * - นักเรียน: มีโควตาตามเกณฑ์
- * - ครู: เปลี่ยนได้ไม่จำกัด
+ * - ครู: เปลี่ยนได้ไม่จำกัด + เพิ่มได้ตาม max_teachers
  */
 const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) => {
   const [activeTab, setActiveTab] = useState('student'); // 'student' | 'teacher'
@@ -22,6 +23,7 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
   const [newName, setNewName] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [teacherMode, setTeacherMode] = useState('change'); // 'change' | 'add'
 
   if (!isOpen || !registration) return null;
 
@@ -32,6 +34,9 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
   const teachers = Array.isArray(registration.teacher_names)
     ? registration.teacher_names
     : [];
+
+  const maxTeachers = registration.competition?.max_teachers || 3;
+  const canAddTeacher = teachers.length < maxTeachers;
 
   // คำนวณโควตานักเรียน
   const studentCount = students.length;
@@ -68,6 +73,7 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
     setSelectedIndex(null);
     setNewName('');
     setReason('');
+    setTeacherMode('change');
   };
 
   const handleTabChange = (tab) => {
@@ -78,6 +84,37 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
   const currentList = activeTab === 'student' ? students : teachers;
 
   const handleSubmit = async () => {
+    // เพิ่มครูใหม่
+    if (activeTab === 'teacher' && teacherMode === 'add') {
+      if (!newName.trim()) {
+        toast.warning('กรุณาใส่ชื่อครูผู้ฝึกสอนที่ต้องการเพิ่ม');
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+        const response = await api.post(`/registrations/${registration.id}/change-participant`, {
+          new_name: newName.trim(),
+          change_type: 'teacher',
+          action: 'add',
+        });
+
+        if (response.data.success) {
+          toast.success(response.data.message);
+          onSuccess?.();
+          onClose();
+        } else {
+          toast.error(response.data.message || 'ไม่สามารถเพิ่มได้');
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // เปลี่ยนตัว (เดิม)
     if (selectedIndex === null) {
       toast.warning(`กรุณาเลือก${activeTab === 'student' ? 'ผู้เข้าแข่งขัน' : 'ครูผู้ฝึกสอน'}ที่ต้องการเปลี่ยน`);
       return;
@@ -96,6 +133,7 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
         new_name: newName.trim(),
         reason: reason.trim() || null,
         change_type: activeTab,
+        action: 'change',
       });
 
       if (response.data.success) {
@@ -106,7 +144,6 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
         toast.error(response.data.message || 'ไม่สามารถเปลี่ยนได้');
       }
     } catch (error) {
-      console.error('Change error:', error);
       toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาด');
     } finally {
       setSubmitting(false);
@@ -200,9 +237,43 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
           <div className="mx-5 mt-4 p-4 rounded-xl border-2 bg-teal-50 border-teal-200">
             <div className="flex items-center space-x-2">
               <Info className="w-5 h-5 text-teal-600" />
-              <span className="font-bold text-teal-800">เปลี่ยนครูผู้ฝึกสอน</span>
+              <span className="font-bold text-teal-800">ครูผู้ฝึกสอน</span>
             </div>
-            <p className="text-sm text-teal-700 mt-1">สามารถเปลี่ยนได้ไม่จำกัดจำนวน</p>
+            <p className="text-sm text-teal-700 mt-1">
+              เปลี่ยนชื่อได้ไม่จำกัด | ครู {teachers.length}/{maxTeachers} คน
+              {canAddTeacher && (
+                <span className="text-teal-600 font-medium"> (เพิ่มได้อีก {maxTeachers - teachers.length} คน)</span>
+              )}
+            </p>
+
+            {/* Toggle: เปลี่ยน / เพิ่ม */}
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <button
+                onClick={() => { setTeacherMode('change'); setSelectedIndex(null); setNewName(''); }}
+                className={`flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                  teacherMode === 'change'
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-white text-teal-700 border-teal-300 hover:bg-teal-50'
+                }`}
+              >
+                <UserMinus className="w-3.5 h-3.5" />
+                <span>เปลี่ยนชื่อ</span>
+              </button>
+              <button
+                onClick={() => { setTeacherMode('add'); setSelectedIndex(null); setNewName(''); }}
+                disabled={!canAddTeacher}
+                className={`flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                  teacherMode === 'add'
+                    ? 'bg-green-600 text-white border-green-600'
+                    : canAddTeacher
+                      ? 'bg-white text-green-700 border-green-300 hover:bg-green-50'
+                      : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>เพิ่มครูใหม่</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -211,6 +282,51 @@ const ChangeParticipantModal = ({ isOpen, registration, onClose, onSuccess }) =>
           <div className="p-5 text-center text-gray-500">
             <p>ไม่สามารถเปลี่ยนตัวนักเรียนได้อีก</p>
             <p className="text-sm mt-1">ลองเปลี่ยนครูผู้ฝึกสอนแทนได้</p>
+          </div>
+        ) : activeTab === 'teacher' && teacherMode === 'add' ? (
+          /* ฟอร์มเพิ่มครูใหม่ */
+          <div className="p-5 space-y-3">
+            <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+              <p className="text-sm text-green-800 font-medium">
+                <Plus className="w-4 h-4 inline mr-1" />
+                เพิ่มครูผู้ฝึกสอนคนที่ {teachers.length + 1} (สูงสุด {maxTeachers} คน)
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                <UserPlus className="w-4 h-4 inline mr-1" />
+                ชื่อครูผู้ฝึกสอนที่ต้องการเพิ่ม *
+              </label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="เช่น นายสมศักดิ์ รักเรียน"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none"
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-gray-200 pt-4 flex items-center justify-end space-x-3">
+              <button
+                onClick={onClose}
+                className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-medium transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting || !newName.trim()}
+                className="flex items-center space-x-2 px-5 py-2.5 bg-green-600 text-white rounded-xl font-bold transition-colors hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                <span>เพิ่มครูผู้ฝึกสอน</span>
+              </button>
+            </div>
           </div>
         ) : currentList.length === 0 ? (
           <div className="p-5 text-center text-gray-500">

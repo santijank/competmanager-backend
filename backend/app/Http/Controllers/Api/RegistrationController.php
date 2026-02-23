@@ -660,6 +660,52 @@ class RegistrationController extends Controller
                 }
             }
 
+            $changeType = $request->input('change_type', 'student');
+            $action = $request->input('action', 'change'); // 'change' หรือ 'add'
+
+            if ($changeType === 'teacher' && $action === 'add') {
+                // ===== เพิ่มครูผู้ฝึกสอนใหม่ =====
+                $validator = Validator::make($request->all(), [
+                    'new_name' => 'required|string|max:255',
+                ]);
+
+                if ($validator->fails()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'กรุณาใส่ชื่อครูผู้ฝึกสอน',
+                        'errors' => $validator->errors()
+                    ], 422);
+                }
+
+                $teacherNames = $registration->teacher_names ?? [];
+                $maxTeachers = $registration->competition->max_teachers ?? 3;
+
+                if (count($teacherNames) >= $maxTeachers) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "ไม่สามารถเพิ่มได้ กิจกรรมนี้กำหนดครูสูงสุด {$maxTeachers} คน"
+                    ], 422);
+                }
+
+                $newName = $request->new_name;
+                $teacherNames[] = $newName;
+                $registration->teacher_names = $teacherNames;
+                $registration->save();
+
+                Log::info('Teacher added', [
+                    'registration_id' => $id,
+                    'new_name' => $newName,
+                    'total_teachers' => count($teacherNames),
+                    'changed_by' => $user->id,
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "เพิ่มครูสำเร็จ: \"{$newName}\" (รวม " . count($teacherNames) . "/{$maxTeachers} คน)",
+                    'data' => $registration->fresh()->load(['competition', 'school'])
+                ]);
+            }
+
             $validator = Validator::make($request->all(), [
                 'old_name' => 'required|string',
                 'new_name' => 'required|string|max:255',
@@ -675,7 +721,6 @@ class RegistrationController extends Controller
                 ], 422);
             }
 
-            $changeType = $request->input('change_type', 'student');
             $oldName = $request->old_name;
             $newName = $request->new_name;
 

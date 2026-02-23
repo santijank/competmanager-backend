@@ -161,7 +161,7 @@ export default function CertificateList() {
   };
 
   const handlePreviewScore = (scoreId) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const baseUrl = api.defaults.baseURL || '';
     window.open(`${baseUrl}/certificates/preview?score_id=${scoreId}&token=${token}`, '_blank');
   };
@@ -214,7 +214,7 @@ export default function CertificateList() {
   };
 
   const handlePreviewCert = (certId) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     const baseUrl = api.defaults.baseURL || '';
     window.open(`${baseUrl}/certificates/preview?certificate_id=${certId}&token=${token}`, '_blank');
   };
