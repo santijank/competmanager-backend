@@ -635,51 +635,90 @@ class PublicApiController extends Controller
     public function getDistrictCommitteeMembers(): \Illuminate\Http\JsonResponse
     {
         try {
-            $members = Cache::remember('public_district_committee', 300, function () {
-                return CommitteeMember::districtLevel()
+            $data = Cache::remember('public_district_committee_v2', 300, function () {
+                $members = CommitteeMember::districtLevel()
                     ->active()
-                    ->with('competition:id,name')
-                    ->orderByRaw("FIELD(member_type, 'committee', 'staff', 'volunteer')")
+                    ->with(['competition' => function ($q) {
+                        $q->select('id', 'name', 'code', 'category', 'competition_level');
+                    }])
                     ->orderBy('id')
-                    ->get()
-                    ->groupBy('member_type')
-                    ->map(function ($group, $type) {
-                        $labels = [
-                            'committee' => 'คณะกรรมการอำนวยการ',
-                            'staff' => 'คณะกรรมการดำเนินงาน',
-                            'volunteer' => 'อาสาสมัคร',
-                        ];
+                    ->get();
+
+                // แยกกรรมการที่ไม่มีกิจกรรม (กรรมการอำนวยการทั่วไป)
+                $general = $members->whereNull('competition_id');
+                // กรรมการที่ผูกกับกิจกรรม
+                $withComp = $members->whereNotNull('competition_id');
+
+                // จัดกลุ่มตาม category → competition
+                $categories = $withComp->groupBy(function ($m) {
+                    return $m->competition?->category ?? 'อื่นๆ';
+                })->map(function ($catMembers, $category) {
+                    $competitions = $catMembers->groupBy('competition_id')->map(function ($compMembers) {
+                        $comp = $compMembers->first()->competition;
                         return [
-                            'type' => $type,
-                            'label' => $labels[$type] ?? $type,
-                            'count' => $group->count(),
-                            'members' => $group->map(function ($m) {
+                            'id' => $comp?->id,
+                            'name' => $comp?->name ?? '-',
+                            'code' => $comp?->code,
+                            'member_count' => $compMembers->count(),
+                            'members' => $compMembers->map(function ($m) {
                                 return [
                                     'id' => $m->id,
                                     'name' => $m->name,
                                     'position' => $m->position,
                                     'organization' => $m->organization,
                                     'responsibility' => $m->responsibility,
-                                    'competition' => $m->competition?->name,
+                                    'member_type' => $m->member_type,
                                 ];
                             })->values(),
                         ];
-                    })->values();
+                    })->sortBy('name')->values();
+
+                    return [
+                        'category' => $category,
+                        'competition_count' => $competitions->count(),
+                        'member_count' => $catMembers->count(),
+                        'competitions' => $competitions,
+                    ];
+                })->sortBy('category')->values();
+
+                // กรรมการทั่วไป (ไม่ผูกกิจกรรม)
+                $generalList = $general->map(function ($m) {
+                    return [
+                        'id' => $m->id,
+                        'name' => $m->name,
+                        'position' => $m->position,
+                        'organization' => $m->organization,
+                        'responsibility' => $m->responsibility,
+                        'member_type' => $m->member_type,
+                    ];
+                })->values();
+
+                return [
+                    'categories' => $categories,
+                    'general_members' => $generalList,
+                ];
             });
 
-            $totalMembers = collect($members)->sum('count');
+            $totalMembers = collect($data['categories'])->sum('member_count') + count($data['general_members']);
+            $totalCompetitions = collect($data['categories'])->sum('competition_count');
 
             return response()->json([
                 'success' => true,
-                'data' => $members,
+                'data' => $data['categories'],
+                'general_members' => $data['general_members'],
                 'total_members' => $totalMembers,
+                'total_competitions' => $totalCompetitions,
+                'total_categories' => count($data['categories']),
             ]);
         } catch (\Exception $e) {
             Log::error('PublicApiController::getDistrictCommitteeMembers Error: ' . $e->getMessage());
             return response()->json([
                 'success' => true,
                 'data' => [],
+                'general_members' => [],
                 'total_members' => 0,
+                'total_competitions' => 0,
+                'total_categories' => 0,
             ]);
         }
     }
