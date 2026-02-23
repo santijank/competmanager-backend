@@ -7,6 +7,7 @@ import PublicDashboard from '@/pages/PublicDashboard';
 import PublicDashboardNew from '@/pages/PublicDashboardNew';
 import PublicResults from '@/pages/public/PublicResults';
 import PublicDistrictRegistrations from '@/pages/public/PublicDistrictRegistrations';
+import PublicDistrictCommittee from '@/pages/public/PublicDistrictCommittee';
 import PublicSchoolActivities from '@/pages/public/PublicSchoolActivities';
 import AnnouncementManagement from '@/pages/announcements/AnnouncementManagement';
 import IssueList from '@/pages/issues/IssueList';
@@ -121,6 +122,7 @@ function App() {
           <Route path="/" element={<PublicDashboard />} />
           <Route path="/public-dashboard" element={<PublicDashboard />} />
           <Route path="/public-district" element={<PublicDistrictRegistrations />} />
+          <Route path="/public-committee" element={<PublicDistrictCommittee />} />
           <Route path="/public-schools" element={<PublicSchoolActivities />} />
         </Route>
 

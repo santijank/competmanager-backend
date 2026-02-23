@@ -8,6 +8,7 @@ use App\Models\School;
 use App\Models\Registration;
 use App\Models\Score;
 use App\Models\Competition;
+use App\Models\CommitteeMember;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -624,6 +625,61 @@ class PublicApiController extends Controller
                 'data' => [],
                 'total_competitions' => 0,
                 'total_registrations' => 0,
+            ]);
+        }
+    }
+
+    /**
+     * ดึงรายชื่อคณะกรรมการระดับเขตพื้นที่ (public)
+     */
+    public function getDistrictCommitteeMembers(): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $members = Cache::remember('public_district_committee', 300, function () {
+                return CommitteeMember::districtLevel()
+                    ->active()
+                    ->with('competition:id,name')
+                    ->orderByRaw("FIELD(member_type, 'committee', 'staff', 'volunteer')")
+                    ->orderBy('id')
+                    ->get()
+                    ->groupBy('member_type')
+                    ->map(function ($group, $type) {
+                        $labels = [
+                            'committee' => 'คณะกรรมการอำนวยการ',
+                            'staff' => 'คณะกรรมการดำเนินงาน',
+                            'volunteer' => 'อาสาสมัคร',
+                        ];
+                        return [
+                            'type' => $type,
+                            'label' => $labels[$type] ?? $type,
+                            'count' => $group->count(),
+                            'members' => $group->map(function ($m) {
+                                return [
+                                    'id' => $m->id,
+                                    'name' => $m->name,
+                                    'position' => $m->position,
+                                    'organization' => $m->organization,
+                                    'responsibility' => $m->responsibility,
+                                    'competition' => $m->competition?->name,
+                                ];
+                            })->values(),
+                        ];
+                    })->values();
+            });
+
+            $totalMembers = collect($members)->sum('count');
+
+            return response()->json([
+                'success' => true,
+                'data' => $members,
+                'total_members' => $totalMembers,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PublicApiController::getDistrictCommitteeMembers Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'total_members' => 0,
             ]);
         }
     }

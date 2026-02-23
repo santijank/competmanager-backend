@@ -1146,14 +1146,33 @@ const OverviewStatsSection = ({ overview }) => {
                   </div>
                 </div>
 
-                {/* Number */}
+                {/* Number — gold gradient */}
                 <div className="relative mb-1 text-center">
-                  <span className="text-3xl md:text-5xl font-extrabold text-amber-300 tracking-tight drop-shadow-md">
+                  <span
+                    className="text-3xl md:text-5xl font-extrabold tracking-wider"
+                    style={{
+                      background: 'linear-gradient(180deg, #fff8dc 0%, #ffd700 25%, #ffb700 50%, #ff8c00 75%, #b8860b 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 2px 4px rgba(184,134,11,0.5)) drop-shadow(0 4px 10px rgba(0,0,0,0.4))',
+                      letterSpacing: '2px',
+                    }}
+                  >
                     <AnimatedCounter value={val} />
                   </span>
                   {item.suffix && (
-                    <span className="text-xl md:text-2xl font-bold ml-1 text-yellow-200 drop-shadow-sm">{item.suffix}</span>
+                    <span
+                      className="text-xl md:text-2xl font-bold ml-1"
+                      style={{
+                        background: 'linear-gradient(180deg, #ffd700 0%, #b8860b 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                      }}
+                    >{item.suffix}</span>
                   )}
+                  {/* Gold glow */}
+                  <div className="absolute -inset-4 rounded-xl opacity-20 group-hover:opacity-40 transition-opacity blur-2xl"
+                    style={{ background: 'rgba(255,215,0,0.6)' }} />
                 </div>
 
                 {/* Label */}
@@ -1419,7 +1438,7 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
             <h4 className="text-lg font-bold text-white">ประกาศระดับเขต</h4>
           </div>
           <div className="relative space-y-2">
-            {districtAnnouncements.slice(0, 5).map((announcement) => (
+            {districtAnnouncements.map((announcement) => (
               <AnnouncementCard
                 key={announcement.id}
                 announcement={announcement}
@@ -1456,6 +1475,14 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
           >
             <Users className="w-5 h-5" />
             ดูรายชื่อตัวแทนแข่งขันระดับเขต
+            <ChevronRight className="w-5 h-5" />
+          </a>
+          <a
+            href="/public-committee"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium shadow-lg text-lg"
+          >
+            <Users className="w-5 h-5" />
+            ดูรายชื่อคณะกรรมการระดับเขต
             <ChevronRight className="w-5 h-5" />
           </a>
           <a
@@ -1560,7 +1587,7 @@ const GroupDashboard = ({ group, allAnnouncements = [], schedules = [], results 
             <h4 className="text-xl font-bold">ประกาศล่าสุด</h4>
           </div>
           <div className="space-y-3">
-            {groupAnnouncements.slice(0, 3).map((announcement) => (
+            {groupAnnouncements.map((announcement) => (
               <AnnouncementCard
                 key={announcement.id}
                 announcement={announcement}
@@ -1818,7 +1845,7 @@ export default function PublicDashboard() {
       const [overviewRes, groupsRes, announcementsRes, schedulesRes, resultsRes, competitionsRes] = await Promise.all([
         api.get("/public/dashboard/overview"),
         api.get("/public/dashboard/groups"),
-        api.get("/announcements/public", { params: { active_only: true, limit: 50 } }),
+        api.get("/announcements/public", { params: { active_only: true, limit: 200 } }),
         api.get("/schedules/public").catch(() => ({ data: { data: [] } })),
         api.get("/results/public").catch(() => ({ data: { data: [] } })),
         api.get("/public/competitions").catch(() => ({ data: { data: { categories: [] } } }))

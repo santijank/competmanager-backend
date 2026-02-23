@@ -56,6 +56,7 @@ Route::prefix('public')->group(function () {
     Route::get('/groups/{id}/results', [\App\Http\Controllers\Api\PublicApiController::class, 'getGroupResults']);
     Route::get('/competitions', [\App\Http\Controllers\Api\PublicApiController::class, 'getPublicCompetitions']);
     Route::get('/district-registrations', [\App\Http\Controllers\Api\PublicApiController::class, 'getDistrictRegistrations']);
+    Route::get('/district-committee-members', [\App\Http\Controllers\Api\PublicApiController::class, 'getDistrictCommitteeMembers']);
 });
 
 // Public announcements (no auth required)
