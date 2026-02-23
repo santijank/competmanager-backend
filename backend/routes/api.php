@@ -135,6 +135,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // System Settings - ตั้งค่าช่วงเวลาเปิดแก้ไขรายชื่อ
     Route::get('system-settings/edit-name', [SystemSettingController::class, 'getEditNameSettings']);
     Route::put('system-settings/edit-name', [SystemSettingController::class, 'updateEditNameSettings']);
+    Route::get('system-settings/participant-change', [SystemSettingController::class, 'getParticipantChange']);
+    Route::put('system-settings/participant-change', [SystemSettingController::class, 'updateParticipantChange']);
 
     // Results
     Route::apiResource('results', ResultController::class);

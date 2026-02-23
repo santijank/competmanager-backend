@@ -55,6 +55,9 @@ const MyRegistrations = () => {
   // ✅ State สำหรับช่วงเวลาเปิดแก้ไขรายชื่อ
   const [editNameAllowed, setEditNameAllowed] = useState(false);
 
+  // ✅ State สำหรับเปิด/ปิดเมนูเปลี่ยนตัว
+  const [participantChangeEnabled, setParticipantChangeEnabled] = useState(false);
+
   // ✅ State สำหรับ Tab แยกระดับ (กลุ่ม/เขต)
   const [activeLevel, setActiveLevel] = useState('group');
 
@@ -64,6 +67,7 @@ const MyRegistrations = () => {
   useEffect(() => {
     loadData();
     fetchEditNameStatus();
+    fetchParticipantChangeSetting();
   }, []);
 
   const fetchEditNameStatus = async () => {
@@ -73,6 +77,16 @@ const MyRegistrations = () => {
     } catch (error) {
       console.error('Failed to fetch edit name status:', error);
       setEditNameAllowed(false);
+    }
+  };
+
+  const fetchParticipantChangeSetting = async () => {
+    try {
+      const response = await api.get('/system-settings/participant-change');
+      setParticipantChangeEnabled(response.data.data?.enable_participant_change || false);
+    } catch (error) {
+      console.error('Failed to fetch participant change setting:', error);
+      setParticipantChangeEnabled(false);
     }
   };
 
@@ -627,8 +641,8 @@ const MyRegistrations = () => {
                     {/* ✅ ปุ่มแก้ไขตัวสะกด - สถานะ approved + ช่วงเวลาเปิดแก้ไข */}
                     {registration.status === 'approved' && (
                       <div className="flex items-center space-x-2 ml-4">
-                        {/* ปุ่มเปลี่ยนตัว - เฉพาะระดับเขต */}
-                        {registration.competition?.competition_level === 'district' && (
+                        {/* ปุ่มเปลี่ยนตัว - เฉพาะระดับเขต + เปิดใช้งาน */}
+                        {participantChangeEnabled && registration.competition?.competition_level === 'district' && (
                           <button
                             onClick={() => {
                               setChangeRegistration(registration);

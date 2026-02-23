@@ -36,6 +36,52 @@ class SystemSettingController extends Controller
      * อัปเดตการตั้งค่าช่วงเวลาเปิดแก้ไขรายชื่อ
      * เฉพาะ admin/district_admin
      */
+    /**
+     * ดึงสถานะเปิด/ปิดเมนูเปลี่ยนตัว
+     */
+    public function getParticipantChange(Request $request): JsonResponse
+    {
+        $enabled = SystemSetting::getValue('enable_participant_change', 'false');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'enable_participant_change' => $enabled === 'true',
+            ]
+        ]);
+    }
+
+    /**
+     * เปิด/ปิดเมนูเปลี่ยนตัว (admin/district_admin เท่านั้น)
+     */
+    public function updateParticipantChange(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'คุณไม่มีสิทธิ์แก้ไขการตั้งค่านี้'
+            ], 403);
+        }
+
+        $enabled = $request->boolean('enable_participant_change');
+        SystemSetting::setValue('enable_participant_change', $enabled ? 'true' : 'false');
+
+        Log::info('Participant change setting updated', [
+            'updated_by' => $user->id,
+            'enabled' => $enabled,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $enabled ? 'เปิดเมนูเปลี่ยนตัวแล้ว' : 'ปิดเมนูเปลี่ยนตัวแล้ว',
+            'data' => [
+                'enable_participant_change' => $enabled,
+            ]
+        ]);
+    }
+
     public function updateEditNameSettings(Request $request): JsonResponse
     {
         $user = $request->user();

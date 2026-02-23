@@ -632,6 +632,15 @@ class RegistrationController extends Controller
     public function changeParticipant(Request $request, int $id): JsonResponse
     {
         try {
+            // ตรวจสอบว่าเปิดเมนูเปลี่ยนตัวหรือไม่
+            $enabled = SystemSetting::getValue('enable_participant_change', 'false');
+            if ($enabled !== 'true') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ขณะนี้ปิดการเปลี่ยนตัวผู้เข้าแข่งขัน'
+                ], 403);
+            }
+
             $user = $request->user();
             $registration = Registration::with(['competition', 'school'])->findOrFail($id);
 

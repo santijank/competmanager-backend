@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Save, AlertCircle, CheckCircle2, Globe, Lock, Unlock, Edit3 } from 'lucide-react';
+import { Calendar, Save, AlertCircle, CheckCircle2, Globe, Lock, Unlock, Edit3, UserMinus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
@@ -30,10 +30,15 @@ export default function RegistrationSettings() {
   });
   const [savingEditName, setSavingEditName] = useState(false);
 
+  // State สำหรับเปิด/ปิดเมนูเปลี่ยนตัว
+  const [participantChangeEnabled, setParticipantChangeEnabled] = useState(false);
+  const [savingParticipantChange, setSavingParticipantChange] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     if (isDistrictAdmin || user?.role === 'admin') {
       fetchEditNameSettings();
+      fetchParticipantChangeSetting();
     }
   }, []);
 
@@ -72,6 +77,32 @@ export default function RegistrationSettings() {
       }
     } catch (error) {
       console.error('Failed to fetch edit name settings:', error);
+    }
+  };
+
+  const fetchParticipantChangeSetting = async () => {
+    try {
+      const response = await api.get('/system-settings/participant-change');
+      setParticipantChangeEnabled(response.data.data?.enable_participant_change || false);
+    } catch (error) {
+      console.error('Failed to fetch participant change setting:', error);
+    }
+  };
+
+  const handleToggleParticipantChange = async () => {
+    try {
+      setSavingParticipantChange(true);
+      const newValue = !participantChangeEnabled;
+      await api.put('/system-settings/participant-change', {
+        enable_participant_change: newValue,
+      });
+      setParticipantChangeEnabled(newValue);
+      toast.success(newValue ? 'เปิดเมนูเปลี่ยนตัวแล้ว' : 'ปิดเมนูเปลี่ยนตัวแล้ว');
+    } catch (error) {
+      console.error('Failed to toggle participant change:', error);
+      toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setSavingParticipantChange(false);
     }
   };
 
@@ -268,6 +299,39 @@ export default function RegistrationSettings() {
                 <li>การลงทะเบียนโดย District Admin จะได้รับการอนุมัติอัตโนมัติ</li>
               </ul>
             </div>
+          </div>
+        </div>
+
+        {/* เปิด/ปิดเมนูเปลี่ยนตัว */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <UserMinus className="w-5 h-5 mr-2 text-orange-600" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">เมนูเปลี่ยนตัวผู้เข้าแข่งขัน</h3>
+                <p className="text-sm text-gray-600">เปิด/ปิดให้โรงเรียนสามารถเปลี่ยนตัวนักเรียน/ครูผู้ฝึกสอนได้</p>
+              </div>
+            </div>
+            <button
+              onClick={handleToggleParticipantChange}
+              disabled={savingParticipantChange}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                participantChangeEnabled ? 'bg-orange-600' : 'bg-gray-300'
+              } ${savingParticipantChange ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform ${
+                  participantChangeEnabled ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          <div className={`mt-3 px-3 py-2 rounded-lg text-sm font-medium ${
+            participantChangeEnabled
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'bg-gray-50 border border-gray-200 text-gray-600'
+          }`}>
+            {participantChangeEnabled ? 'เปิดใช้งาน — โรงเรียนสามารถเปลี่ยนตัวได้' : 'ปิดใช้งาน — โรงเรียนไม่สามารถเปลี่ยนตัวได้'}
           </div>
         </div>
 
