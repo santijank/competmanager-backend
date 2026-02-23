@@ -635,23 +635,23 @@ class PublicApiController extends Controller
     public function getDistrictCommitteeMembers(): \Illuminate\Http\JsonResponse
     {
         try {
-            $data = Cache::remember('public_district_committee_v2', 300, function () {
+            $data = Cache::remember('public_district_committee_v3', 300, function () {
                 $members = CommitteeMember::districtLevel()
                     ->active()
                     ->with(['competition' => function ($q) {
-                        $q->select('id', 'name', 'code', 'category', 'competition_level');
-                    }])
+                        $q->select('id', 'name', 'code', 'category_id', 'competition_level');
+                    }, 'competition.category:id,name'])
                     ->orderBy('id')
                     ->get();
 
                 // แยกกรรมการที่ไม่มีกิจกรรม (กรรมการอำนวยการทั่วไป)
-                $general = $members->whereNull('competition_id');
+                $general = $members->where('competition_id', null);
                 // กรรมการที่ผูกกับกิจกรรม
-                $withComp = $members->whereNotNull('competition_id');
+                $withComp = $members->where('competition_id', '!=', null);
 
                 // จัดกลุ่มตาม category → competition
                 $categories = $withComp->groupBy(function ($m) {
-                    return $m->competition?->category ?? 'อื่นๆ';
+                    return $m->competition?->category?->name ?? 'อื่นๆ';
                 })->map(function ($catMembers, $category) {
                     $competitions = $catMembers->groupBy('competition_id')->map(function ($compMembers) {
                         $comp = $compMembers->first()->competition;
