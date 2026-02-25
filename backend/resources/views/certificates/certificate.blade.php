@@ -47,7 +47,17 @@
             page-break-after: auto;
         }
 
-        /* กรอบเกียรติบัตร */
+        /* ภาพพื้นหลัง */
+        .background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 297mm;
+            height: 210mm;
+            z-index: 0;
+        }
+
+        /* กรอบเกียรติบัตร (ใช้เมื่อไม่มีพื้นหลัง) */
         .border-outer {
             position: absolute;
             top: 8mm;
@@ -76,6 +86,7 @@
             text-align: center;
             display: table;
             width: calc(297mm - 40mm);
+            z-index: 1;
         }
 
         .content-inner {
@@ -188,12 +199,46 @@
             border-top: 1pt solid #b8860b;
         }
 
+        /* ส่วนลายเซ็น */
+        .signers-section {
+            margin-top: 5mm;
+            width: 100%;
+        }
+
+        .signers-table {
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        .signer-cell {
+            text-align: center;
+            vertical-align: bottom;
+            padding: 0 15mm;
+        }
+
+        .signature-img {
+            height: 18mm;
+            margin-bottom: 1mm;
+        }
+
+        .signer-name {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .signer-position {
+            font-size: 12pt;
+            color: #555;
+        }
+
         .cert-code {
             font-size: 10pt;
             color: #999;
             position: absolute;
             bottom: 13mm;
             right: 15mm;
+            z-index: 1;
         }
     </style>
 </head>
@@ -217,6 +262,8 @@
             7 => 'กรกฎาคม', 8 => 'สิงหาคม', 9 => 'กันยายน',
             10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม',
         ];
+        $certSigners = $signers ?? [];
+        $certBackground = $background ?? null;
     @endphp
 
     @foreach($certificates as $cert)
@@ -233,31 +280,37 @@
         @endphp
 
         <div class="certificate-page">
-            <!-- กรอบ -->
-            <div class="border-outer"></div>
-            <div class="border-inner"></div>
+            {{-- ภาพพื้นหลัง หรือ กรอบเดิม --}}
+            @if($certBackground)
+                <img src="{{ $certBackground }}" class="background-image" />
+            @else
+                <div class="border-outer"></div>
+                <div class="border-inner"></div>
+            @endif
 
             <!-- เนื้อหา -->
             <div class="content">
                 <div class="content-inner">
-                    <!-- โลโก้ -->
-                    <div class="header-logo">
-                        @if(file_exists(public_path('images/smart-sesao-logo.png')))
-                            <img src="{{ public_path('images/smart-sesao-logo.png') }}" alt="Logo">
-                        @endif
-                    </div>
+                    {{-- โลโก้ (แสดงเฉพาะเมื่อไม่มีพื้นหลัง) --}}
+                    @if(!$certBackground)
+                        <div class="header-logo">
+                            @if(file_exists(public_path('images/smart-sesao-logo.png')))
+                                <img src="{{ public_path('images/smart-sesao-logo.png') }}" alt="Logo">
+                            @endif
+                        </div>
 
-                    <div class="title-text">เกียรติบัตร</div>
+                        <div class="title-text">เกียรติบัตร</div>
 
-                    <div class="subtitle-text">
-                        กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73
-                    </div>
+                        <div class="subtitle-text">
+                            กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73
+                        </div>
 
-                    <div class="org-text">
-                        สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1
-                    </div>
+                        <div class="org-text">
+                            สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1
+                        </div>
 
-                    <div class="divider"></div>
+                        <div class="divider"></div>
+                    @endif
 
                     <div class="award-line">ขอมอบเกียรติบัตรฉบับนี้เพื่อแสดงว่า</div>
 
@@ -299,6 +352,29 @@
                     <div class="date-text">
                         ให้ไว้ ณ วันที่ {{ $dateStr }}
                     </div>
+
+                    {{-- ส่วนลายเซ็น --}}
+                    @if(count($certSigners) > 0)
+                        <div class="signers-section">
+                            <table class="signers-table">
+                                <tr>
+                                    @foreach($certSigners as $signer)
+                                        <td class="signer-cell">
+                                            @if(!empty($signer['signature']))
+                                                <img src="{{ $signer['signature'] }}" class="signature-img" />
+                                            @else
+                                                <div style="height: 18mm;"></div>
+                                            @endif
+                                            <div class="signer-name">{{ $signer['name'] }}</div>
+                                            @if(!empty($signer['position']))
+                                                <div class="signer-position">{{ $signer['position'] }}</div>
+                                            @endif
+                                        </td>
+                                    @endforeach
+                                </tr>
+                            </table>
+                        </div>
+                    @endif
                 </div>
             </div>
 

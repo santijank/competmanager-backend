@@ -138,6 +138,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('system-settings/edit-name', [SystemSettingController::class, 'updateEditNameSettings']);
     Route::get('system-settings/participant-change', [SystemSettingController::class, 'getParticipantChange']);
     Route::put('system-settings/participant-change', [SystemSettingController::class, 'updateParticipantChange']);
+    Route::get('system-settings/certificate', [SystemSettingController::class, 'getCertificateSettings']);
+    Route::post('system-settings/certificate', [SystemSettingController::class, 'updateCertificateSettings']);
 
     // Results
     Route::apiResource('results', ResultController::class);

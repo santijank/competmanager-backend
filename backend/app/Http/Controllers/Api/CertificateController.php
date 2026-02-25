@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Certificate;
 use App\Models\Score;
 use App\Models\Competition;
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -373,8 +374,24 @@ class CertificateController extends Controller
      */
     private function renderPdf($certificates)
     {
+        // ดึงข้อมูลตั้งค่าเกียรติบัตร
+        $background = SystemSetting::getValue('cert_background_image');
+        $signers = [];
+        for ($i = 1; $i <= 2; $i++) {
+            $name = SystemSetting::getValue("cert_signer_name_{$i}");
+            if ($name) {
+                $signers[] = [
+                    'name' => $name,
+                    'position' => SystemSetting::getValue("cert_signer_position_{$i}", ''),
+                    'signature' => SystemSetting::getValue("cert_signer_signature_{$i}"),
+                ];
+            }
+        }
+
         return Pdf::loadView('certificates.certificate', [
             'certificates' => $certificates,
+            'background' => $background,
+            'signers' => $signers,
         ])
         ->setPaper('a4', 'landscape')
         ->setOption('isHtml5ParserEnabled', true)

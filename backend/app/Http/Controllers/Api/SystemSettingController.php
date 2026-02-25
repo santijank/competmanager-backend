@@ -82,6 +82,88 @@ class SystemSettingController extends Controller
         ]);
     }
 
+    /**
+     * ดึงการตั้งค่าเกียรติบัตร (พื้นหลัง + ผู้ลงนาม)
+     */
+    public function getCertificateSettings(Request $request): JsonResponse
+    {
+        $signers = [];
+        for ($i = 1; $i <= 2; $i++) {
+            $signers[] = [
+                'name' => SystemSetting::getValue("cert_signer_name_{$i}", ''),
+                'position' => SystemSetting::getValue("cert_signer_position_{$i}", ''),
+                'has_signature' => !empty(SystemSetting::getValue("cert_signer_signature_{$i}")),
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'has_background' => !empty(SystemSetting::getValue('cert_background_image')),
+                'background_preview' => SystemSetting::getValue('cert_background_image') ? 'set' : null,
+                'signers' => $signers,
+            ]
+        ]);
+    }
+
+    /**
+     * อัปเดตการตั้งค่าเกียรติบัตร (admin/district_admin)
+     */
+    public function updateCertificateSettings(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'คุณไม่มีสิทธิ์แก้ไขการตั้งค่านี้'
+            ], 403);
+        }
+
+        try {
+            // ภาพพื้นหลัง
+            if ($request->hasFile('background_image')) {
+                $file = $request->file('background_image');
+                $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
+                SystemSetting::setValue('cert_background_image', $base64);
+            }
+            if ($request->boolean('remove_background')) {
+                SystemSetting::setValue('cert_background_image', null);
+            }
+
+            // ผู้ลงนาม 1-2
+            for ($i = 1; $i <= 2; $i++) {
+                if ($request->has("signer_name_{$i}")) {
+                    SystemSetting::setValue("cert_signer_name_{$i}", $request->input("signer_name_{$i}"));
+                }
+                if ($request->has("signer_position_{$i}")) {
+                    SystemSetting::setValue("cert_signer_position_{$i}", $request->input("signer_position_{$i}"));
+                }
+                if ($request->hasFile("signer_signature_{$i}")) {
+                    $file = $request->file("signer_signature_{$i}");
+                    $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
+                    SystemSetting::setValue("cert_signer_signature_{$i}", $base64);
+                }
+                if ($request->boolean("remove_signature_{$i}")) {
+                    SystemSetting::setValue("cert_signer_signature_{$i}", null);
+                }
+            }
+
+            Log::info('Certificate settings updated', ['updated_by' => $user->id]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'บันทึกการตั้งค่าเกียรติบัตรสำเร็จ',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Update certificate settings error', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการบันทึก'
+            ], 500);
+        }
+    }
+
     public function updateEditNameSettings(Request $request): JsonResponse
     {
         $user = $request->user();

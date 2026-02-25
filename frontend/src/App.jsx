@@ -67,6 +67,7 @@ import ResultLeaderboard from '@/pages/results/ResultLeaderboard';
 
 // Certificate Pages
 import CertificateList from '@/pages/certificates/CertificateList';
+import CertificateSettings from '@/pages/certificates/CertificateSettings';
 
 // User Management Pages (Admin Only)
 import UserManagement from '@/pages/UserManagement';
@@ -217,6 +218,7 @@ function App() {
 
             {/* Certificates */}
             <Route path="/certificates" element={<CertificateList />} />
+            <Route path="/certificates/settings" element={<CertificateSettings />} />
 
             {/* Settings */}
             <Route path="/settings/categories" element={<CategoryList />} />
