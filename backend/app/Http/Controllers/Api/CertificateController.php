@@ -257,7 +257,7 @@ class CertificateController extends Controller
     public function download(int $id)
     {
         try {
-            $certificate = Certificate::findOrFail($id);
+            $certificate = Certificate::with('competition')->findOrFail($id);
             $pdf = $this->renderPdf(collect([$certificate]));
 
             return $pdf->stream("certificate_{$certificate->certificate_code}.pdf");
@@ -281,7 +281,8 @@ class CertificateController extends Controller
                 return response()->json(['success' => false, 'message' => 'กรุณาเลือกเกียรติบัตร'], 400);
             }
 
-            $certificates = Certificate::whereIn('id', $ids)
+            $certificates = Certificate::with('competition')
+                ->whereIn('id', $ids)
                 ->orderBy('competition_name')
                 ->orderBy('rank')
                 ->get();
@@ -319,6 +320,7 @@ class CertificateController extends Controller
 
                 $certificate = new Certificate([
                     'certificate_code' => 'PREVIEW',
+                    'competition_id' => $comp->id,
                     'student_name' => $reg->getStudentNamesString(', '),
                     'school_name' => $reg->school->name ?? '-',
                     'competition_name' => $comp->name,
@@ -330,8 +332,10 @@ class CertificateController extends Controller
                     'score' => $score->score,
                     'issue_date' => now(),
                 ]);
+                // ผูก competition สำหรับ renderPdf ใช้ดึง school_group_id
+                $certificate->setRelation('competition', $comp);
             } elseif ($request->filled('certificate_id')) {
-                $certificate = Certificate::findOrFail($request->certificate_id);
+                $certificate = Certificate::with('competition')->findOrFail($request->certificate_id);
             } else {
                 return response()->json(['success' => false, 'message' => 'ต้องระบุ score_id หรือ certificate_id'], 400);
             }
@@ -371,27 +375,47 @@ class CertificateController extends Controller
 
     /**
      * Render PDF จาก Certificate collection
+     * ดึง background / signers ตาม level + school_group_id ของแต่ละใบ
      */
     private function renderPdf($certificates)
     {
-        // ดึงข้อมูลตั้งค่าเกียรติบัตร
-        $background = SystemSetting::getValue('cert_background_image');
-        $signers = [];
-        for ($i = 1; $i <= 2; $i++) {
-            $name = SystemSetting::getValue("cert_signer_name_{$i}");
-            if ($name) {
-                $signers[] = [
-                    'name' => $name,
-                    'position' => SystemSetting::getValue("cert_signer_position_{$i}", ''),
-                    'signature' => SystemSetting::getValue("cert_signer_signature_{$i}"),
-                ];
+        $settingsCache = [];
+
+        $enrichedCerts = $certificates->map(function ($cert) use (&$settingsCache) {
+            // กำหนด prefix ตาม level + school_group_id
+            $prefix = 'cert_district_';
+            if ($cert->level === 'group') {
+                $comp = $cert->competition ?? Competition::find($cert->competition_id);
+                if ($comp && $comp->school_group_id) {
+                    $prefix = 'cert_group_' . $comp->school_group_id . '_';
+                }
             }
-        }
+
+            // Cache เพื่อไม่ query ซ้ำ
+            if (!isset($settingsCache[$prefix])) {
+                $background = SystemSetting::getValue("{$prefix}background_image");
+                $signers = [];
+                for ($i = 1; $i <= 2; $i++) {
+                    $name = SystemSetting::getValue("{$prefix}signer_name_{$i}");
+                    if ($name) {
+                        $signers[] = [
+                            'name' => $name,
+                            'position' => SystemSetting::getValue("{$prefix}signer_position_{$i}", ''),
+                            'signature' => SystemSetting::getValue("{$prefix}signer_signature_{$i}"),
+                        ];
+                    }
+                }
+                $settingsCache[$prefix] = compact('background', 'signers');
+            }
+
+            $cert->cert_background = $settingsCache[$prefix]['background'];
+            $cert->cert_signers = $settingsCache[$prefix]['signers'];
+
+            return $cert;
+        });
 
         return Pdf::loadView('certificates.certificate', [
-            'certificates' => $certificates,
-            'background' => $background,
-            'signers' => $signers,
+            'certificates' => $enrichedCerts,
         ])
         ->setPaper('a4', 'landscape')
         ->setOption('isHtml5ParserEnabled', true)

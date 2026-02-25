@@ -83,24 +83,40 @@ class SystemSettingController extends Controller
     }
 
     /**
+     * สร้าง prefix key ตาม level + group_id
+     * district → cert_district_
+     * group 5 → cert_group_5_
+     */
+    private function certPrefix(Request $request): string
+    {
+        $level = $request->input('level', 'district');
+        if ($level === 'group' && $request->filled('group_id')) {
+            return 'cert_group_' . $request->input('group_id') . '_';
+        }
+        return 'cert_district_';
+    }
+
+    /**
      * ดึงการตั้งค่าเกียรติบัตร (พื้นหลัง + ผู้ลงนาม)
+     * ?level=district หรือ ?level=group&group_id=5
      */
     public function getCertificateSettings(Request $request): JsonResponse
     {
+        $prefix = $this->certPrefix($request);
+
         $signers = [];
         for ($i = 1; $i <= 2; $i++) {
             $signers[] = [
-                'name' => SystemSetting::getValue("cert_signer_name_{$i}", ''),
-                'position' => SystemSetting::getValue("cert_signer_position_{$i}", ''),
-                'has_signature' => !empty(SystemSetting::getValue("cert_signer_signature_{$i}")),
+                'name' => SystemSetting::getValue("{$prefix}signer_name_{$i}", ''),
+                'position' => SystemSetting::getValue("{$prefix}signer_position_{$i}", ''),
+                'has_signature' => !empty(SystemSetting::getValue("{$prefix}signer_signature_{$i}")),
             ];
         }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'has_background' => !empty(SystemSetting::getValue('cert_background_image')),
-                'background_preview' => SystemSetting::getValue('cert_background_image') ? 'set' : null,
+                'has_background' => !empty(SystemSetting::getValue("{$prefix}background_image")),
                 'signers' => $signers,
             ]
         ]);
@@ -108,6 +124,7 @@ class SystemSettingController extends Controller
 
     /**
      * อัปเดตการตั้งค่าเกียรติบัตร (admin/district_admin)
+     * POST level=district หรือ level=group&group_id=5
      */
     public function updateCertificateSettings(Request $request): JsonResponse
     {
@@ -121,35 +138,40 @@ class SystemSettingController extends Controller
         }
 
         try {
+            $prefix = $this->certPrefix($request);
+
             // ภาพพื้นหลัง
             if ($request->hasFile('background_image')) {
                 $file = $request->file('background_image');
                 $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
-                SystemSetting::setValue('cert_background_image', $base64);
+                SystemSetting::setValue("{$prefix}background_image", $base64);
             }
             if ($request->boolean('remove_background')) {
-                SystemSetting::setValue('cert_background_image', null);
+                SystemSetting::setValue("{$prefix}background_image", null);
             }
 
             // ผู้ลงนาม 1-2
             for ($i = 1; $i <= 2; $i++) {
                 if ($request->has("signer_name_{$i}")) {
-                    SystemSetting::setValue("cert_signer_name_{$i}", $request->input("signer_name_{$i}"));
+                    SystemSetting::setValue("{$prefix}signer_name_{$i}", $request->input("signer_name_{$i}"));
                 }
                 if ($request->has("signer_position_{$i}")) {
-                    SystemSetting::setValue("cert_signer_position_{$i}", $request->input("signer_position_{$i}"));
+                    SystemSetting::setValue("{$prefix}signer_position_{$i}", $request->input("signer_position_{$i}"));
                 }
                 if ($request->hasFile("signer_signature_{$i}")) {
                     $file = $request->file("signer_signature_{$i}");
                     $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
-                    SystemSetting::setValue("cert_signer_signature_{$i}", $base64);
+                    SystemSetting::setValue("{$prefix}signer_signature_{$i}", $base64);
                 }
                 if ($request->boolean("remove_signature_{$i}")) {
-                    SystemSetting::setValue("cert_signer_signature_{$i}", null);
+                    SystemSetting::setValue("{$prefix}signer_signature_{$i}", null);
                 }
             }
 
-            Log::info('Certificate settings updated', ['updated_by' => $user->id]);
+            Log::info('Certificate settings updated', [
+                'updated_by' => $user->id,
+                'prefix' => $prefix,
+            ]);
 
             return response()->json([
                 'success' => true,

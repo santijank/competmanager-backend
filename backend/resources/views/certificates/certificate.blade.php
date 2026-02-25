@@ -262,8 +262,6 @@
             7 => 'กรกฎาคม', 8 => 'สิงหาคม', 9 => 'กันยายน',
             10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม',
         ];
-        $certSigners = $signers ?? [];
-        $certBackground = $background ?? null;
     @endphp
 
     @foreach($certificates as $cert)
@@ -277,6 +275,10 @@
             $medalClass = $medalClasses[$cert->medal] ?? '';
 
             $teacherNames = is_array($cert->teacher_names) ? $cert->teacher_names : [];
+
+            // ดึง background / signers จากแต่ละ cert (ตั้งค่าตาม level/group)
+            $certBackground = $cert->cert_background ?? ($background ?? null);
+            $certSigners = $cert->cert_signers ?? ($signers ?? []);
         @endphp
 
         <div class="certificate-page">
