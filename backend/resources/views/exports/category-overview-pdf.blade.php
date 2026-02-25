@@ -148,8 +148,6 @@
             รวมทั้งหมด {{ $total_categories }} หมวดหมู่
         </div>
         <div class="totals-detail">
-            ระดับกลุ่ม: {{ $grand_group_competitions }} กิจกรรม | {{ $grand_group_teams }} ทีม
-            &nbsp;&nbsp;|&nbsp;&nbsp;
             ระดับเขตพื้นที่: {{ $grand_district_competitions }} กิจกรรม | {{ $grand_district_teams }} ทีม
         </div>
     </div>
@@ -160,40 +158,9 @@
             {{ $catIndex + 1 }}. {{ $category['name'] }}
         </div>
 
-        {{-- ระดับกลุ่ม --}}
-        @if(count($category['group_competitions']) > 0)
-        <div class="level-header">
-            &#9654; ระดับกลุ่ม ({{ $category['group_competition_count'] }} กิจกรรม, {{ $category['group_team_count'] }} ทีม)
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th class="col-no">ลำดับ</th>
-                    <th class="col-name">ชื่อกิจกรรม</th>
-                    <th class="col-level">ระดับชั้น</th>
-                    <th class="col-teams">จำนวนทีม</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($category['group_competitions'] as $index => $comp)
-                <tr>
-                    <td class="col-no">{{ $index + 1 }}</td>
-                    <td class="col-name">{{ $comp['name'] }}</td>
-                    <td class="col-level">{{ $comp['level'] }}</td>
-                    <td class="col-teams">{{ $comp['team_count'] }}</td>
-                </tr>
-                @endforeach
-                <tr class="level-total">
-                    <td colspan="3" style="text-align: right;">รวมระดับกลุ่ม</td>
-                    <td class="col-teams">{{ $category['group_team_count'] }} ทีม</td>
-                </tr>
-            </tbody>
-        </table>
-        @endif
-
         {{-- ระดับเขตพื้นที่ --}}
         @if(count($category['district_competitions']) > 0)
-        <div class="level-header" style="margin-top: {{ count($category['group_competitions']) > 0 ? '8px' : '0' }};">
+        <div class="level-header">
             &#9654; ระดับเขตพื้นที่ ({{ $category['district_competition_count'] }} กิจกรรม, {{ $category['district_team_count'] }} ทีม)
         </div>
         <table>
