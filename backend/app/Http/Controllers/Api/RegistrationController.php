@@ -1335,12 +1335,48 @@ class RegistrationController extends Controller
                 return response()->json([
                     'success' => true,
                     'total' => 0,
+                    'total_has_district' => 0,
+                    'total_no_district' => 0,
                     'data' => [],
                     'message' => 'ไม่พบกิจกรรม ม.1-3 ระดับกลุ่ม',
                 ]);
             }
 
             $groupCompIds = $groupComps->pluck('id')->toArray();
+
+            // หากิจกรรมระดับเขตที่ชื่อเดียวกัน เพื่อตรวจสอบว่าสมัครเขตแล้วหรือยัง
+            $groupCompNames = $groupComps->pluck('name')->unique()->toArray();
+            $districtComps = DB::table('competitions')
+                ->where('competition_level', 'district')
+                ->whereIn('name', $groupCompNames)
+                ->select('id', 'name')
+                ->get();
+
+            // map: ชื่อกิจกรรม => [district_comp_ids]
+            $districtCompMap = [];
+            foreach ($districtComps as $dc) {
+                $districtCompMap[$dc->name][] = $dc->id;
+            }
+
+            // หา registrations ที่สมัครเขตแล้ว (school_id + competition ชื่อเดียวกัน)
+            $districtCompIds = $districtComps->pluck('id')->toArray();
+            $districtRegs = [];
+            if (!empty($districtCompIds)) {
+                $dRegs = DB::table('registrations')
+                    ->whereIn('competition_id', $districtCompIds)
+                    ->where('status', '!=', 'cancelled')
+                    ->select('school_id', 'competition_id', 'status')
+                    ->get();
+
+                // map: "school_id-comp_name" => district_status
+                foreach ($dRegs as $dr) {
+                    $compName = $districtComps->firstWhere('id', $dr->competition_id)?->name;
+                    if ($compName) {
+                        $key = $dr->school_id . '-' . $compName;
+                        $districtRegs[$key] = $dr->status;
+                    }
+                }
+            }
 
             $regs = DB::table('registrations as r')
                 ->join('competitions as c', 'r.competition_id', '=', 'c.id')
@@ -1365,8 +1401,21 @@ class RegistrationController extends Controller
                 ->orderBy('s.name')
                 ->get();
 
-            $items = $regs->map(function ($r) {
+            $totalHasDistrict = 0;
+            $totalNoDistrict = 0;
+
+            $items = $regs->map(function ($r) use ($districtRegs, &$totalHasDistrict, &$totalNoDistrict) {
                 $studentNames = is_string($r->student_names) ? json_decode($r->student_names, true) : $r->student_names;
+                $key = $r->school_id . '-' . $r->competition_name;
+                $hasDistrict = isset($districtRegs[$key]);
+                $districtStatus = $hasDistrict ? $districtRegs[$key] : null;
+
+                if ($hasDistrict) {
+                    $totalHasDistrict++;
+                } else {
+                    $totalNoDistrict++;
+                }
+
                 return [
                     'registration_id' => $r->registration_id,
                     'school_name' => $r->school_name,
@@ -1378,12 +1427,16 @@ class RegistrationController extends Controller
                     'team_name' => $r->team_name,
                     'student_names' => $studentNames,
                     'status' => $r->status,
+                    'has_district' => $hasDistrict,
+                    'district_status' => $districtStatus,
                 ];
             });
 
             return response()->json([
                 'success' => true,
                 'total' => $items->count(),
+                'total_has_district' => $totalHasDistrict,
+                'total_no_district' => $totalNoDistrict,
                 'data' => $items->values(),
             ]);
         } catch (\Exception $e) {

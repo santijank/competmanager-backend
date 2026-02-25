@@ -459,18 +459,13 @@ const MissedDistrictCheck = () => {
 
       {/* ==================== Tab 5: ม.1-3 สมัครกลุ่ม ==================== */}
       {activeTab === 'm13' && (
-        <GenericCheckTab
+        <M13CheckTab
           loading={checkLoading.m13}
           data={checkData.m13}
           filtered={filteredCheckData('m13')}
-          grouped={groupByCompetition(filteredCheckData('m13'))}
           search={checkSearch}
           setSearch={setCheckSearch}
-          emptyMessage="ไม่พบกิจกรรม ม.1-3 ที่สมัครระดับกลุ่ม"
-          warningMessage="ทีมด้านล่างเป็นกิจกรรมระดับ ม.1-3 ที่ไปสมัครระดับกลุ่ม ซึ่งควรสมัครตรงระดับเขตแทน"
-          color="indigo"
           getName={getName}
-          showStatus
         />
       )}
     </div>
@@ -602,6 +597,189 @@ const GenericCheckTab = ({ loading, data, filtered, grouped, search, setSearch, 
                               ))}
                             </div>
                           )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
+const M13CheckTab = ({ loading, data, filtered, search, setSearch, getName }) => {
+  const [expanded, setExpanded] = useState(new Set());
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'no_district' | 'has_district'
+
+  const displayItems = useMemo(() => {
+    let items = filtered;
+    if (filterMode === 'no_district') items = items.filter(i => !i.has_district);
+    else if (filterMode === 'has_district') items = items.filter(i => i.has_district);
+    return items;
+  }, [filtered, filterMode]);
+
+  const grouped = useMemo(() => {
+    const groups = {};
+    displayItems.forEach(m => {
+      const key = m.competition_name;
+      if (!groups[key]) groups[key] = { competition_name: m.competition_name, competition_code: m.competition_code, category_name: m.category_name, items: [] };
+      groups[key].items.push(m);
+    });
+    return Object.values(groups);
+  }, [displayItems]);
+
+  useEffect(() => {
+    if (grouped.length > 0) {
+      setExpanded(new Set(grouped.map(g => g.competition_name)));
+    }
+  }, [grouped.length]);
+
+  const toggle = (name) => setExpanded(prev => {
+    const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n;
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-3 text-gray-600">กำลังตรวจสอบข้อมูล...</span>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const total = data.total || 0;
+  const totalHasDistrict = data.total_has_district || 0;
+  const totalNoDistrict = data.total_no_district || 0;
+
+  return (
+    <>
+      {/* สรุปสถิติ */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div
+          onClick={() => setFilterMode('all')}
+          className={`cursor-pointer rounded-xl p-4 text-center border-2 transition-colors ${filterMode === 'all' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+        >
+          <GraduationCap className="w-6 h-6 text-indigo-600 mx-auto mb-1" />
+          <div className="text-2xl font-bold text-indigo-700">{total}</div>
+          <div className="text-sm text-indigo-600">ทั้งหมด</div>
+        </div>
+        <div
+          onClick={() => setFilterMode('has_district')}
+          className={`cursor-pointer rounded-xl p-4 text-center border-2 transition-colors ${filterMode === 'has_district' ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+        >
+          <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-1" />
+          <div className="text-2xl font-bold text-green-700">{totalHasDistrict}</div>
+          <div className="text-sm text-green-600">สมัครเขตแล้ว</div>
+        </div>
+        <div
+          onClick={() => setFilterMode('no_district')}
+          className={`cursor-pointer rounded-xl p-4 text-center border-2 transition-colors ${filterMode === 'no_district' ? 'border-red-500 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+        >
+          <XCircle className="w-6 h-6 text-red-600 mx-auto mb-1" />
+          <div className="text-2xl font-bold text-red-700">{totalNoDistrict}</div>
+          <div className="text-sm text-red-600">ยังไม่สมัครเขต</div>
+        </div>
+      </div>
+
+      {total === 0 ? (
+        <SuccessBox message="ไม่พบกิจกรรม ม.1-3 ที่สมัครระดับกลุ่ม" />
+      ) : (
+        <>
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4 flex items-start gap-3">
+            <Info className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-indigo-800">
+              <p className="font-medium">กิจกรรม ม.1-3 ที่สมัครระดับกลุ่ม — ตรวจสอบว่าได้แก้ไขไปสมัครระดับเขตแล้วหรือยัง</p>
+              <p className="mt-1">🟢 = สมัครเขตแล้ว &nbsp; 🔴 = ยังไม่สมัครเขต &nbsp; (กดที่การ์ดสถิติด้านบนเพื่อกรอง)</p>
+            </div>
+          </div>
+
+          <SearchBar value={search} onChange={setSearch} />
+
+          {search && (
+            <p className="text-sm text-gray-500 mb-3">พบ {displayItems.length} รายการ</p>
+          )}
+
+          <div className="space-y-3">
+            {grouped.map(group => {
+              const isExpanded = expanded.has(group.competition_name);
+              const hasCount = group.items.filter(i => i.has_district).length;
+              const noCount = group.items.length - hasCount;
+              return (
+                <div key={group.competition_name} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                  <button onClick={() => toggle(group.competition_name)} className="flex items-center justify-between p-4 w-full hover:bg-gray-50 transition-colors text-left">
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}
+                      <div>
+                        <div className="font-bold text-gray-900">{group.competition_name}</div>
+                        <div className="text-sm text-gray-500">
+                          {group.category_name && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs mr-2">{group.category_name}</span>}
+                          {group.competition_code && <span className="text-gray-400">รหัส: {group.competition_code}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {hasCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                          ✅ {hasCount}
+                        </span>
+                      )}
+                      {noCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                          ❌ {noCount}
+                        </span>
+                      )}
+                      <span className="px-3 py-1 rounded-full text-sm font-bold bg-indigo-100 text-indigo-700">
+                        {group.items.length} ทีม
+                      </span>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 divide-y divide-gray-100">
+                      {group.items.map((item, idx) => (
+                        <div key={idx} className={`p-4 ${item.has_district ? 'bg-green-50/30' : 'hover:bg-red-50/30'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <School className="w-4 h-4 text-gray-400" />
+                                <span className="font-bold text-gray-900">{item.school_name}</span>
+                                {/* สถานะกลุ่ม */}
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  item.status === 'approved' ? 'bg-green-100 text-green-700' : item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
+                                }`}>{item.status === 'approved' ? 'อนุมัติ(กลุ่ม)' : item.status === 'pending' ? 'pending(กลุ่ม)' : item.status}</span>
+                              </div>
+                              {item.student_names?.length > 0 && (
+                                <div className="ml-6 mt-1 flex flex-wrap gap-1">
+                                  {item.student_names.map((s, i) => (
+                                    <span key={i} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{getName(s)}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="ml-4 flex-shrink-0">
+                              {item.has_district ? (
+                                <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1.5 rounded-lg text-xs font-bold">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  สมัครเขตแล้ว
+                                  {item.district_status && (
+                                    <span className={`ml-1 px-1.5 py-0.5 rounded text-xs ${
+                                      item.district_status === 'approved' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'
+                                    }`}>{item.district_status === 'approved' ? 'อนุมัติ' : item.district_status}</span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1.5 rounded-lg text-xs font-bold">
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  ยังไม่สมัครเขต
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
