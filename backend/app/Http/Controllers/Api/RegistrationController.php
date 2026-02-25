@@ -1310,6 +1310,89 @@ class RegistrationController extends Controller
     }
 
     /**
+     * ✅ ตรวจสอบกิจกรรมระดับชั้น ม.1-3 ที่ไปสมัครระดับกลุ่ม
+     * กิจกรรม ม.1-3 ส่วนใหญ่เป็น skip_group_level ควรสมัครตรงเขต
+     */
+    public function checkM13InGroup(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // หากิจกรรมระดับกลุ่มที่ level เป็น ม.1-3
+            $groupComps = DB::table('competitions')
+                ->where('competition_level', 'group')
+                ->where(function ($q) {
+                    $q->where('level', 'LIKE', '%ม.1-3%')
+                      ->orWhere('level', 'LIKE', '%ม.1-ม.3%');
+                })
+                ->select('id', 'name', 'code', 'category_id', 'level')
+                ->get();
+
+            if ($groupComps->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'total' => 0,
+                    'data' => [],
+                    'message' => 'ไม่พบกิจกรรม ม.1-3 ระดับกลุ่ม',
+                ]);
+            }
+
+            $groupCompIds = $groupComps->pluck('id')->toArray();
+
+            $regs = DB::table('registrations as r')
+                ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+                ->join('schools as s', 'r.school_id', '=', 's.id')
+                ->leftJoin('categories as cat', 'c.category_id', '=', 'cat.id')
+                ->whereIn('r.competition_id', $groupCompIds)
+                ->where('r.status', '!=', 'cancelled')
+                ->select([
+                    'r.id as registration_id',
+                    'r.school_id',
+                    'r.competition_id',
+                    'r.team_name',
+                    'r.student_names',
+                    'r.status',
+                    's.name as school_name',
+                    'c.name as competition_name',
+                    'c.code as competition_code',
+                    'c.level as education_level',
+                    'cat.name as category_name',
+                ])
+                ->orderBy('c.name')
+                ->orderBy('s.name')
+                ->get();
+
+            $items = $regs->map(function ($r) {
+                $studentNames = is_string($r->student_names) ? json_decode($r->student_names, true) : $r->student_names;
+                return [
+                    'registration_id' => $r->registration_id,
+                    'school_name' => $r->school_name,
+                    'school_id' => $r->school_id,
+                    'competition_name' => $r->competition_name,
+                    'competition_code' => $r->competition_code,
+                    'category_name' => $r->category_name,
+                    'education_level' => $r->education_level,
+                    'team_name' => $r->team_name,
+                    'student_names' => $studentNames,
+                    'status' => $r->status,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total' => $items->count(),
+                'data' => $items->values(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Check m13 in group error', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * ✅ Delete registration
      * Permissions: Group Admin (own group), District Admin, Admin
      */

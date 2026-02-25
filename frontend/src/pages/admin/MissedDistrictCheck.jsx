@@ -17,6 +17,7 @@ import {
   Clock,
   XCircle,
   Star,
+  GraduationCap,
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -26,6 +27,7 @@ const TABS = [
   { id: 'no_score', label: 'อนุมัติแต่ไม่ได้แข่ง', icon: XCircle, color: 'red' },
   { id: 'pending', label: 'ค้าง pending', icon: Clock, color: 'yellow' },
   { id: 'special', label: '(พิเศษเรียนรวม) สมัครกลุ่ม', icon: Star, color: 'purple' },
+  { id: 'm13', label: 'ม.1-3 สมัครกลุ่ม', icon: GraduationCap, color: 'indigo' },
 ];
 
 const MissedDistrictCheck = () => {
@@ -41,8 +43,8 @@ const MissedDistrictCheck = () => {
   const [promotedIds, setPromotedIds] = useState(new Set());
 
   // ===== Tab 2,3,4 =====
-  const [checkData, setCheckData] = useState({ no_score: null, pending: null, special: null });
-  const [checkLoading, setCheckLoading] = useState({ no_score: false, pending: false, special: false });
+  const [checkData, setCheckData] = useState({ no_score: null, pending: null, special: null, m13: null });
+  const [checkLoading, setCheckLoading] = useState({ no_score: false, pending: false, special: false, m13: false });
   const [checkSearch, setCheckSearch] = useState('');
 
   // ===== Tab 1: fetch =====
@@ -104,6 +106,19 @@ const MissedDistrictCheck = () => {
     }
   };
 
+  // ===== Tab 5: ม.1-3 สมัครกลุ่ม =====
+  const fetchM13 = async () => {
+    try {
+      setCheckLoading(p => ({ ...p, m13: true }));
+      const res = await api.get('/registrations/check-m13-in-group');
+      setCheckData(p => ({ ...p, m13: res.data }));
+    } catch (err) {
+      toast.error('โหลดข้อมูลไม่ได้');
+    } finally {
+      setCheckLoading(p => ({ ...p, m13: false }));
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -112,6 +127,7 @@ const MissedDistrictCheck = () => {
     if (activeTab === 'no_score' && !checkData.no_score) fetchNoScore();
     if (activeTab === 'pending' && !checkData.pending) fetchPending();
     if (activeTab === 'special' && !checkData.special) fetchSpecial();
+    if (activeTab === 'm13' && !checkData.m13) fetchM13();
   }, [activeTab]);
 
   const handleRefresh = () => {
@@ -120,6 +136,7 @@ const MissedDistrictCheck = () => {
     else if (activeTab === 'no_score') fetchNoScore();
     else if (activeTab === 'pending') fetchPending();
     else if (activeTab === 'special') fetchSpecial();
+    else if (activeTab === 'm13') fetchM13();
   };
 
   // ===== Tab 1 promote =====
@@ -435,6 +452,23 @@ const MissedDistrictCheck = () => {
           emptyMessage="ไม่พบทีม (พิเศษเรียนรวม) ที่สมัครระดับกลุ่ม"
           warningMessage="ทีมด้านล่างเป็นกิจกรรม (พิเศษเรียนรวม) ที่ไปสมัครระดับกลุ่ม ซึ่งควรสมัครตรงระดับเขตแทน"
           color="purple"
+          getName={getName}
+          showStatus
+        />
+      )}
+
+      {/* ==================== Tab 5: ม.1-3 สมัครกลุ่ม ==================== */}
+      {activeTab === 'm13' && (
+        <GenericCheckTab
+          loading={checkLoading.m13}
+          data={checkData.m13}
+          filtered={filteredCheckData('m13')}
+          grouped={groupByCompetition(filteredCheckData('m13'))}
+          search={checkSearch}
+          setSearch={setCheckSearch}
+          emptyMessage="ไม่พบกิจกรรม ม.1-3 ที่สมัครระดับกลุ่ม"
+          warningMessage="ทีมด้านล่างเป็นกิจกรรมระดับ ม.1-3 ที่ไปสมัครระดับกลุ่ม ซึ่งควรสมัครตรงระดับเขตแทน"
+          color="indigo"
           getName={getName}
           showStatus
         />

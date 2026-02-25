@@ -130,6 +130,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('registrations/check-approved-no-score', [RegistrationController::class, 'checkApprovedNoScore']);
     Route::get('registrations/check-pending', [RegistrationController::class, 'checkPendingRegistrations']);
     Route::get('registrations/check-special-in-group', [RegistrationController::class, 'checkSpecialInGroup']);
+    Route::get('registrations/check-m13-in-group', [RegistrationController::class, 'checkM13InGroup']);
     Route::post('registrations/promote-to-district', [RegistrationController::class, 'promoteToDistrict']);
     Route::apiResource('registrations', RegistrationController::class);
     Route::post('registrations/{id}/approve', [RegistrationController::class, 'approve']);
