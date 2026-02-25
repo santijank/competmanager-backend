@@ -1109,6 +1109,207 @@ class RegistrationController extends Controller
     }
 
     /**
+     * ✅ ตรวจสอบทีมที่อนุมัติแล้วแต่ไม่มีคะแนน (ไม่ได้แข่งขัน)
+     */
+    public function checkApprovedNoScore(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            $level = $request->input('level', 'district'); // district or group
+
+            $regs = DB::table('registrations as r')
+                ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+                ->join('schools as s', 'r.school_id', '=', 's.id')
+                ->leftJoin('categories as cat', 'c.category_id', '=', 'cat.id')
+                ->leftJoin('scores as sc', 'sc.registration_id', '=', 'r.id')
+                ->where('r.status', 'approved')
+                ->where('c.competition_level', $level)
+                ->whereNull('sc.id')
+                ->select([
+                    'r.id as registration_id',
+                    'r.school_id',
+                    'r.competition_id',
+                    'r.team_name',
+                    'r.student_names',
+                    's.name as school_name',
+                    'c.name as competition_name',
+                    'c.code as competition_code',
+                    'cat.name as category_name',
+                ])
+                ->orderBy('c.name')
+                ->orderBy('s.name')
+                ->get();
+
+            $items = $regs->map(function ($r) {
+                $studentNames = is_string($r->student_names) ? json_decode($r->student_names, true) : $r->student_names;
+                return [
+                    'registration_id' => $r->registration_id,
+                    'school_name' => $r->school_name,
+                    'school_id' => $r->school_id,
+                    'competition_name' => $r->competition_name,
+                    'competition_code' => $r->competition_code,
+                    'category_name' => $r->category_name,
+                    'team_name' => $r->team_name,
+                    'student_names' => $studentNames,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total' => $items->count(),
+                'data' => $items->values(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Check approved no score error', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * ✅ ตรวจสอบทีมที่สมัครแล้วแต่ยังค้าง pending (ไม่ได้อนุมัติ)
+     */
+    public function checkPendingRegistrations(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            $level = $request->input('level', 'district');
+
+            $regs = DB::table('registrations as r')
+                ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+                ->join('schools as s', 'r.school_id', '=', 's.id')
+                ->leftJoin('categories as cat', 'c.category_id', '=', 'cat.id')
+                ->where('r.status', 'pending')
+                ->where('c.competition_level', $level)
+                ->select([
+                    'r.id as registration_id',
+                    'r.school_id',
+                    'r.competition_id',
+                    'r.team_name',
+                    'r.student_names',
+                    'r.created_at',
+                    's.name as school_name',
+                    'c.name as competition_name',
+                    'c.code as competition_code',
+                    'cat.name as category_name',
+                ])
+                ->orderBy('c.name')
+                ->orderBy('s.name')
+                ->get();
+
+            $items = $regs->map(function ($r) {
+                $studentNames = is_string($r->student_names) ? json_decode($r->student_names, true) : $r->student_names;
+                return [
+                    'registration_id' => $r->registration_id,
+                    'school_name' => $r->school_name,
+                    'school_id' => $r->school_id,
+                    'competition_name' => $r->competition_name,
+                    'competition_code' => $r->competition_code,
+                    'category_name' => $r->category_name,
+                    'team_name' => $r->team_name,
+                    'student_names' => $studentNames,
+                    'registered_at' => $r->created_at,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total' => $items->count(),
+                'data' => $items->values(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Check pending registrations error', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * ✅ ตรวจสอบทีม (พิเศษเรียนรวม) ที่ไปสมัครระดับกลุ่มผิด
+     * กิจกรรม skip_group_level ที่ลงท้ายด้วย (พิเศษเรียนรวม) ต้องสมัครตรงระดับเขต ไม่ต้องผ่านกลุ่ม
+     */
+    public function checkSpecialInGroup(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // หากิจกรรมระดับกลุ่มที่ชื่อลงท้ายด้วย (พิเศษเรียนรวม)
+            $groupComps = DB::table('competitions')
+                ->where('competition_level', 'group')
+                ->where('name', 'LIKE', '%(พิเศษเรียนรวม)')
+                ->select('id', 'name', 'code', 'category_id')
+                ->get();
+
+            if ($groupComps->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'total' => 0,
+                    'data' => [],
+                    'message' => 'ไม่พบกิจกรรม (พิเศษเรียนรวม) ระดับกลุ่ม',
+                ]);
+            }
+
+            $groupCompIds = $groupComps->pluck('id')->toArray();
+
+            // ดึง registrations ที่สมัครกิจกรรมเหล่านี้ระดับกลุ่ม
+            $regs = DB::table('registrations as r')
+                ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+                ->join('schools as s', 'r.school_id', '=', 's.id')
+                ->leftJoin('categories as cat', 'c.category_id', '=', 'cat.id')
+                ->whereIn('r.competition_id', $groupCompIds)
+                ->where('r.status', '!=', 'cancelled')
+                ->select([
+                    'r.id as registration_id',
+                    'r.school_id',
+                    'r.competition_id',
+                    'r.team_name',
+                    'r.student_names',
+                    'r.status',
+                    's.name as school_name',
+                    'c.name as competition_name',
+                    'c.code as competition_code',
+                    'cat.name as category_name',
+                ])
+                ->orderBy('c.name')
+                ->orderBy('s.name')
+                ->get();
+
+            $items = $regs->map(function ($r) {
+                $studentNames = is_string($r->student_names) ? json_decode($r->student_names, true) : $r->student_names;
+                return [
+                    'registration_id' => $r->registration_id,
+                    'school_name' => $r->school_name,
+                    'school_id' => $r->school_id,
+                    'competition_name' => $r->competition_name,
+                    'competition_code' => $r->competition_code,
+                    'category_name' => $r->category_name,
+                    'team_name' => $r->team_name,
+                    'student_names' => $studentNames,
+                    'status' => $r->status,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total' => $items->count(),
+                'data' => $items->values(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Check special in group error', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * ✅ Delete registration
      * Permissions: Group Admin (own group), District Admin, Admin
      */

@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Image,
   Loader2,
+  Building2,
+  UsersRound,
 } from 'lucide-react';
 import api from '@/lib/api';
 import idCardService from '@/services/idCardService';
@@ -233,108 +235,145 @@ const IdCardPage = () => {
         </div>
       )}
 
-      {/* Registration cards */}
-      {registrations.map((reg) => (
-        <div key={reg.id} className="bg-white rounded-lg shadow">
-          {/* Competition header */}
-          <div className="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                    {reg.competition?.code || '-'}
-                  </span>
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    {reg.competition?.name || 'ไม่ทราบกิจกรรม'}
-                  </h2>
+      {/* แยกกลุ่มตาม competition_level */}
+      {(() => {
+        const districtRegs = registrations.filter(r => r.competition?.competition_level === 'district');
+        const groupRegs = registrations.filter(r => r.competition?.competition_level !== 'district');
+
+        const renderRegCard = (reg) => (
+          <div key={reg.id} className="bg-white rounded-lg shadow">
+            {/* Competition header */}
+            <div className="px-6 py-4 border-b bg-gray-50 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                      {reg.competition?.code || '-'}
+                    </span>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      {reg.competition?.name || 'ไม่ทราบกิจกรรม'}
+                    </h2>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">
+                    ระดับชั้น: {reg.competition?.level || '-'} |
+                    สถานที่: {reg.competition?.venue || '-'}
+                  </p>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">
-                  ระดับชั้น: {reg.competition?.level || '-'} |
-                  สถานที่: {reg.competition?.venue || '-'}
-                </p>
+                <button
+                  onClick={() => handlePrintOne(reg.id)}
+                  disabled={printingReg === reg.id}
+                  className="px-3 py-2 text-sm bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  {printingReg === reg.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Printer className="w-4 h-4" />
+                  )}
+                  {printingReg === reg.id ? 'กำลังสร้าง...' : 'พิมพ์บัตรกิจกรรมนี้'}
+                </button>
               </div>
-              <button
-                onClick={() => handlePrintOne(reg.id)}
-                disabled={printingReg === reg.id}
-                className="px-3 py-2 text-sm bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-              >
-                {printingReg === reg.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Printer className="w-4 h-4" />
-                )}
-                {printingReg === reg.id ? 'กำลังสร้าง...' : 'พิมพ์บัตรกิจกรรมนี้'}
-              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* นักเรียน */}
+              {reg.student_names?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-700 flex items-center gap-1 mb-3">
+                    <Users className="w-4 h-4" />
+                    นักเรียน ({reg.student_names.length} คน)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {reg.student_names.map((name, idx) => {
+                      const photoKey = `student_${idx}`;
+                      const photo = photos[reg.id]?.[photoKey];
+                      const uploadKey = `${reg.id}_student_${idx}`;
+                      const isUploading = uploading[uploadKey];
+                      const refKey = `${reg.id}_student_${idx}`;
+
+                      return (
+                        <PersonCard
+                          key={refKey}
+                          name={name}
+                          photo={photo}
+                          isUploading={isUploading}
+                          onUpload={(file) => handleUpload(reg.id, 'student', idx, file)}
+                          onDelete={() => handleDelete(reg.id, 'student', idx)}
+                          triggerFileInput={() => triggerFileInput(refKey)}
+                          fileInputRef={(el) => (fileInputRefs.current[refKey] = el)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ครู */}
+              {reg.teacher_names?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-green-700 flex items-center gap-1 mb-3">
+                    <User className="w-4 h-4" />
+                    ครูผู้ฝึกสอน ({reg.teacher_names.length} คน)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {reg.teacher_names.map((name, idx) => {
+                      const photoKey = `teacher_${idx}`;
+                      const photo = photos[reg.id]?.[photoKey];
+                      const uploadKey = `${reg.id}_teacher_${idx}`;
+                      const isUploading = uploading[uploadKey];
+                      const refKey = `${reg.id}_teacher_${idx}`;
+
+                      return (
+                        <PersonCard
+                          key={refKey}
+                          name={name}
+                          photo={photo}
+                          isUploading={isUploading}
+                          onUpload={(file) => handleUpload(reg.id, 'teacher', idx, file)}
+                          onDelete={() => handleDelete(reg.id, 'teacher', idx)}
+                          triggerFileInput={() => triggerFileInput(refKey)}
+                          fileInputRef={(el) => (fileInputRefs.current[refKey] = el)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        );
 
-          <div className="p-6 space-y-6">
-            {/* นักเรียน */}
-            {reg.student_names?.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-blue-700 flex items-center gap-1 mb-3">
-                  <Users className="w-4 h-4" />
-                  นักเรียน ({reg.student_names.length} คน)
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {reg.student_names.map((name, idx) => {
-                    const photoKey = `student_${idx}`;
-                    const photo = photos[reg.id]?.[photoKey];
-                    const uploadKey = `${reg.id}_student_${idx}`;
-                    const isUploading = uploading[uploadKey];
-                    const refKey = `${reg.id}_student_${idx}`;
-
-                    return (
-                      <PersonCard
-                        key={refKey}
-                        name={name}
-                        photo={photo}
-                        isUploading={isUploading}
-                        onUpload={(file) => handleUpload(reg.id, 'student', idx, file)}
-                        onDelete={() => handleDelete(reg.id, 'student', idx)}
-                        triggerFileInput={() => triggerFileInput(refKey)}
-                        fileInputRef={(el) => (fileInputRefs.current[refKey] = el)}
-                      />
-                    );
-                  })}
+        return (
+          <>
+            {/* ระดับเขตพื้นที่ */}
+            {districtRegs.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-1">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg">
+                    <Building2 className="w-5 h-5" />
+                    <span className="font-semibold text-lg">ระดับเขตพื้นที่</span>
+                  </div>
+                  <span className="text-sm text-gray-500">({districtRegs.length} กิจกรรม)</span>
                 </div>
+                {districtRegs.map(renderRegCard)}
               </div>
             )}
 
-            {/* ครู */}
-            {reg.teacher_names?.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-green-700 flex items-center gap-1 mb-3">
-                  <User className="w-4 h-4" />
-                  ครูผู้ฝึกสอน ({reg.teacher_names.length} คน)
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {reg.teacher_names.map((name, idx) => {
-                    const photoKey = `teacher_${idx}`;
-                    const photo = photos[reg.id]?.[photoKey];
-                    const uploadKey = `${reg.id}_teacher_${idx}`;
-                    const isUploading = uploading[uploadKey];
-                    const refKey = `${reg.id}_teacher_${idx}`;
-
-                    return (
-                      <PersonCard
-                        key={refKey}
-                        name={name}
-                        photo={photo}
-                        isUploading={isUploading}
-                        onUpload={(file) => handleUpload(reg.id, 'teacher', idx, file)}
-                        onDelete={() => handleDelete(reg.id, 'teacher', idx)}
-                        triggerFileInput={() => triggerFileInput(refKey)}
-                        fileInputRef={(el) => (fileInputRefs.current[refKey] = el)}
-                      />
-                    );
-                  })}
+            {/* ระดับกลุ่ม */}
+            {groupRegs.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-1">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg">
+                    <UsersRound className="w-5 h-5" />
+                    <span className="font-semibold text-lg">ระดับกลุ่ม</span>
+                  </div>
+                  <span className="text-sm text-gray-500">({groupRegs.length} กิจกรรม)</span>
                 </div>
+                {groupRegs.map(renderRegCard)}
               </div>
             )}
-          </div>
-        </div>
-      ))}
+          </>
+        );
+      })()}
     </div>
   );
 };
