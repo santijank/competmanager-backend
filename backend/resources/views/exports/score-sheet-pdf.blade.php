@@ -344,7 +344,7 @@
                         <td style="width: {{ $tdWidth }}%;">
                             <div class="signature-line">(..............................)</div>
                             <div class="signature-name">{{ $judge->name }}</div>
-                            <div class="signature-position">{{ $judge->position ?? 'กรรมการ' }}</div>
+                            <div class="signature-position">{{ $judge->position ?? $judge->school_name ?? 'กรรมการ' }}</div>
                         </td>
                     @endforeach
                     @if($chunkIndex === 0)
