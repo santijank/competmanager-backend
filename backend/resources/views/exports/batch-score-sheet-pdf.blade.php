@@ -37,7 +37,7 @@
         .col-note { width: 23%; text-align: left; padding-left: 5px; }
         .signature-section { margin-top: 30px; width: 100%; }
         .signature-table { width: 100%; border-collapse: collapse; }
-        .signature-table td { width: 33.33%; text-align: center; vertical-align: top; padding: 10px 5px; }
+        .signature-table td { text-align: center; vertical-align: top; padding: 10px 5px; }
         .signature-line { margin-bottom: 5px; }
         .signature-name { font-size: 16pt; font-weight: bold; }
         .signature-position { font-size: 14pt; color: #333; }
@@ -132,26 +132,41 @@
     </table>
 
     <div class="signature-section">
-        <table class="signature-table">
-            <tr>
-                @foreach($judges as $ji => $judge)
-                    @if($ji < 3)
-                        <td>
+        @php
+            $judgeList = $judges instanceof \Illuminate\Support\Collection ? $judges->values()->all() : (array) $judges;
+            $judgeCount = count($judgeList);
+            $perRow = min(max($judgeCount, 3), 3);
+            $chunks = array_chunk($judgeList, $perRow);
+            if ($judgeCount === 0) {
+                $chunks = [[]];
+            }
+            if ($judgeCount < 3) {
+                $chunks = [$judgeList];
+            }
+            $tdWidth = round(100 / $perRow, 2);
+        @endphp
+        @foreach($chunks as $chunkIndex => $chunk)
+            <table class="signature-table">
+                <tr>
+                    @foreach($chunk as $judge)
+                        <td style="width: {{ $tdWidth }}%;">
                             <div class="signature-line">(..............................)</div>
                             <div class="signature-name">{{ $judge->name }}</div>
                             <div class="signature-position">{{ $judge->position ?? 'กรรมการ' }}</div>
                         </td>
+                    @endforeach
+                    @if($chunkIndex === 0)
+                        @for($i = count($chunk); $i < 3; $i++)
+                            <td style="width: {{ $tdWidth }}%;">
+                                <div class="signature-line">(..............................)</div>
+                                <div class="signature-name">................................................</div>
+                                <div class="signature-position">กรรมการ</div>
+                            </td>
+                        @endfor
                     @endif
-                @endforeach
-                @for($i = count($judges); $i < 3; $i++)
-                    <td>
-                        <div class="signature-line">(..............................)</div>
-                        <div class="signature-name">................................................</div>
-                        <div class="signature-position">กรรมการ</div>
-                    </td>
-                @endfor
-            </tr>
-        </table>
+                </tr>
+            </table>
+        @endforeach
     </div>
 @endforeach
 </body>
