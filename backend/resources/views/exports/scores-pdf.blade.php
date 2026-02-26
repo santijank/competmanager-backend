@@ -222,6 +222,37 @@
             font-weight: bold;
         }
 
+        /* ===== SIGNATURE SECTION ===== */
+        .signature-section {
+            margin-top: 30px;
+            width: 100%;
+        }
+
+        .signature-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .signature-table td {
+            text-align: center;
+            vertical-align: top;
+            padding: 10px 5px;
+        }
+
+        .signature-line {
+            margin-bottom: 5px;
+        }
+
+        .signature-name {
+            font-size: 16pt;
+            font-weight: bold;
+        }
+
+        .signature-position {
+            font-size: 14pt;
+            color: #333;
+        }
+
         /* ===== FOOTER ===== */
         .footer {
             margin-top: 10px;
@@ -397,6 +428,44 @@
             @endforelse
         </tbody>
     </table>
+
+    <!-- SIGNATURE SECTION (กรรมการตัดสิน) -->
+    @if(isset($judges) && $judges->count() > 0)
+    <div class="signature-section">
+        @php
+            $judgeList = $judges instanceof \Illuminate\Support\Collection ? $judges->values()->all() : (array) $judges;
+            $judgeCount = count($judgeList);
+            $perRow = min(max($judgeCount, 3), 3);
+            $chunks = array_chunk($judgeList, $perRow);
+            if ($judgeCount < 3) {
+                $chunks = [$judgeList];
+            }
+            $tdWidth = round(100 / $perRow, 2);
+        @endphp
+        @foreach($chunks as $chunkIndex => $chunk)
+            <table class="signature-table">
+                <tr>
+                    @foreach($chunk as $judge)
+                        <td style="width: {{ $tdWidth }}%;">
+                            <div class="signature-line">(..............................)</div>
+                            <div class="signature-name">{{ $judge->name }}</div>
+                            <div class="signature-position">{{ $judge->position ?? $judge->school_name ?? 'กรรมการ' }}</div>
+                        </td>
+                    @endforeach
+                    @if($chunkIndex === 0)
+                        @for($i = count($chunk); $i < 3; $i++)
+                            <td style="width: {{ $tdWidth }}%;">
+                                <div class="signature-line">(..............................)</div>
+                                <div class="signature-name">................................................</div>
+                                <div class="signature-position">กรรมการ</div>
+                            </td>
+                        @endfor
+                    @endif
+                </tr>
+            </table>
+        @endforeach
+    </div>
+    @endif
 
     <div class="footer">
         <div>พิมพ์โดย: {{ $generated_by }}</div>

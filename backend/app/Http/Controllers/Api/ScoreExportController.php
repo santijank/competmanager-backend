@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Competition;
+use App\Models\CompetitionJudge;
+use App\Models\CommitteeMember;
 use App\Models\CompetitionSchedule;
 use App\Models\Registration;
 use App\Models\Score;
@@ -50,12 +52,35 @@ class ScoreExportController extends Controller
             // ดึงข้อมูล schedule สำหรับสถานที่และวันที่แข่งขัน
             $schedule = CompetitionSchedule::where('competition_id', $competitionId)->first();
 
+            // ดึงรายชื่อกรรมการตัดสิน — CompetitionJudge ก่อน → fallback CommitteeMember
+            $judges = CompetitionJudge::where('competition_id', $competitionId)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            if ($judges->isEmpty()) {
+                $judges = CommitteeMember::where('competition_id', $competitionId)
+                    ->where('is_active', true)
+                    ->where('member_type', 'committee')
+                    ->orderBy('id', 'asc')
+                    ->get();
+            }
+
+            if ($judges->isEmpty()) {
+                $judges = CommitteeMember::whereNull('competition_id')
+                    ->where('is_active', true)
+                    ->where('member_type', 'committee')
+                    ->where('level', $competition->competition_level)
+                    ->orderBy('id', 'asc')
+                    ->get();
+            }
+
             $data = [
                 'competition' => $competition,
                 'registrations' => $sorted,
                 'stats' => $stats,
                 'groupName' => $groupName,
                 'schedule' => $schedule,
+                'judges' => $judges,
                 'generated_at' => now()->format('d/m/Y H:i:s'),
                 'generated_by' => $user->name,
             ];
@@ -165,11 +190,34 @@ class ScoreExportController extends Controller
 
             $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
 
+            // ดึงรายชื่อกรรมการตัดสิน
+            $judges = CompetitionJudge::where('competition_id', $competitionId)
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            if ($judges->isEmpty()) {
+                $judges = CommitteeMember::where('competition_id', $competitionId)
+                    ->where('is_active', true)
+                    ->where('member_type', 'committee')
+                    ->orderBy('id', 'asc')
+                    ->get();
+            }
+
+            if ($judges->isEmpty()) {
+                $judges = CommitteeMember::whereNull('competition_id')
+                    ->where('is_active', true)
+                    ->where('member_type', 'committee')
+                    ->where('level', $competition->competition_level)
+                    ->orderBy('id', 'asc')
+                    ->get();
+            }
+
             $data = [
                 'competition' => $competition,
                 'registrations' => $registrations,
                 'stats' => $stats,
                 'groupName' => $groupName,
+                'judges' => $judges,
                 'generated_at' => now()->format('d/m/Y H:i:s'),
                 'generated_by' => $user->name,
             ];
