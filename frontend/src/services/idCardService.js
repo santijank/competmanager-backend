@@ -50,9 +50,9 @@ const idCardService = {
   /**
    * เปิด PDF ของ 1 กิจกรรมใน tab ใหม่
    */
-  async openPdf(registrationId) {
+  async openPdf(registrationId, preOpenedWindow) {
     const blob = await this.generatePdf(registrationId);
-    documentService.openPDFInNewTab(blob);
+    documentService.openPDFInNewTab(blob, preOpenedWindow);
   },
 
   /**
@@ -74,9 +74,9 @@ const idCardService = {
   /**
    * เปิด PDF ใน tab ใหม่
    */
-  async openAllPdf(level) {
+  async openAllPdf(level, preOpenedWindow) {
     const blob = await this.generateAllPdf(level);
-    documentService.openPDFInNewTab(blob);
+    documentService.openPDFInNewTab(blob, preOpenedWindow);
   },
 };
 

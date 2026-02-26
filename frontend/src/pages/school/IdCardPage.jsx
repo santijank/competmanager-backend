@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import idCardService from '@/services/idCardService';
+import documentService from '@/services/documentService';
 import useAuthStore from '@/stores/authStore';
 
 const IdCardPage = () => {
@@ -142,10 +143,12 @@ const IdCardPage = () => {
     const key = level || 'all';
     setPrintingLevel(key);
     setPrinting(true);
+    const pdfWindow = documentService.preOpenWindow();
     try {
-      await idCardService.openAllPdf(level);
+      await idCardService.openAllPdf(level, pdfWindow);
     } catch (error) {
       console.error('Print error:', error);
+      if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         toast.error('การสร้าง PDF ใช้เวลานานเกินไป ลองพิมพ์แยกเป็นรายกิจกรรม');
       } else {
@@ -159,10 +162,12 @@ const IdCardPage = () => {
 
   const handlePrintOne = async (regId) => {
     setPrintingReg(regId);
+    const pdfWindow = documentService.preOpenWindow();
     try {
-      await idCardService.openPdf(regId);
+      await idCardService.openPdf(regId, pdfWindow);
     } catch (error) {
       console.error('Print error:', error);
+      if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
       toast.error('ไม่สามารถสร้าง PDF ได้');
     } finally {
       setPrintingReg(null);

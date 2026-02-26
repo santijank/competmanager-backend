@@ -143,24 +143,43 @@ const documentService = {
   /**
    * Open PDF in new tab
    * @param {Blob} blob - PDF blob
+   * @param {Window} [preOpenedWindow] - window ที่เปิดไว้ล่วงหน้า (ป้องกัน popup block)
    */
-  openPDFInNewTab(blob) {
+  openPDFInNewTab(blob, preOpenedWindow) {
     try {
       const url = window.URL.createObjectURL(blob);
-      const newWindow = window.open(url, '_blank');
-      
-      if (!newWindow) {
-        throw new Error('โปรดอนุญาตให้เปิด popup window');
+
+      if (preOpenedWindow && !preOpenedWindow.closed) {
+        preOpenedWindow.location.href = url;
+      } else {
+        // fallback: ดาวน์โหลดแทน
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'document.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
-      
-      // Revoke URL after window is loaded
+
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
-      }, 1000);
+      }, 5000);
     } catch (error) {
       console.error('Error opening PDF:', error);
       throw new Error('ไม่สามารถเปิดไฟล์ PDF ได้');
     }
+  },
+
+  /**
+   * เปิด blank window ไว้ล่วงหน้า (ต้องเรียกใน user click handler โดยตรง)
+   * @returns {Window|null}
+   */
+  preOpenWindow() {
+    const w = window.open('about:blank', '_blank');
+    if (w) {
+      w.document.write('<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666;"><h2>กำลังสร้าง PDF...</h2></body></html>');
+    }
+    return w;
   },
 
   /**
