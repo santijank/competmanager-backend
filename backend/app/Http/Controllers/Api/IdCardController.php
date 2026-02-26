@@ -138,6 +138,9 @@ class IdCardController extends Controller
      */
     public function generatePdf(Request $request, $registrationId)
     {
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         $registration = Registration::with(['competition.category', 'school', 'photos'])->findOrFail($registrationId);
         $user = $request->user();
 
@@ -166,9 +169,13 @@ class IdCardController extends Controller
 
     /**
      * สร้าง PDF บัตรประจำตัวทั้งหมดของโรงเรียน
+     * รองรับ ?level=district หรือ ?level=group เพื่อกรองตามระดับ
      */
     public function generateAllPdf(Request $request)
     {
+        ini_set('memory_limit', '1G');
+        set_time_limit(600);
+
         $user = $request->user();
         $schoolId = $user->school_id;
 
@@ -176,10 +183,19 @@ class IdCardController extends Controller
             return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลโรงเรียน'], 400);
         }
 
-        $registrations = Registration::where('school_id', $schoolId)
+        $query = Registration::where('school_id', $schoolId)
             ->where('status', 'approved')
-            ->with(['competition.category', 'school', 'photos'])
-            ->get();
+            ->with(['competition.category', 'school', 'photos']);
+
+        // กรองตามระดับถ้ามี parameter
+        $level = $request->query('level');
+        if ($level) {
+            $query->whereHas('competition', function ($q) use ($level) {
+                $q->where('competition_level', $level);
+            });
+        }
+
+        $registrations = $query->get();
 
         if ($registrations->isEmpty()) {
             return response()->json(['success' => false, 'message' => 'ไม่พบรายการลงทะเบียนที่อนุมัติแล้ว'], 404);
@@ -187,21 +203,20 @@ class IdCardController extends Controller
 
         $people = [];
         foreach ($registrations as $registration) {
-            $people = array_merge($people, $this->buildPeopleFromRegistration($registration));
+            foreach ($this->buildPeopleFromRegistration($registration) as $person) {
+                $people[] = $person;
+            }
         }
 
-        $data = [
-            'people' => $people,
-        ];
-
-        $pdf = Pdf::loadView('exports.id-card-pdf', $data)
+        $pdf = Pdf::loadView('exports.id-card-pdf', ['people' => $people])
             ->setPaper('a4', 'portrait')
             ->setOption('defaultFont', 'THSarabunNew')
             ->setOption('isRemoteEnabled', true)
             ->setOption('isHtml5ParserEnabled', true);
 
         $schoolName = $registrations->first()->school->name ?? 'school';
-        $filename = "บัตรประจำตัว_{$schoolName}.pdf";
+        $levelLabel = $level ? "_{$level}" : '';
+        $filename = "บัตรประจำตัว_{$schoolName}{$levelLabel}.pdf";
 
         return $pdf->download($filename);
     }

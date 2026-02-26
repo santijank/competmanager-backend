@@ -136,15 +136,24 @@ const IdCardPage = () => {
     }
   };
 
-  const handlePrintAll = async () => {
+  const [printingLevel, setPrintingLevel] = useState(null); // null | 'all' | 'district' | 'group'
+
+  const handlePrintAll = async (level) => {
+    const key = level || 'all';
+    setPrintingLevel(key);
     setPrinting(true);
     try {
-      await idCardService.openAllPdf();
+      await idCardService.openAllPdf(level);
     } catch (error) {
       console.error('Print error:', error);
-      toast.error('ไม่สามารถสร้าง PDF ได้');
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        toast.error('การสร้าง PDF ใช้เวลานานเกินไป ลองพิมพ์แยกเป็นรายกิจกรรม');
+      } else {
+        toast.error('ไม่สามารถสร้าง PDF ได้');
+      }
     } finally {
       setPrinting(false);
+      setPrintingLevel(null);
     }
   };
 
@@ -197,8 +206,8 @@ const IdCardPage = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-sm text-gray-600">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-sm text-gray-600 mr-1">
               <span className="font-medium">{totalPhotos}</span>/{totalPeople} รูป
             </div>
             <button
@@ -209,16 +218,28 @@ const IdCardPage = () => {
               รีเฟรช
             </button>
             <button
-              onClick={handlePrintAll}
+              onClick={() => handlePrintAll('district')}
               disabled={printing || registrations.length === 0}
-              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {printing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Printer className="w-4 h-4" />
-              )}
-              {printing ? 'กำลังสร้าง PDF...' : 'พิมพ์บัตรทั้งหมด'}
+              {printingLevel === 'district' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              {printingLevel === 'district' ? 'กำลังสร้าง...' : 'พิมพ์ระดับเขต'}
+            </button>
+            <button
+              onClick={() => handlePrintAll('group')}
+              disabled={printing || registrations.length === 0}
+              className="px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {printingLevel === 'group' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              {printingLevel === 'group' ? 'กำลังสร้าง...' : 'พิมพ์ระดับกลุ่ม'}
+            </button>
+            <button
+              onClick={() => handlePrintAll()}
+              disabled={printing || registrations.length === 0}
+              className="px-3 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {printingLevel === 'all' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              {printingLevel === 'all' ? 'กำลังสร้าง...' : 'พิมพ์ทั้งหมด'}
             </button>
           </div>
         </div>

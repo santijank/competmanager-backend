@@ -42,7 +42,7 @@ const idCardService = {
     const response = await api.get(`/id-cards/registrations/${registrationId}/pdf`, {
       responseType: 'blob',
       headers: { 'Accept': 'application/pdf' },
-      timeout: 120000,
+      timeout: 300000,
     });
     return response.data;
   },
@@ -57,12 +57,16 @@ const idCardService = {
 
   /**
    * สร้าง PDF บัตรประจำตัวทั้งหมดของโรงเรียน
+   * level: 'district' | 'group' | undefined (ทั้งหมด)
    */
-  async generateAllPdf() {
+  async generateAllPdf(level) {
+    const params = {};
+    if (level) params.level = level;
     const response = await api.get('/id-cards/school/pdf', {
+      params,
       responseType: 'blob',
       headers: { 'Accept': 'application/pdf' },
-      timeout: 120000,
+      timeout: 600000,
     });
     return response.data;
   },
@@ -70,8 +74,8 @@ const idCardService = {
   /**
    * เปิด PDF ใน tab ใหม่
    */
-  async openAllPdf() {
-    const blob = await this.generateAllPdf();
+  async openAllPdf(level) {
+    const blob = await this.generateAllPdf(level);
     documentService.openPDFInNewTab(blob);
   },
 };
