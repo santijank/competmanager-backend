@@ -283,6 +283,16 @@ export default function Sidebar({ isOpen, onClose }) {
       });
     }
 
+    // ===== ผลระดับเขต (สำหรับออกเกียรติบัตร) =====
+    if (hasRole(['admin', 'district_admin', 'category_admin', 'data_entry'])) {
+      items.push({
+        label: 'ผลระดับเขต',
+        icon: Trophy,
+        path: '/district-results',
+        roles: ['admin', 'district_admin', 'category_admin', 'data_entry'],
+      });
+    }
+
     // ===== เกียรติบัตร =====
     items.push({
       label: 'เกียรติบัตร',

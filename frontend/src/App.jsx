@@ -59,6 +59,7 @@ import ScheduleManagement from '@/pages/groupadmin/ScheduleManagement';
 import ScoreManagement from '@/pages/scores/ScoreManagement';
 import ScoreEntry from '@/pages/scores/ScoreEntry';
 import GroupResults from '@/pages/scores/GroupResults';
+import DistrictResults from '@/pages/scores/DistrictResults';
 
 // Result Pages
 import ResultList from '@/pages/results/ResultList';
@@ -210,6 +211,7 @@ function App() {
             <Route path="/scores" element={<ScoreManagement />} />
             <Route path="/scores/entry/:id" element={<ScoreEntry />} />
             <Route path="/group-results" element={<GroupResults />} />
+            <Route path="/district-results" element={<DistrictResults />} />
 
             {/* Results */}
             <Route path="/results" element={<ResultList />} />
