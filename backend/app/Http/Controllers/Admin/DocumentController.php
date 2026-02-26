@@ -208,12 +208,27 @@ class DocumentController extends Controller
             Log::info("Schedule found: " . ($schedule ? 'Yes' : 'No'));
 
             // ดึงข้อมูลกรรมการสำหรับการแข่งขันนี้
+            // 1) ลองหาจากที่ assign ตรงกับ competition_id ก่อน
             $committees = CommitteeMember::where('competition_id', $competition)
                 ->where('is_active', true)
                 ->orderBy('id', 'asc')
                 ->get();
 
-            Log::info("Found {$committees->count()} committee members");
+            // 2) ถ้าไม่พบ → fallback หาจากกรรมการทั่วไป (competition_id = NULL) ในระดับเดียวกัน
+            if ($committees->isEmpty()) {
+                $fallbackQuery = CommitteeMember::whereNull('competition_id')
+                    ->where('is_active', true)
+                    ->where('level', $competitionData->competition_level);
+
+                if ($competitionData->competition_level === 'group' && $competitionData->school_group_id) {
+                    $fallbackQuery->where('school_group_id', $competitionData->school_group_id);
+                }
+
+                $committees = $fallbackQuery->orderBy('id', 'asc')->get();
+                Log::info("Fallback: Found {$committees->count()} general committee members for level={$competitionData->competition_level}");
+            } else {
+                Log::info("Found {$committees->count()} committee members assigned to competition");
+            }
 
             // ข้อมูลสำหรับ PDF
             $data = [
@@ -350,13 +365,29 @@ class DocumentController extends Controller
             Log::info("Found " . count($schools) . " schools");
 
             // ดึงข้อมูลกรรมการจาก CommitteeMember (member_type = committee)
+            // 1) ลองหาจากที่ assign ตรงกับ competition_id ก่อน
             $judges = CommitteeMember::where('competition_id', $competition)
                 ->where('is_active', true)
                 ->where('member_type', 'committee')
                 ->orderBy('id', 'asc')
                 ->get();
 
-            Log::info("Found {$judges->count()} judges from CommitteeMember");
+            // 2) ถ้าไม่พบ → fallback หาจากกรรมการทั่วไป (competition_id = NULL) ในระดับเดียวกัน
+            if ($judges->isEmpty()) {
+                $fallbackQuery = CommitteeMember::whereNull('competition_id')
+                    ->where('is_active', true)
+                    ->where('member_type', 'committee')
+                    ->where('level', $competitionData->competition_level);
+
+                if ($competitionData->competition_level === 'group' && $competitionData->school_group_id) {
+                    $fallbackQuery->where('school_group_id', $competitionData->school_group_id);
+                }
+
+                $judges = $fallbackQuery->orderBy('id', 'asc')->get();
+                Log::info("Fallback: Found {$judges->count()} general judges for level={$competitionData->competition_level}");
+            } else {
+                Log::info("Found {$judges->count()} judges assigned to competition");
+            }
 
             // ข้อมูลสำหรับ PDF
             $data = [
@@ -735,6 +766,17 @@ class DocumentController extends Controller
                             ->orderBy('id', 'asc')
                             ->get();
 
+                        // fallback หากรรมการทั่วไป (competition_id = NULL) ในระดับเดียวกัน
+                        if ($committees->isEmpty()) {
+                            $fallbackQ = CommitteeMember::whereNull('competition_id')
+                                ->where('is_active', true)
+                                ->where('level', $competition->competition_level);
+                            if ($competition->competition_level === 'group' && $competition->school_group_id) {
+                                $fallbackQ->where('school_group_id', $competition->school_group_id);
+                            }
+                            $committees = $fallbackQ->orderBy('id', 'asc')->get();
+                        }
+
                         $allCompetitionsData[] = [
                             'competition' => $competition,
                             'schedule' => $schedule,
@@ -758,11 +800,24 @@ class DocumentController extends Controller
                             ];
                         }
 
+                        // ลองหาจากที่ assign ตรงกับ competition_id ก่อน
                         $judges = CommitteeMember::where('competition_id', $competition->id)
                             ->where('is_active', true)
                             ->where('member_type', 'committee')
                             ->orderBy('id', 'asc')
                             ->get();
+
+                        // fallback หากรรมการทั่วไป (competition_id = NULL) ในระดับเดียวกัน
+                        if ($judges->isEmpty()) {
+                            $fallbackQ = CommitteeMember::whereNull('competition_id')
+                                ->where('is_active', true)
+                                ->where('member_type', 'committee')
+                                ->where('level', $competition->competition_level);
+                            if ($competition->competition_level === 'group' && $competition->school_group_id) {
+                                $fallbackQ->where('school_group_id', $competition->school_group_id);
+                            }
+                            $judges = $fallbackQ->orderBy('id', 'asc')->get();
+                        }
 
                         $allCompetitionsData[] = [
                             'competition' => $competition,
