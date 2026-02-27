@@ -25,6 +25,7 @@ import {
   SkipForward,
   CreditCard,
   FileWarning,
+  AlertCircle,
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
@@ -290,6 +291,16 @@ export default function Sidebar({ isOpen, onClose }) {
         icon: Trophy,
         path: '/district-results',
         roles: ['admin', 'district_admin', 'category_admin', 'data_entry'],
+      });
+    }
+
+    // ===== ตรวจสอบสถานะคะแนน =====
+    if (hasRole(['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
+      items.push({
+        label: 'ตรวจสอบสถานะ',
+        icon: AlertCircle,
+        path: '/pending-publish',
+        roles: ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'],
       });
     }
 

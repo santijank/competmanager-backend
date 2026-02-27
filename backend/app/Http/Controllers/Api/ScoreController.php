@@ -1623,4 +1623,106 @@ class ScoreController extends Controller
             return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * ตรวจสอบกิจกรรมที่ใส่คะแนนแล้วแต่ยังไม่ประกาศผล/เผยแพร่
+     * Route: GET /scores/pending-publish
+     */
+    public function getPendingPublishCompetitions(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user || !in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // ดึง competitions ที่ active
+            $query = Competition::with(['category', 'schoolGroup'])
+                ->where('is_active', true);
+
+            // กรองตาม role
+            if ($user->role === 'group_admin') {
+                $query->where('school_group_id', $user->school_group_id);
+            } elseif (in_array($user->role, ['category_admin', 'data_entry']) && $user->category_id) {
+                $user->applyCategoryScopeFilter($query);
+            }
+
+            $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            // ดึง scores สำหรับทุก competition
+            $competitionIds = $competitions->pluck('id')->toArray();
+
+            $scoreStats = Score::whereIn('competition_id', $competitionIds)
+                ->select(
+                    'competition_id',
+                    DB::raw('COUNT(*) as total_scores'),
+                    DB::raw('SUM(CASE WHEN score IS NOT NULL THEN 1 ELSE 0 END) as scored_count'),
+                    DB::raw('SUM(CASE WHEN is_finalized = 1 THEN 1 ELSE 0 END) as finalized_count')
+                )
+                ->groupBy('competition_id')
+                ->get()
+                ->keyBy('competition_id');
+
+            // จำนวน registrations ต่อ competition
+            $regCounts = Registration::whereIn('competition_id', $competitionIds)
+                ->where('status', 'approved')
+                ->select('competition_id', DB::raw('COUNT(*) as total_registrations'))
+                ->groupBy('competition_id')
+                ->get()
+                ->keyBy('competition_id');
+
+            $pendingFinalize = [];
+            $pendingPublish = [];
+
+            foreach ($competitions as $comp) {
+                $stats = $scoreStats->get($comp->id);
+                $regCount = $regCounts->get($comp->id);
+
+                if (!$stats || $stats->scored_count == 0) continue; // ยังไม่ใส่คะแนน
+
+                $totalRegs = $regCount ? $regCount->total_registrations : 0;
+                $scored = $stats->scored_count;
+                $finalized = $stats->finalized_count;
+
+                $item = [
+                    'id' => $comp->id,
+                    'name' => $comp->name,
+                    'code' => $comp->code,
+                    'level' => $comp->level,
+                    'competition_level' => $comp->competition_level,
+                    'category_name' => $comp->category->name ?? '-',
+                    'school_group_name' => $comp->schoolGroup->name ?? '-',
+                    'total_registrations' => $totalRegs,
+                    'scored_count' => $scored,
+                    'finalized_count' => $finalized,
+                    'is_published' => $comp->is_published ?? false,
+                ];
+
+                if ($finalized > 0 && $finalized >= $scored && !$comp->is_published) {
+                    // ยืนยันแล้ว รอเผยแพร่
+                    $pendingPublish[] = $item;
+                } elseif ($scored > 0 && $finalized < $scored) {
+                    // ใส่คะแนนแล้ว รอยืนยัน
+                    $pendingFinalize[] = $item;
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'pending_publish' => $pendingPublish,
+                    'pending_finalize' => $pendingFinalize,
+                ],
+                'summary' => [
+                    'pending_publish_count' => count($pendingPublish),
+                    'pending_finalize_count' => count($pendingFinalize),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Pending publish check error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
 }
