@@ -84,12 +84,12 @@ const DistrictResults = () => {
   };
 
   const getMedalEmoji = (medal) => {
-    const map = { gold: '🥇', silver: '🥈', bronze: '🥉', participant: '🎖️' };
+    const map = { gold: '🥇', silver: '🥈', bronze: '🥉', participant: '🎖️', absent: '❌' };
     return map[medal] || '';
   };
 
   const getMedalText = (medal) => {
-    const map = { gold: 'ทอง', silver: 'เงิน', bronze: 'ทองแดง', participant: 'เข้าร่วม' };
+    const map = { gold: 'ทอง', silver: 'เงิน', bronze: 'ทองแดง', participant: 'เข้าร่วม', absent: 'ไม่ได้เข้าแข่งขัน' };
     return map[medal] || '-';
   };
 
@@ -99,6 +99,7 @@ const DistrictResults = () => {
       silver: 'text-gray-600 bg-gray-100',
       bronze: 'text-orange-600 bg-orange-100',
       participant: 'text-blue-600 bg-blue-100',
+      absent: 'text-red-600 bg-red-100',
     };
     return map[medal] || '';
   };

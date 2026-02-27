@@ -413,8 +413,10 @@
                                 <span class="medal-silver">เงิน</span>
                             @elseif($registration->score->medal == 'bronze')
                                 <span class="medal-bronze">ทองแดง</span>
-                            @else
+                            @elseif($registration->score->medal == 'participant')
                                 <span class="medal-participant">เข้าร่วม</span>
+                            @else
+                                <span style="color: #999;">ไม่ได้เข้าแข่งขัน</span>
                             @endif
                         @else
                             -

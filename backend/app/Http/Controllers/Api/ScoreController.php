@@ -1459,11 +1459,12 @@ class ScoreController extends Controller
             // filter by type: all, winners (gold/silver/bronze), participants
             $type = $request->get('type', 'all');
 
-            $filteredScores = $scores;
+            // กรอง absent ออก (ทีมที่ไม่มาแข่ง ได้ 0 คะแนน)
+            $filteredScores = $scores->filter(fn($s) => $s->medal !== 'absent');
             if ($type === 'winners') {
-                $filteredScores = $scores->filter(fn($s) => in_array($s->medal, ['gold', 'silver', 'bronze']));
+                $filteredScores = $filteredScores->filter(fn($s) => in_array($s->medal, ['gold', 'silver', 'bronze']));
             } elseif ($type === 'participants') {
-                $filteredScores = $scores->filter(fn($s) => $s->medal === 'participant');
+                $filteredScores = $filteredScores->filter(fn($s) => $s->medal === 'participant');
             }
 
             // สร้างข้อมูลสำหรับ certificate
@@ -1559,11 +1560,12 @@ class ScoreController extends Controller
             // filter by type: all, winners (gold/silver/bronze), participants
             $type = $request->get('type', 'all');
 
-            $filteredScores = $scores;
+            // กรอง absent ออก (ทีมที่ไม่มาแข่ง ได้ 0 คะแนน)
+            $filteredScores = $scores->filter(fn($s) => $s->medal !== 'absent');
             if ($type === 'winners') {
-                $filteredScores = $scores->filter(fn($s) => in_array($s->medal, ['gold', 'silver', 'bronze']));
+                $filteredScores = $filteredScores->filter(fn($s) => in_array($s->medal, ['gold', 'silver', 'bronze']));
             } elseif ($type === 'participants') {
-                $filteredScores = $scores->filter(fn($s) => $s->medal === 'participant');
+                $filteredScores = $filteredScores->filter(fn($s) => $s->medal === 'participant');
             }
 
             // สร้างข้อมูลสำหรับ certificate

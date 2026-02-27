@@ -135,6 +135,7 @@ const ScoreEntry = () => {
       silver: { emoji: '🥈', text: 'เงิน', color: 'text-gray-600 bg-gray-100' },
       bronze: { emoji: '🥉', text: 'ทองแดง', color: 'text-orange-600 bg-orange-100' },
       participant: { emoji: '🎖️', text: 'เข้าร่วม', color: 'text-blue-600 bg-blue-100' },
+      absent: { emoji: '❌', text: 'ไม่ได้เข้าแข่งขัน', color: 'text-red-600 bg-red-100' },
     };
     
     return medals[medal] || null;
@@ -700,26 +701,7 @@ const ScoreEntry = () => {
               </button>
             )}
 
-            {/* ✅ ปุ่มส่งเข้ารอบเขต - แสดงเฉพาะระดับกลุ่มที่ finalize แล้ว (ไม่แสดงสำหรับ data_entry) */}
-            {competition?.competition_level === 'group' && isFinalized && user.role !== 'data_entry' && (
-              <button
-                onClick={handlePromoteToDistrict}
-                disabled={promotingToDistrict}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {promotingToDistrict ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>กำลังส่งเข้ารอบเขต...</span>
-                  </>
-                ) : (
-                  <>
-                    <TrendingUp className="w-4 h-4" />
-                    <span>ส่งเข้ารอบเขต (Top 2)</span>
-                  </>
-                )}
-              </button>
-            )}
+            {/* ปุ่มส่งเข้ารอบเขต - ซ่อนไว้ */}
 
             {/* 📢 ปุ่มประกาศผล - แสดงเฉพาะเมื่อ finalize แล้ว (ไม่แสดงสำหรับ data_entry) */}
             {isFinalized && !isPublished && user.role !== 'data_entry' && (
