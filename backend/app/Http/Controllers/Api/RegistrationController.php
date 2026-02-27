@@ -1557,8 +1557,8 @@ class RegistrationController extends Controller
     {
         if (!$user) return false;
 
-        // Admin, District Admin สามารถแก้ไขได้ทั้งหมด
-        if (in_array($user->role, ['admin', 'district_admin'])) {
+        // Admin, District Admin, Category Admin สามารถแก้ไขได้ทั้งหมด
+        if (in_array($user->role, ['admin', 'district_admin', 'category_admin'])) {
             return true;
         }
 
@@ -1585,7 +1585,7 @@ class RegistrationController extends Controller
      */
     private function isAdminRole($user): bool
     {
-        return in_array($user->role, ['admin', 'district_admin']);
+        return in_array($user->role, ['admin', 'district_admin', 'category_admin']);
     }
 
     /**

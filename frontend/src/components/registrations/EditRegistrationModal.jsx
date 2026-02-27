@@ -20,7 +20,7 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess, userR
   const [originalStudentNames, setOriginalStudentNames] = useState([]);
   const [originalTeacherNames, setOriginalTeacherNames] = useState([]);
 
-  const isAdmin = ['admin', 'district_admin'].includes(userRole);
+  const isAdmin = ['admin', 'district_admin', 'category_admin'].includes(userRole);
 
   useEffect(() => {
     if (isOpen && registration) {
@@ -270,16 +270,14 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess, userR
                 <label className="block text-sm font-medium text-gray-700">
                   รายชื่อนักเรียน ({formData.student_names.length}/{competition?.max_students || 0})
                 </label>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={addStudent}
-                    className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <Plus className="w-4 h-4" />
-                    เพิ่ม
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={addStudent}
+                  className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  เพิ่ม
+                </button>
               </div>
               <div className="space-y-2">
                 {formData.student_names.map((student, index) => {
@@ -298,11 +296,12 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess, userR
                           }`}
                           required
                         />
-                        {isAdmin && formData.student_names.length > (competition?.min_students || 1) && (
+                        {formData.student_names.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeStudent(index)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="ลบรายชื่อ"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -326,16 +325,14 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess, userR
                 <label className="block text-sm font-medium text-gray-700">
                   รายชื่อครูผู้ฝึกสอน ({formData.teacher_names.length}/{competition?.max_teachers || 0})
                 </label>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={addTeacher}
-                    className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <Plus className="w-4 h-4" />
-                    เพิ่ม
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={addTeacher}
+                  className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  เพิ่ม
+                </button>
               </div>
               <div className="space-y-2">
                 {formData.teacher_names.map((teacher, index) => {
@@ -354,11 +351,12 @@ const EditRegistrationModal = ({ isOpen, onClose, registration, onSuccess, userR
                           }`}
                           required
                         />
-                        {isAdmin && formData.teacher_names.length > (competition?.min_teachers || 1) && (
+                        {formData.teacher_names.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeTeacher(index)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="ลบรายชื่อ"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
