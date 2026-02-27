@@ -47,7 +47,9 @@ class ScoreExportController extends Controller
             $stats = $this->calculateStatistics($registrations);
 
             // ข้อมูลสำหรับหัวเอกสาร
-            $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+            $groupName = $competition->competition_level === 'district'
+                ? 'เขตพื้นที่การศึกษา'
+                : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 
             // ดึงข้อมูล schedule สำหรับสถานที่และวันที่แข่งขัน
             $schedule = CompetitionSchedule::where('competition_id', $competitionId)->first();
@@ -188,7 +190,9 @@ class ScoreExportController extends Controller
                     ->get()
             );
 
-            $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+            $groupName = $competition->competition_level === 'district'
+                ? 'เขตพื้นที่การศึกษา'
+                : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 
             // ดึงรายชื่อกรรมการตัดสิน
             $judges = CompetitionJudge::where('competition_id', $competitionId)
