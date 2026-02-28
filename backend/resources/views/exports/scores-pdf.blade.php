@@ -346,6 +346,8 @@
                 <strong>รหัสกิจกรรม :</strong> {{ $activityCode }}
                 &nbsp;&nbsp;&nbsp;
                 <strong>หมวดหมู่ :</strong> {{ $competition->category->name ?? '-' }}
+                &nbsp;&nbsp;&nbsp;
+                <span style="color: red; font-size: 10px;">[DEBUG: level={{ $competition->competition_level ?? 'NULL' }}, group_id={{ $competition->school_group_id ?? 'NULL' }}, isDistrict={{ $isDistrictComp ? 'YES' : 'NO' }}]</span>
             </td>
             <td style="text-align: right;"></td>
         </tr>
