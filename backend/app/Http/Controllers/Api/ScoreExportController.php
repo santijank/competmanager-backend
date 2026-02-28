@@ -47,11 +47,15 @@ class ScoreExportController extends Controller
             $stats = $this->calculateStatistics($registrations);
 
             // ข้อมูลสำหรับหัวเอกสาร — เช็คทั้ง competition_level และรหัสกิจกรรม (_D_)
-            $isDistrict = $competition->competition_level === 'district'
-                || (str_contains($competition->code ?? '', '_D_'));
+            $code = $competition->code ?? '';
+            $compLevel = $competition->competition_level ?? '';
+            $hasD = str_contains($code, '_D_');
+            \Log::info("PDF Export Debug: id={$competition->id}, code={$code}, competition_level={$compLevel}, hasD={$hasD}");
+            $isDistrict = $compLevel === 'district' || $hasD;
             $groupName = $isDistrict
                 ? 'เขตพื้นที่การศึกษา'
                 : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
+            \Log::info("PDF Export Result: isDistrict={$isDistrict}, groupName={$groupName}");
 
             // ดึงข้อมูล schedule สำหรับสถานที่และวันที่แข่งขัน
             $schedule = CompetitionSchedule::where('competition_id', $competitionId)->first();
