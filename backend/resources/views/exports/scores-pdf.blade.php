@@ -353,6 +353,14 @@
         </tr>
     </table>
 
+    <!-- DEBUG - ลบทีหลัง -->
+    <div style="background: #ffcccc; padding: 5px; margin-bottom: 5px; font-size: 12px; color: red; border: 1px solid red;">
+        DEBUG: competition_level={{ $competition->competition_level ?? 'NULL' }} |
+        school_group_id={{ $competition->school_group_id ?? 'NULL' }} |
+        isDistrict={{ $isDistrictComp ? 'YES' : 'NO' }} |
+        groupName={{ $groupName }}
+    </div>
+
     <!-- STATISTICS -->
     <div class="stats-box">
         <strong>สถิติ:</strong>
