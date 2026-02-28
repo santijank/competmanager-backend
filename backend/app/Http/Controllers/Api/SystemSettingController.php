@@ -159,6 +159,13 @@ class SystemSettingController extends Controller
                 $url = $request->input('background_image_url');
                 if ($this->isValidStorageUrl($url)) {
                     SystemSetting::setValue("{$prefix}background_image", $url);
+                    Log::info('Certificate background saved', ['url' => substr($url, 0, 100)]);
+                } else {
+                    Log::warning('Certificate background URL rejected', ['url' => substr($url, 0, 200)]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'URL ไม่ถูกต้อง กรุณาอัปโหลดผ่าน Firebase Storage เท่านั้น'
+                    ], 422);
                 }
             } elseif ($request->hasFile('background_image')) {
                 // Backward compatibility: ยังรับ file upload ได้
@@ -223,6 +230,7 @@ class SystemSettingController extends Controller
         $allowedHosts = [
             'firebasestorage.googleapis.com',
             'storage.googleapis.com',
+            'firebasestorage.app',
         ];
 
         foreach ($allowedHosts as $allowed) {
@@ -231,6 +239,7 @@ class SystemSettingController extends Controller
             }
         }
 
+        Log::debug('Storage URL validation failed', ['host' => $host, 'url' => substr($url, 0, 150)]);
         return false;
     }
 

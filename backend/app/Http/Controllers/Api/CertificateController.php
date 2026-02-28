@@ -449,21 +449,31 @@ class CertificateController extends Controller
     private function urlToBase64(string $url): string
     {
         try {
+            Log::info("Downloading image for PDF", ['url' => substr($url, 0, 120)]);
+
             $context = stream_context_create([
                 'http' => [
-                    'timeout' => 15,
+                    'timeout' => 30,
                     'user_agent' => 'CompetManager-PDF/1.0',
+                    'follow_location' => true,
                 ],
                 'ssl' => [
-                    'verify_peer' => true,
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
                 ],
             ]);
 
-            $content = file_get_contents($url, false, $context);
+            $content = @file_get_contents($url, false, $context);
             if ($content === false) {
-                Log::warning("Failed to download image from URL: {$url}");
+                $err = error_get_last();
+                Log::error("Failed to download image from URL", [
+                    'url' => substr($url, 0, 120),
+                    'error' => $err['message'] ?? 'unknown',
+                ]);
                 return $url;
             }
+
+            Log::info("Image downloaded successfully", ['size' => strlen($content)]);
 
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
             $mimeType = $finfo->buffer($content);
