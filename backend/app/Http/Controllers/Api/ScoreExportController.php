@@ -46,8 +46,10 @@ class ScoreExportController extends Controller
 
             $stats = $this->calculateStatistics($registrations);
 
-            // ข้อมูลสำหรับหัวเอกสาร
-            $groupName = $competition->competition_level === 'district'
+            // ข้อมูลสำหรับหัวเอกสาร — เช็คทั้ง competition_level และรหัสกิจกรรม (_D_)
+            $isDistrict = $competition->competition_level === 'district'
+                || (str_contains($competition->code ?? '', '_D_'));
+            $groupName = $isDistrict
                 ? 'เขตพื้นที่การศึกษา'
                 : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 
@@ -190,7 +192,9 @@ class ScoreExportController extends Controller
                     ->get()
             );
 
-            $groupName = $competition->competition_level === 'district'
+            $isDistrict = $competition->competition_level === 'district'
+                || (str_contains($competition->code ?? '', '_D_'));
+            $groupName = $isDistrict
                 ? 'เขตพื้นที่การศึกษา'
                 : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 

@@ -249,9 +249,13 @@
                     @endif
                 </td>
                 <td class="info-cell">
-                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับกลุ่มโรงเรียน</span><br>
-                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
-                    <span class="header-text-green">{{ $groupName }}</span>
+                    @php
+                        $isDistrict = ($competition->competition_level ?? '') === 'district'
+                            || str_contains($competition->code ?? '', '_D_');
+                        $levelLabel = $isDistrict ? 'เขตพื้นที่การศึกษา' : $groupName;
+                    @endphp
+                    <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $levelLabel }}</span><br>
+                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span>
                 </td>
             </tr>
         </table>
@@ -261,7 +265,7 @@
     <table class="doc-info" border="0">
         <tr>
             <td style="text-align: left; width: 65%;">
-                <strong>สรุปผลการแข่งขันระดับกลุ่ม (สำหรับออกเกียรติบัตร)</strong>
+                <strong>สรุปผลการแข่งขัน{{ $isDistrict ? 'ระดับเขตพื้นที่' : 'ระดับกลุ่ม' }} (สำหรับออกเกียรติบัตร)</strong>
             </td>
             <td style="text-align: right; width: 35%;">
                 <span class="doc-badge">{{ $typeLabels[$type] ?? 'ทั้งหมด' }}</span>

@@ -183,7 +183,9 @@
 </head>
 <body>
     @php
-        $groupName = ($competition->competition_level === 'district') ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
+        $isDistrictComp = ($competition->competition_level ?? '') === 'district'
+            || str_contains($competition->code ?? '', '_D_');
+        $groupName = $isDistrictComp ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
     @endphp
 
     <!-- HEADER (เหมือนลงทะเบียนนักเรียน) -->

@@ -263,7 +263,9 @@
 </head>
 <body>
     @php
-        $groupName = $groupName ?? ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
+        $isDistrictComp = ($competition->competition_level ?? '') === 'district'
+            || str_contains($competition->code ?? '', '_D_');
+        $groupName = $groupName ?? ($isDistrictComp ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน'));
         $activityName = $competition->name ?? '-';
         $activityCode = $competition->code ?? '-';
 

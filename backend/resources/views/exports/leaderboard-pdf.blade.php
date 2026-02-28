@@ -143,8 +143,12 @@
             <span>{{ $competition->category->name ?? '-' }}</span>
         </div>
         <div class="info-row">
-            <span class="label">กลุ่มโรงเรียน:</span>
-            <span>{{ $competition->schoolGroup->name ?? '-' }}</span>
+            @php
+                $isDistrictComp = ($competition->competition_level ?? '') === 'district'
+                    || str_contains($competition->code ?? '', '_D_');
+            @endphp
+            <span class="label">{{ $isDistrictComp ? 'ระดับ:' : 'กลุ่มโรงเรียน:' }}</span>
+            <span>{{ $isDistrictComp ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? '-') }}</span>
         </div>
         <div class="info-row">
             <span class="label">จำนวนผู้เข้าแข่ง:</span>
