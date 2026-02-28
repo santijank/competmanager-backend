@@ -190,8 +190,12 @@
 </head>
 <body>
     @php
-        // กำหนดค่าตัวแปร
-        $groupName = $competition->schoolGroup->name ?? 'กลุ่มโรงเรียน';
+        // กำหนดค่าตัวแปร — เช็คระดับเขตจาก competition_level หรือ school_group_id
+        $isDistrictComp = ($competition->competition_level ?? '') === 'district'
+            || empty($competition->school_group_id);
+        $groupName = $isDistrictComp
+            ? 'เขตพื้นที่การศึกษา'
+            : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 
         // ดึงสถานที่จาก schedule
         $venueName = '';
