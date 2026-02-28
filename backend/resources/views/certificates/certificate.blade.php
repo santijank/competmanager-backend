@@ -73,29 +73,32 @@
         }
 
         .student-name {
-            font-size: 28pt;
+            font-size: 26pt;
             font-weight: bold;
             color: #1a0a00;
-            margin-bottom: 1mm;
-            line-height: 1.2;
+            margin-bottom: 0;
+            line-height: 1.1;
         }
 
         .school-name {
-            font-size: 20pt;
+            font-size: 18pt;
             color: #222;
-            margin-bottom: 2mm;
+            margin-bottom: 0;
+            line-height: 1.1;
         }
 
         .competition-text {
-            font-size: 17pt;
+            font-size: 15pt;
             color: #333;
-            margin-bottom: 1mm;
+            margin-bottom: 0;
+            line-height: 1.1;
         }
 
         .medal-text {
-            font-size: 22pt;
+            font-size: 20pt;
             font-weight: bold;
-            margin-top: 1mm;
+            margin-top: 0;
+            line-height: 1.1;
         }
 
         .medal-gold { color: #8B6914; }
