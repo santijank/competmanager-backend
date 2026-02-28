@@ -104,19 +104,33 @@ class SystemSettingController extends Controller
     {
         $prefix = $this->certPrefix($request);
 
+        $backgroundValue = SystemSetting::getValue("{$prefix}background_image");
+        // ถ้าเป็น URL (ไม่ใช่ base64) ส่ง URL กลับให้ frontend แสดง preview ได้
+        $backgroundUrl = null;
+        if ($backgroundValue && !str_starts_with($backgroundValue, 'data:')) {
+            $backgroundUrl = $backgroundValue;
+        }
+
         $signers = [];
         for ($i = 1; $i <= 2; $i++) {
+            $sigValue = SystemSetting::getValue("{$prefix}signer_signature_{$i}");
+            $sigUrl = null;
+            if ($sigValue && !str_starts_with($sigValue, 'data:')) {
+                $sigUrl = $sigValue;
+            }
             $signers[] = [
                 'name' => SystemSetting::getValue("{$prefix}signer_name_{$i}", ''),
                 'position' => SystemSetting::getValue("{$prefix}signer_position_{$i}", ''),
-                'has_signature' => !empty(SystemSetting::getValue("{$prefix}signer_signature_{$i}")),
+                'has_signature' => !empty($sigValue),
+                'signature_url' => $sigUrl,
             ];
         }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'has_background' => !empty(SystemSetting::getValue("{$prefix}background_image")),
+                'has_background' => !empty($backgroundValue),
+                'background_url' => $backgroundUrl,
                 'signers' => $signers,
             ]
         ]);
@@ -140,8 +154,14 @@ class SystemSettingController extends Controller
         try {
             $prefix = $this->certPrefix($request);
 
-            // ภาพพื้นหลัง
-            if ($request->hasFile('background_image')) {
+            // ภาพพื้นหลัง — รับ URL จาก Firebase Storage (หรือ file upload สำหรับ backward compat)
+            if ($request->filled('background_image_url')) {
+                $url = $request->input('background_image_url');
+                if ($this->isValidStorageUrl($url)) {
+                    SystemSetting::setValue("{$prefix}background_image", $url);
+                }
+            } elseif ($request->hasFile('background_image')) {
+                // Backward compatibility: ยังรับ file upload ได้
                 $file = $request->file('background_image');
                 $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
                 SystemSetting::setValue("{$prefix}background_image", $base64);
@@ -158,7 +178,13 @@ class SystemSettingController extends Controller
                 if ($request->has("signer_position_{$i}")) {
                     SystemSetting::setValue("{$prefix}signer_position_{$i}", $request->input("signer_position_{$i}"));
                 }
-                if ($request->hasFile("signer_signature_{$i}")) {
+                // ลายเซ็น — รับ URL จาก Firebase Storage (หรือ file upload)
+                if ($request->filled("signer_signature_url_{$i}")) {
+                    $url = $request->input("signer_signature_url_{$i}");
+                    if ($this->isValidStorageUrl($url)) {
+                        SystemSetting::setValue("{$prefix}signer_signature_{$i}", $url);
+                    }
+                } elseif ($request->hasFile("signer_signature_{$i}")) {
                     $file = $request->file("signer_signature_{$i}");
                     $base64 = 'data:' . $file->getMimeType() . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
                     SystemSetting::setValue("{$prefix}signer_signature_{$i}", $base64);
@@ -184,6 +210,28 @@ class SystemSettingController extends Controller
                 'message' => 'เกิดข้อผิดพลาดในการบันทึก'
             ], 500);
         }
+    }
+
+    /**
+     * ตรวจสอบว่า URL เป็น Firebase Storage หรือ cloud storage ที่อนุญาต
+     */
+    private function isValidStorageUrl(string $url): bool
+    {
+        $parsed = parse_url($url);
+        $host = $parsed['host'] ?? '';
+
+        $allowedHosts = [
+            'firebasestorage.googleapis.com',
+            'storage.googleapis.com',
+        ];
+
+        foreach ($allowedHosts as $allowed) {
+            if (str_contains($host, $allowed)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function updateEditNameSettings(Request $request): JsonResponse

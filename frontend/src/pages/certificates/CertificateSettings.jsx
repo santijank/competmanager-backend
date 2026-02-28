@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Save, Upload, Trash2, Image, PenLine, Building2, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 import api from '@/lib/api';
+
+/** Upload ไฟล์ไป Firebase Storage แล้ว return download URL */
+async function uploadToFirebaseStorage(file, path) {
+  const storageRef = ref(storage, path);
+  const snapshot = await uploadBytes(storageRef, file);
+  return getDownloadURL(snapshot.ref);
+}
 
 const INITIAL_SIGNERS = [
   { name: '', position: '', has_signature: false, signatureFile: null, signaturePreview: null, removeSignature: false },
@@ -60,7 +69,9 @@ export default function CertificateSettings() {
       const response = await api.get(`/system-settings/certificate${getQueryParams()}`);
       if (response.data.success) {
         const data = response.data.data;
-        if (data.has_background) {
+        if (data.background_url) {
+          setBackgroundPreview(data.background_url);
+        } else if (data.has_background) {
           setBackgroundPreview('existing');
         }
         if (data.signers) {
@@ -68,6 +79,7 @@ export default function CertificateSettings() {
             name: s.name || '',
             position: s.position || '',
             has_signature: s.has_signature || false,
+            signature_url: s.signature_url || null,
             signatureFile: null,
             signaturePreview: null,
             removeSignature: false,
@@ -136,38 +148,47 @@ export default function CertificateSettings() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const formData = new FormData();
 
-      // ส่ง level/group_id
-      formData.append('level', activeTab);
-      if (activeTab === 'group') {
-        formData.append('group_id', selectedGroupId);
-      }
+      const storagePrefix = activeTab === 'district'
+        ? 'certificates/district'
+        : `certificates/group_${selectedGroupId}`;
 
-      // Background
+      const payload = {
+        level: activeTab,
+        ...(activeTab === 'group' && { group_id: selectedGroupId }),
+      };
+
+      // Upload background ไป Firebase Storage
       if (backgroundFile) {
-        formData.append('background_image', backgroundFile);
+        const ext = backgroundFile.name.split('.').pop();
+        const path = `${storagePrefix}/background_${Date.now()}.${ext}`;
+        const url = await uploadToFirebaseStorage(backgroundFile, path);
+        payload.background_image_url = url;
       }
       if (removeBackground) {
-        formData.append('remove_background', '1');
+        payload.remove_background = true;
       }
 
-      // Signers
-      signers.forEach((signer, idx) => {
+      // Upload ลายเซ็นไป Firebase Storage
+      for (let idx = 0; idx < signers.length; idx++) {
+        const signer = signers[idx];
         const i = idx + 1;
-        formData.append(`signer_name_${i}`, signer.name);
-        formData.append(`signer_position_${i}`, signer.position);
+        payload[`signer_name_${i}`] = signer.name;
+        payload[`signer_position_${i}`] = signer.position;
+
         if (signer.signatureFile) {
-          formData.append(`signer_signature_${i}`, signer.signatureFile);
+          const ext = signer.signatureFile.name.split('.').pop();
+          const path = `${storagePrefix}/signature_${i}_${Date.now()}.${ext}`;
+          const url = await uploadToFirebaseStorage(signer.signatureFile, path);
+          payload[`signer_signature_url_${i}`] = url;
         }
         if (signer.removeSignature) {
-          formData.append(`remove_signature_${i}`, '1');
+          payload[`remove_signature_${i}`] = true;
         }
-      });
+      }
 
-      await api.post('/system-settings/certificate', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // ส่ง JSON (ไม่ใช่ FormData) พร้อม URL ไป backend
+      await api.post('/system-settings/certificate', payload);
 
       toast.success('บันทึกการตั้งค่าเกียรติบัตรสำเร็จ');
       setBackgroundFile(null);
@@ -289,6 +310,8 @@ export default function CertificateSettings() {
                         <p className="text-sm text-green-600">อัปโหลดใหม่เพื่อเปลี่ยน</p>
                       </div>
                     </div>
+                  ) : backgroundPreview?.startsWith('http') ? (
+                    <img src={backgroundPreview} alt="Background preview" className="w-full h-full object-contain" crossOrigin="anonymous" />
                   ) : (
                     <img src={backgroundPreview} alt="Background preview" className="w-full h-full object-contain" />
                   )}
@@ -383,6 +406,8 @@ export default function CertificateSettings() {
                         <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex items-center justify-center" style={{ height: '80px' }}>
                           {signer.signaturePreview ? (
                             <img src={signer.signaturePreview} alt="Signature" className="max-h-full" />
+                          ) : signer.signature_url ? (
+                            <img src={signer.signature_url} alt="Signature" className="max-h-full" crossOrigin="anonymous" />
                           ) : (
                             <p className="text-sm text-green-600 font-medium">มีลายเซ็นแล้ว</p>
                           )}

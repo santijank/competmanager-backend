@@ -391,17 +391,26 @@ class CertificateController extends Controller
                 }
             }
 
-            // Cache เพื่อไม่ query ซ้ำ
+            // Cache เพื่อไม่ query ซ้ำ + แปลง URL เป็น Base64 สำหรับ DomPDF
             if (!isset($settingsCache[$prefix])) {
                 $background = SystemSetting::getValue("{$prefix}background_image");
+                // ถ้าเป็น URL (ไม่ใช่ Base64) → download แปลงเป็น Base64 ให้ DomPDF
+                if ($background && !str_starts_with($background, 'data:')) {
+                    $background = $this->urlToBase64($background);
+                }
+
                 $signers = [];
                 for ($i = 1; $i <= 2; $i++) {
                     $name = SystemSetting::getValue("{$prefix}signer_name_{$i}");
                     if ($name) {
+                        $signature = SystemSetting::getValue("{$prefix}signer_signature_{$i}");
+                        if ($signature && !str_starts_with($signature, 'data:')) {
+                            $signature = $this->urlToBase64($signature);
+                        }
                         $signers[] = [
                             'name' => $name,
                             'position' => SystemSetting::getValue("{$prefix}signer_position_{$i}", ''),
-                            'signature' => SystemSetting::getValue("{$prefix}signer_signature_{$i}"),
+                            'signature' => $signature,
                         ];
                     }
                 }
@@ -420,6 +429,39 @@ class CertificateController extends Controller
         ->setPaper('a4', 'landscape')
         ->setOption('isHtml5ParserEnabled', true)
         ->setOption('isRemoteEnabled', true);
+    }
+
+    /**
+     * Download รูปจาก URL แปลงเป็น Base64 data URI สำหรับ DomPDF
+     * Fallback: return URL เดิมถ้า download ไม่สำเร็จ
+     */
+    private function urlToBase64(string $url): string
+    {
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 15,
+                    'user_agent' => 'CompetManager-PDF/1.0',
+                ],
+                'ssl' => [
+                    'verify_peer' => true,
+                ],
+            ]);
+
+            $content = file_get_contents($url, false, $context);
+            if ($content === false) {
+                Log::warning("Failed to download image from URL: {$url}");
+                return $url;
+            }
+
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->buffer($content);
+
+            return 'data:' . $mimeType . ';base64,' . base64_encode($content);
+        } catch (\Exception $e) {
+            Log::warning("Failed to convert URL to Base64: {$e->getMessage()}");
+            return $url;
+        }
     }
 
     /**
