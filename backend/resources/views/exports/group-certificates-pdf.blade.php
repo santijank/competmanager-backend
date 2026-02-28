@@ -251,7 +251,7 @@
                 <td class="info-cell">
                     @php
                         $isDistrict = ($competition->competition_level ?? '') === 'district'
-                            || str_contains($competition->code ?? '', '_D_');
+                            || strpos($competition->code ?? '', '_D_') !== false;
                         $levelLabel = $isDistrict ? 'เขตพื้นที่การศึกษา' : $groupName;
                     @endphp
                     <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $levelLabel }}</span><br>

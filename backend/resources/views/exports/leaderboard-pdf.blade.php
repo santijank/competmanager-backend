@@ -145,7 +145,7 @@
         <div class="info-row">
             @php
                 $isDistrictComp = ($competition->competition_level ?? '') === 'district'
-                    || str_contains($competition->code ?? '', '_D_');
+                    || strpos($competition->code ?? '', '_D_') !== false;
             @endphp
             <span class="label">{{ $isDistrictComp ? 'ระดับ:' : 'กลุ่มโรงเรียน:' }}</span>
             <span>{{ $isDistrictComp ? 'เขตพื้นที่การศึกษา' : ($competition->schoolGroup->name ?? '-') }}</span>
