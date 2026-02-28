@@ -64,10 +64,10 @@
         /* ============================================ */
         .student-overlay {
             position: absolute;
-            top: 62mm;
+            top: 80mm;
             left: 50mm;
             right: 50mm;
-            height: 50mm;
+            height: 40mm;
             z-index: 1;
             text-align: center;
         }
