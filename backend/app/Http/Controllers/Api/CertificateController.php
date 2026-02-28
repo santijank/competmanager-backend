@@ -11,6 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+use chillerlan\QRCode\Data\QRMatrix;
+use chillerlan\QRCode\Output\QROutputInterface;
 
 class CertificateController extends Controller
 {
@@ -420,6 +424,13 @@ class CertificateController extends Controller
             $cert->cert_background = $settingsCache[$prefix]['background'];
             $cert->cert_signers = $settingsCache[$prefix]['signers'];
 
+            // สร้าง QR Code สำหรับ certificate จริง (ไม่ใช่ preview)
+            if ($cert->certificate_code && $cert->certificate_code !== 'PREVIEW') {
+                $cert->qr_data_uri = $this->generateQrDataUri($cert->certificate_code);
+            } else {
+                $cert->qr_data_uri = '';
+            }
+
             return $cert;
         });
 
@@ -461,6 +472,75 @@ class CertificateController extends Controller
         } catch (\Exception $e) {
             Log::warning("Failed to convert URL to Base64: {$e->getMessage()}");
             return $url;
+        }
+    }
+
+    /**
+     * ตรวจสอบเกียรติบัตร (public — ไม่ต้อง login)
+     */
+    public function verify(string $code): JsonResponse
+    {
+        try {
+            $certificate = Certificate::with('competition')
+                ->where('certificate_code', $code)
+                ->first();
+
+            if (!$certificate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ไม่พบเกียรติบัตรรหัสนี้',
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'certificate_code' => $certificate->certificate_code,
+                    'student_name' => $certificate->student_name,
+                    'school_name' => $certificate->school_name,
+                    'competition_name' => $certificate->competition_name,
+                    'category_name' => $certificate->category_name,
+                    'level' => $certificate->level,
+                    'level_label' => $certificate->level_label,
+                    'medal' => $certificate->medal,
+                    'medal_label' => $certificate->medal_label,
+                    'score' => $certificate->score,
+                    'rank' => $certificate->rank,
+                    'issue_date' => $certificate->issue_date?->format('Y-m-d'),
+                    'teacher_names' => $certificate->teacher_names,
+                    'verified' => true,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate verify error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการตรวจสอบ',
+            ], 500);
+        }
+    }
+
+    /**
+     * สร้าง QR Code เป็น Base64 data URI สำหรับแสดงใน PDF
+     */
+    private function generateQrDataUri(string $certificateCode): string
+    {
+        try {
+            $verifyUrl = config('app.frontend_url', 'https://competmanager.web.app')
+                . '/verify/' . $certificateCode;
+
+            $options = new QROptions;
+            $options->outputType = QROutputInterface::GDIMAGE_PNG;
+            $options->scale = 5;
+            $options->imageTransparent = false;
+            $options->bgColor = [255, 255, 255];
+            $options->drawCircularModules = true;
+            $options->circleRadius = 0.4;
+
+            return (new QRCode($options))->render($verifyUrl);
+        } catch (\Exception $e) {
+            Log::warning('QR code generation failed: ' . $e->getMessage());
+            return '';
         }
     }
 

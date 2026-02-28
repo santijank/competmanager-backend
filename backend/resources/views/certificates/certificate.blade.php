@@ -240,6 +240,26 @@
             right: 15mm;
             z-index: 1;
         }
+
+        /* QR Code Section */
+        .qr-section {
+            position: absolute;
+            bottom: 10mm;
+            left: 15mm;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .qr-section img {
+            width: 22mm;
+            height: 22mm;
+        }
+
+        .qr-label {
+            font-size: 7pt;
+            color: #999;
+            margin-top: 1mm;
+        }
     </style>
 </head>
 <body>
@@ -379,6 +399,14 @@
                     @endif
                 </div>
             </div>
+
+            <!-- QR Code ตรวจสอบเกียรติบัตร -->
+            @if(!empty($cert->qr_data_uri))
+                <div class="qr-section">
+                    <img src="{{ $cert->qr_data_uri }}" alt="QR Verify" />
+                    <div class="qr-label">สแกนเพื่อตรวจสอบ</div>
+                </div>
+            @endif
 
             <!-- รหัสเกียรติบัตร -->
             @if($cert->certificate_code && $cert->certificate_code !== 'PREVIEW')

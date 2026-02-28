@@ -68,6 +68,9 @@ Route::get('schedules/public', [\App\Http\Controllers\Api\CompetitionScheduleCon
 // Public results (no auth required)
 Route::get('results/public', [\App\Http\Controllers\Api\ScoreController::class, 'getPublishedResults']);
 
+// Public certificate verification (no auth required)
+Route::get('certificates/verify/{code}', [CertificateController::class, 'verify']);
+
 // Public results PDF (no auth required)
 Route::get('results/pdf', [\App\Http\Controllers\Api\ResultPdfController::class, 'generatePdf']);
 Route::get('results/pdf/preview', [\App\Http\Controllers\Api\ResultPdfController::class, 'previewPdf']);

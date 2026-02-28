@@ -12,11 +12,6 @@ async function uploadToFirebaseStorage(file, path) {
   return getDownloadURL(snapshot.ref);
 }
 
-const INITIAL_SIGNERS = [
-  { name: '', position: '', has_signature: false, signatureFile: null, signaturePreview: null, removeSignature: false },
-  { name: '', position: '', has_signature: false, signatureFile: null, signaturePreview: null, removeSignature: false },
-];
-
 export default function CertificateSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,9 +26,6 @@ export default function CertificateSettings() {
   const [backgroundFile, setBackgroundFile] = useState(null);
   const [removeBackground, setRemoveBackground] = useState(false);
   const bgInputRef = useRef(null);
-
-  // Signers
-  const [signers, setSigners] = useState(INITIAL_SIGNERS.map(s => ({ ...s })));
 
   // โหลด school groups ครั้งเดียว
   useEffect(() => {
@@ -74,17 +66,6 @@ export default function CertificateSettings() {
         } else if (data.has_background) {
           setBackgroundPreview('existing');
         }
-        if (data.signers) {
-          setSigners(data.signers.map(s => ({
-            name: s.name || '',
-            position: s.position || '',
-            has_signature: s.has_signature || false,
-            signature_url: s.signature_url || null,
-            signatureFile: null,
-            signaturePreview: null,
-            removeSignature: false,
-          })));
-        }
       }
     } catch (error) {
       console.error('Failed to fetch certificate settings:', error);
@@ -102,14 +83,13 @@ export default function CertificateSettings() {
     setBackgroundPreview(null);
     setBackgroundFile(null);
     setRemoveBackground(false);
-    setSigners(INITIAL_SIGNERS.map(s => ({ ...s })));
   };
 
   const handleBackgroundChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('ไฟล์ต้องไม่เกิน 5MB');
+      if (file.size > 30 * 1024 * 1024) {
+        toast.error('ไฟล์ต้องไม่เกิน 30MB');
         return;
       }
       setBackgroundFile(file);
@@ -118,31 +98,6 @@ export default function CertificateSettings() {
       reader.onload = (ev) => setBackgroundPreview(ev.target.result);
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleSignatureChange = (index, e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        toast.error('ไฟล์ลายเซ็นต้องไม่เกิน 2MB');
-        return;
-      }
-      const updated = [...signers];
-      updated[index].signatureFile = file;
-      updated[index].removeSignature = false;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        updated[index].signaturePreview = ev.target.result;
-        setSigners([...updated]);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSignerChange = (index, field, value) => {
-    const updated = [...signers];
-    updated[index][field] = value;
-    setSigners(updated);
   };
 
   const handleSave = async () => {
@@ -169,32 +124,12 @@ export default function CertificateSettings() {
         payload.remove_background = true;
       }
 
-      // Upload ลายเซ็นไป Firebase Storage
-      for (let idx = 0; idx < signers.length; idx++) {
-        const signer = signers[idx];
-        const i = idx + 1;
-        payload[`signer_name_${i}`] = signer.name;
-        payload[`signer_position_${i}`] = signer.position;
-
-        if (signer.signatureFile) {
-          const ext = signer.signatureFile.name.split('.').pop();
-          const path = `${storagePrefix}/signature_${i}_${Date.now()}.${ext}`;
-          const url = await uploadToFirebaseStorage(signer.signatureFile, path);
-          payload[`signer_signature_url_${i}`] = url;
-        }
-        if (signer.removeSignature) {
-          payload[`remove_signature_${i}`] = true;
-        }
-      }
-
-      // ส่ง JSON (ไม่ใช่ FormData) พร้อม URL ไป backend
+      // ส่ง JSON พร้อม URL ไป backend
       await api.post('/system-settings/certificate', payload);
 
       toast.success('บันทึกการตั้งค่าเกียรติบัตรสำเร็จ');
       setBackgroundFile(null);
       setRemoveBackground(false);
-      const resetSigners = signers.map(s => ({ ...s, signatureFile: null, removeSignature: false }));
-      setSigners(resetSigners);
       fetchSettings();
     } catch (error) {
       console.error('Failed to save certificate settings:', error);
@@ -214,7 +149,7 @@ export default function CertificateSettings() {
           <PenLine className="w-7 h-7 text-amber-600" />
           ตั้งค่าเกียรติบัตร
         </h1>
-        <p className="text-gray-600 mt-1">กำหนดภาพพื้นหลัง ชื่อผู้บริหาร และลายเซ็นสำหรับเกียรติบัตร แยกตามระดับ</p>
+        <p className="text-gray-600 mt-1">กำหนดภาพพื้นหลังสำหรับเกียรติบัตร แยกตามระดับ</p>
       </div>
 
       {/* Tabs: ระดับเขต / ระดับกลุ่ม */}
@@ -288,14 +223,14 @@ export default function CertificateSettings() {
         </div>
       ) : (
         <>
-          {/* ส่วน 1: ภาพพื้นหลัง */}
+          {/* ภาพพื้นหลัง */}
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
               <Image className="w-5 h-5 text-blue-600" />
               ภาพพื้นหลังเกียรติบัตร
             </h2>
             <p className="text-sm text-gray-600 mb-4">
-              อัปโหลดภาพพื้นหลัง A4 แนวนอน (297 x 210 mm) — แนะนำ PNG หรือ JPG ขนาดไม่เกิน 5MB
+              อัปโหลดภาพพื้นหลัง A4 แนวนอน (297 x 210 mm) — แนะนำ PNG หรือ JPG ขนาดไม่เกิน 30MB
             </p>
 
             {/* Preview */}
@@ -336,7 +271,7 @@ export default function CertificateSettings() {
               >
                 <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                 <p className="text-gray-600 font-medium">คลิกเพื่ออัปโหลดภาพพื้นหลัง</p>
-                <p className="text-sm text-gray-400 mt-1">PNG, JPG ขนาดไม่เกิน 5MB</p>
+                <p className="text-sm text-gray-400 mt-1">PNG, JPG ขนาดไม่เกิน 30MB</p>
               </div>
             )}
 
@@ -357,104 +292,6 @@ export default function CertificateSettings() {
                 เปลี่ยนภาพพื้นหลัง
               </button>
             )}
-          </div>
-
-          {/* ส่วน 2: ผู้ลงนาม */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
-              <PenLine className="w-5 h-5 text-amber-600" />
-              ผู้ลงนามในเกียรติบัตร
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              กำหนดชื่อและลายเซ็นผู้บริหารที่จะแสดงในเกียรติบัตร (สูงสุด 2 ท่าน)
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {signers.map((signer, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-800 mb-3">ผู้ลงนามท่านที่ {idx + 1}</h3>
-
-                  {/* ชื่อ */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ชื่อ-นามสกุล</label>
-                    <input
-                      type="text"
-                      value={signer.name}
-                      onChange={(e) => handleSignerChange(idx, 'name', e.target.value)}
-                      placeholder="เช่น นายสมชาย ใจดี"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* ตำแหน่ง */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ตำแหน่ง</label>
-                    <input
-                      type="text"
-                      value={signer.position}
-                      onChange={(e) => handleSignerChange(idx, 'position', e.target.value)}
-                      placeholder="เช่น ผอ.สพป.นครปฐม เขต 1"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  {/* ลายเซ็น */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ลายเซ็น</label>
-                    {(signer.signaturePreview || (signer.has_signature && !signer.removeSignature)) ? (
-                      <div>
-                        <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex items-center justify-center" style={{ height: '80px' }}>
-                          {signer.signaturePreview ? (
-                            <img src={signer.signaturePreview} alt="Signature" className="max-h-full" />
-                          ) : signer.signature_url ? (
-                            <img src={signer.signature_url} alt="Signature" className="max-h-full" crossOrigin="anonymous" />
-                          ) : (
-                            <p className="text-sm text-green-600 font-medium">มีลายเซ็นแล้ว</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          <label className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 cursor-pointer">
-                            <Upload className="w-3 h-3" />
-                            เปลี่ยน
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/jpg"
-                              className="hidden"
-                              onChange={(e) => handleSignatureChange(idx, e)}
-                            />
-                          </label>
-                          <button
-                            onClick={() => {
-                              const updated = [...signers];
-                              updated[idx].signaturePreview = null;
-                              updated[idx].signatureFile = null;
-                              updated[idx].removeSignature = true;
-                              updated[idx].has_signature = false;
-                              setSigners(updated);
-                            }}
-                            className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            ลบ
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <label className="flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:border-amber-400 hover:bg-amber-50 transition-colors">
-                        <Upload className="w-5 h-5 text-gray-400" />
-                        <span className="text-sm text-gray-500">อัปโหลดลายเซ็น (PNG/JPG, ไม่เกิน 2MB)</span>
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/jpg"
-                          className="hidden"
-                          onChange={(e) => handleSignatureChange(idx, e)}
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* ปุ่มบันทึก */}

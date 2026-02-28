@@ -97,6 +97,7 @@ import IdCardPage from '@/pages/school/IdCardPage';
 
 // Components
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import VerifyCertificate from '@/pages/public/VerifyCertificate';
 import NotFound from '@/pages/NotFound';
 
 function App() {
@@ -140,6 +141,10 @@ function App() {
         {/* 📢 Public Results (ไม่ต้อง Login) */}
         <Route path="/public-results" element={<PublicResults />} />
         <Route path="/public-results/:id" element={<PublicResults />} />
+
+        {/* 🔍 Certificate Verification (ไม่ต้อง Login) */}
+        <Route path="/verify" element={<VerifyCertificate />} />
+        <Route path="/verify/:code" element={<VerifyCertificate />} />
 
         {/* ============================================ */}
         {/* Protected Routes (ต้อง Login) */}
