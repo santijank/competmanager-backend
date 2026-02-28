@@ -379,50 +379,27 @@ class CertificateController extends Controller
 
     /**
      * Render PDF จาก Certificate collection
-     * ดึง background / signers ตาม level + school_group_id ของแต่ละใบ
+     * ใช้พื้นหลังจากไฟล์ local ตาม level (district/group)
      */
     private function renderPdf($certificates)
     {
-        $settingsCache = [];
+        // เตรียม background paths (local files — ไม่ต้อง download จากที่ไหน)
+        $bgPaths = [
+            'district' => public_path('images/cert/district_bg.jpg'),
+            'group' => public_path('images/cert/group_bg.jpg'),
+        ];
 
-        $enrichedCerts = $certificates->map(function ($cert) use (&$settingsCache) {
-            // กำหนด prefix ตาม level + school_group_id
-            $prefix = 'cert_district_';
-            if ($cert->level === 'group') {
-                $comp = $cert->competition ?? Competition::find($cert->competition_id);
-                if ($comp && $comp->school_group_id) {
-                    $prefix = 'cert_group_' . $comp->school_group_id . '_';
-                }
+        $enrichedCerts = $certificates->map(function ($cert) use ($bgPaths) {
+            // เลือกพื้นหลังตาม level
+            $level = $cert->level ?? 'district';
+            $bgPath = $bgPaths[$level] ?? $bgPaths['district'];
+
+            if (file_exists($bgPath)) {
+                $cert->cert_background = $bgPath;
+            } else {
+                Log::warning("Certificate background not found: {$bgPath}");
+                $cert->cert_background = null;
             }
-
-            // Cache เพื่อไม่ query ซ้ำ + แปลง URL เป็น Base64 สำหรับ DomPDF
-            if (!isset($settingsCache[$prefix])) {
-                $background = SystemSetting::getValue("{$prefix}background_image");
-                // ถ้าเป็น URL (ไม่ใช่ Base64) → download แปลงเป็น Base64 ให้ DomPDF
-                if ($background && !str_starts_with($background, 'data:')) {
-                    $background = $this->urlToBase64($background);
-                }
-
-                $signers = [];
-                for ($i = 1; $i <= 2; $i++) {
-                    $name = SystemSetting::getValue("{$prefix}signer_name_{$i}");
-                    if ($name) {
-                        $signature = SystemSetting::getValue("{$prefix}signer_signature_{$i}");
-                        if ($signature && !str_starts_with($signature, 'data:')) {
-                            $signature = $this->urlToBase64($signature);
-                        }
-                        $signers[] = [
-                            'name' => $name,
-                            'position' => SystemSetting::getValue("{$prefix}signer_position_{$i}", ''),
-                            'signature' => $signature,
-                        ];
-                    }
-                }
-                $settingsCache[$prefix] = compact('background', 'signers');
-            }
-
-            $cert->cert_background = $settingsCache[$prefix]['background'];
-            $cert->cert_signers = $settingsCache[$prefix]['signers'];
 
             // สร้าง QR Code สำหรับ certificate จริง (ไม่ใช่ preview)
             if ($cert->certificate_code && $cert->certificate_code !== 'PREVIEW') {

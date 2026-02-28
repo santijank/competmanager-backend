@@ -57,208 +57,80 @@
             z-index: 0;
         }
 
-        /* กรอบเกียรติบัตร (ใช้เมื่อไม่มีพื้นหลัง) */
-        .border-outer {
+        /* ============================================ */
+        /* ข้อมูลนักเรียน — ซ้อนตรงกลางพื้นหลัง       */
+        /* พื้นหลังมี header/footer/ลายเซ็น อยู่แล้ว   */
+        /* ช่องว่างอยู่ประมาณ 32%-52% ของความสูงหน้า    */
+        /* ============================================ */
+        .student-overlay {
             position: absolute;
-            top: 8mm;
-            left: 8mm;
-            right: 8mm;
-            bottom: 8mm;
-            border: 3pt solid #b8860b;
-        }
-
-        .border-inner {
-            position: absolute;
-            top: 11mm;
-            left: 11mm;
-            right: 11mm;
-            bottom: 11mm;
-            border: 1pt solid #b8860b;
-        }
-
-        /* เนื้อหา */
-        .content {
-            position: absolute;
-            top: 15mm;
-            left: 20mm;
-            right: 20mm;
-            bottom: 15mm;
-            text-align: center;
-            display: table;
-            width: calc(297mm - 40mm);
+            top: 62mm;
+            left: 50mm;
+            right: 50mm;
+            height: 50mm;
             z-index: 1;
-        }
-
-        .content-inner {
-            display: table-cell;
-            vertical-align: middle;
             text-align: center;
-        }
-
-        .header-logo {
-            margin-bottom: 3mm;
-        }
-
-        .header-logo img {
-            height: 22mm;
-        }
-
-        .title-text {
-            font-size: 32pt;
-            font-weight: bold;
-            color: #b8860b;
-            margin-bottom: 2mm;
-            letter-spacing: 2pt;
-        }
-
-        .subtitle-text {
-            font-size: 18pt;
-            color: #333;
-            margin-bottom: 4mm;
-        }
-
-        .org-text {
-            font-size: 16pt;
-            color: #444;
-            margin-bottom: 3mm;
-        }
-
-        .award-line {
-            font-size: 15pt;
-            color: #333;
-            margin-bottom: 2mm;
         }
 
         .student-name {
-            font-size: 24pt;
+            font-size: 28pt;
             font-weight: bold;
-            color: #1a1a1a;
-            margin-top: 3mm;
-            margin-bottom: 2mm;
-            line-height: 1.3;
+            color: #1a0a00;
+            margin-bottom: 1mm;
+            line-height: 1.2;
         }
 
         .school-name {
-            font-size: 18pt;
-            color: #333;
-            margin-bottom: 4mm;
-        }
-
-        .competition-text {
-            font-size: 16pt;
-            color: #333;
+            font-size: 20pt;
+            color: #222;
             margin-bottom: 2mm;
         }
 
-        .level-text {
-            font-size: 14pt;
-            color: #555;
-            margin-bottom: 3mm;
+        .competition-text {
+            font-size: 17pt;
+            color: #333;
+            margin-bottom: 1mm;
         }
 
         .medal-text {
             font-size: 22pt;
             font-weight: bold;
-            margin-top: 2mm;
-            margin-bottom: 1mm;
+            margin-top: 1mm;
         }
 
-        .medal-gold { color: #b8860b; }
-        .medal-silver { color: #666; }
+        .medal-gold { color: #8B6914; }
+        .medal-silver { color: #555; }
         .medal-bronze { color: #cd7f32; }
         .medal-participant { color: #2a6496; }
 
-        .score-text {
-            font-size: 16pt;
-            color: #555;
-            margin-bottom: 2mm;
-        }
-
-        .rank-text {
-            font-size: 16pt;
-            color: #333;
-            margin-bottom: 3mm;
-        }
-
-        .teacher-text {
-            font-size: 14pt;
-            color: #555;
-            margin-top: 3mm;
-            margin-bottom: 3mm;
-        }
-
-        .date-text {
-            font-size: 14pt;
-            color: #555;
-            margin-top: 5mm;
-        }
-
-        .divider {
-            width: 50%;
-            margin: 3mm auto;
-            border-top: 1pt solid #b8860b;
-        }
-
-        /* ส่วนลายเซ็น */
-        .signers-section {
-            margin-top: 5mm;
-            width: 100%;
-        }
-
-        .signers-table {
-            width: 80%;
-            margin: 0 auto;
-        }
-
-        .signer-cell {
-            text-align: center;
-            vertical-align: bottom;
-            padding: 0 15mm;
-        }
-
-        .signature-img {
-            height: 18mm;
-            margin-bottom: 1mm;
-        }
-
-        .signer-name {
-            font-size: 14pt;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .signer-position {
-            font-size: 12pt;
-            color: #555;
-        }
-
-        .cert-code {
-            font-size: 10pt;
-            color: #999;
-            position: absolute;
-            bottom: 13mm;
-            right: 15mm;
-            z-index: 1;
-        }
-
-        /* QR Code Section */
+        /* QR Code — มุมซ้ายล่าง */
         .qr-section {
             position: absolute;
-            bottom: 10mm;
-            left: 15mm;
-            z-index: 1;
+            bottom: 8mm;
+            left: 12mm;
+            z-index: 2;
             text-align: center;
         }
 
         .qr-section img {
-            width: 22mm;
-            height: 22mm;
+            width: 18mm;
+            height: 18mm;
         }
 
         .qr-label {
-            font-size: 7pt;
-            color: #999;
-            margin-top: 1mm;
+            font-size: 6pt;
+            color: #888;
+            margin-top: 0.5mm;
+        }
+
+        /* รหัสเกียรติบัตร — มุมขวาล่าง */
+        .cert-code {
+            font-size: 8pt;
+            color: #888;
+            position: absolute;
+            bottom: 10mm;
+            right: 12mm;
+            z-index: 2;
         }
     </style>
 </head>
@@ -276,139 +148,38 @@
             'bronze' => 'medal-bronze',
             'participant' => 'medal-participant',
         ];
-        $thaiMonths = [
-            1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม',
-            4 => 'เมษายน', 5 => 'พฤษภาคม', 6 => 'มิถุนายน',
-            7 => 'กรกฎาคม', 8 => 'สิงหาคม', 9 => 'กันยายน',
-            10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม',
-        ];
     @endphp
 
     @foreach($certificates as $cert)
         @php
-            $issueDate = $cert->issue_date ?? now();
-            $rawYear = (int) $issueDate->format('Y');
-            $buddhistYear = $rawYear > 2400 ? $rawYear : $rawYear + 543;
-            $dateStr = $issueDate->format('j') . ' ' . $thaiMonths[(int)$issueDate->format('n')] . ' พ.ศ. ' . $buddhistYear;
-
             $medalLabel = $medalLabels[$cert->medal] ?? '-';
             $medalClass = $medalClasses[$cert->medal] ?? '';
-
-            $teacherNames = is_array($cert->teacher_names) ? $cert->teacher_names : [];
-
-            // ดึง background / signers จากแต่ละ cert (ตั้งค่าตาม level/group)
-            $certBackground = $cert->cert_background ?? ($background ?? null);
-            $certSigners = $cert->cert_signers ?? ($signers ?? []);
+            $certBackground = $cert->cert_background ?? null;
         @endphp
 
         <div class="certificate-page">
-            {{-- ภาพพื้นหลัง หรือ กรอบเดิม --}}
+            {{-- ภาพพื้นหลัง (local file) --}}
             @if($certBackground)
                 <img src="{{ $certBackground }}" class="background-image" />
-            @else
-                <div class="border-outer"></div>
-                <div class="border-inner"></div>
             @endif
 
-            <!-- เนื้อหา -->
-            <div class="content">
-                <div class="content-inner">
-                    {{-- โลโก้ (แสดงเฉพาะเมื่อไม่มีพื้นหลัง) --}}
-                    @if(!$certBackground)
-                        <div class="header-logo">
-                            @if(file_exists(public_path('images/smart-sesao-logo.png')))
-                                <img src="{{ public_path('images/smart-sesao-logo.png') }}" alt="Logo">
-                            @endif
-                        </div>
-
-                        <div class="title-text">เกียรติบัตร</div>
-
-                        <div class="subtitle-text">
-                            กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73
-                        </div>
-
-                        <div class="org-text">
-                            สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1
-                        </div>
-
-                        <div class="divider"></div>
-                    @endif
-
-                    <div class="award-line">ขอมอบเกียรติบัตรฉบับนี้เพื่อแสดงว่า</div>
-
-                    <div class="student-name">{{ $cert->student_name }}</div>
-
-                    <div class="school-name">{{ $cert->school_name }}</div>
-
-                    <div class="competition-text">
-                        กิจกรรม {{ $cert->competition_name }}
-                        @if($cert->category_name)
-                            <br>หมวด {{ $cert->category_name }}
-                        @endif
-                    </div>
-
-                    @if($cert->level)
-                        <div class="level-text">
-                            {{ $cert->level === 'group' ? 'ระดับกลุ่มโรงเรียน' : 'ระดับเขตพื้นที่การศึกษา' }}
-                        </div>
-                    @endif
-
-                    <div class="medal-text {{ $medalClass }}">
-                        ได้รับ{{ $medalLabel }}
-                    </div>
-
-                    @if($cert->score)
-                        <div class="score-text">คะแนน {{ number_format($cert->score, 2) }} คะแนน</div>
-                    @endif
-
-                    @if($cert->rank)
-                        <div class="rank-text">ลำดับที่ {{ $cert->rank }}</div>
-                    @endif
-
-                    @if(count($teacherNames) > 0)
-                        <div class="teacher-text">
-                            ครูผู้ฝึกสอน: {{ implode(', ', $teacherNames) }}
-                        </div>
-                    @endif
-
-                    <div class="date-text">
-                        ให้ไว้ ณ วันที่ {{ $dateStr }}
-                    </div>
-
-                    {{-- ส่วนลายเซ็น --}}
-                    @if(count($certSigners) > 0)
-                        <div class="signers-section">
-                            <table class="signers-table">
-                                <tr>
-                                    @foreach($certSigners as $signer)
-                                        <td class="signer-cell">
-                                            @if(!empty($signer['signature']))
-                                                <img src="{{ $signer['signature'] }}" class="signature-img" />
-                                            @else
-                                                <div style="height: 18mm;"></div>
-                                            @endif
-                                            <div class="signer-name">{{ $signer['name'] }}</div>
-                                            @if(!empty($signer['position']))
-                                                <div class="signer-position">{{ $signer['position'] }}</div>
-                                            @endif
-                                        </td>
-                                    @endforeach
-                                </tr>
-                            </table>
-                        </div>
-                    @endif
-                </div>
+            {{-- ข้อมูลนักเรียน ซ้อนบนพื้นหลัง --}}
+            <div class="student-overlay">
+                <div class="student-name">{{ $cert->student_name }}</div>
+                <div class="school-name">{{ $cert->school_name }}</div>
+                <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                <div class="medal-text {{ $medalClass }}">ได้รับรางวัลระดับ{{ $medalLabel }}</div>
             </div>
 
-            <!-- QR Code ตรวจสอบเกียรติบัตร -->
+            {{-- QR Code --}}
             @if(!empty($cert->qr_data_uri))
                 <div class="qr-section">
-                    <img src="{{ $cert->qr_data_uri }}" alt="QR Verify" />
-                    <div class="qr-label">สแกนเพื่อตรวจสอบ</div>
+                    <img src="{{ $cert->qr_data_uri }}" alt="QR" />
+                    <div class="qr-label">สแกนตรวจสอบ</div>
                 </div>
             @endif
 
-            <!-- รหัสเกียรติบัตร -->
+            {{-- รหัสเกียรติบัตร --}}
             @if($cert->certificate_code && $cert->certificate_code !== 'PREVIEW')
                 <div class="cert-code">{{ $cert->certificate_code }}</div>
             @endif
