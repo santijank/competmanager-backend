@@ -77,28 +77,32 @@
             font-weight: bold;
             color: #1a0a00;
             margin-bottom: 0;
-            line-height: 1.1;
+            line-height: 1.0;
+            padding: 0;
         }
 
         .school-name {
             font-size: 18pt;
             color: #222;
             margin-bottom: 0;
-            line-height: 1.1;
+            line-height: 1.0;
+            padding: 0;
         }
 
         .competition-text {
             font-size: 15pt;
             color: #333;
             margin-bottom: 0;
-            line-height: 1.1;
+            line-height: 1.0;
+            padding: 0;
         }
 
         .medal-text {
             font-size: 20pt;
             font-weight: bold;
             margin-top: 0;
-            line-height: 1.1;
+            line-height: 1.0;
+            padding: 0;
         }
 
         .medal-gold { color: #8B6914; }
@@ -169,7 +173,7 @@
             {{-- ข้อมูลนักเรียน ซ้อนบนพื้นหลัง --}}
             <div class="student-overlay">
                 <div class="student-name">{{ $cert->student_name }}</div>
-                <div class="school-name">{{ $cert->school_name }}</div>
+                <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
                 <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
                 <div class="medal-text {{ $medalClass }}">ได้รับรางวัลระดับ{{ $medalLabel }}</div>
             </div>
