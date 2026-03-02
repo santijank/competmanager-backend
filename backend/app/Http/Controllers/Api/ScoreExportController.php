@@ -325,34 +325,13 @@ class ScoreExportController extends Controller
 
                 $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
 
-                $judges = CompetitionJudge::where('competition_id', $competition->id)
-                    ->orderBy('created_at', 'asc')
-                    ->get();
-
-                if ($judges->isEmpty()) {
-                    $judges = CommitteeMember::where('competition_id', $competition->id)
-                        ->where('is_active', true)
-                        ->where('member_type', 'committee')
-                        ->orderBy('id', 'asc')
-                        ->get();
-                }
-
-                if ($judges->isEmpty()) {
-                    $judges = CommitteeMember::whereNull('competition_id')
-                        ->where('is_active', true)
-                        ->where('member_type', 'committee')
-                        ->where('level', $competition->competition_level)
-                        ->orderBy('id', 'asc')
-                        ->get();
-                }
-
                 $data = [
                     'competition' => $competition,
                     'registrations' => $sorted,
                     'stats' => $stats,
                     'groupName' => $groupName,
                     'schedule' => $schedule,
-                    'judges' => $judges,
+                    'judges' => collect([]), // ไม่แสดงกรรมการใน batch export
                     'generated_at' => now()->format('d/m/Y H:i:s'),
                     'generated_by' => $user->name,
                 ];
