@@ -63,7 +63,7 @@
         .document-number {
             position: absolute;
             top: 8mm;
-            right: 22mm;
+            right: 16mm;
             z-index: 2;
             font-size: 15pt;
             color: #333;
@@ -143,7 +143,7 @@
         .qr-section {
             position: absolute;
             bottom: 12mm;
-            left: 38mm;
+            left: 56mm;
             z-index: 2;
             text-align: center;
         }

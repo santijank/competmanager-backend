@@ -44,6 +44,7 @@ export default function CertificateList() {
 
   // Shared filters
   const [categories, setCategories] = useState([]);
+  const [filterLevel, setFilterLevel] = useState('group');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
   const [search, setSearch] = useState('');
@@ -63,20 +64,33 @@ export default function CertificateList() {
       if (filterCategory) params.category_id = filterCategory;
       if (filterMedal) params.medal = filterMedal;
       const res = await certificateService.getEligible(params);
-      setEligible(res.data?.data || []);
-      setEligibleSummary(res.data?.summary || {});
+      // Filter by level on frontend (API returns competition_level)
+      const allData = res.data?.data || [];
+      const filtered = filterLevel ? allData.filter(e => e.competition_level === filterLevel) : allData;
+      setEligible(filtered);
+      // Recalculate summary for filtered data
+      const filteredSummary = {
+        total: filtered.length,
+        gold: filtered.filter(e => e.medal === 'gold').length,
+        silver: filtered.filter(e => e.medal === 'silver').length,
+        bronze: filtered.filter(e => e.medal === 'bronze').length,
+        participant: filtered.filter(e => e.medal === 'participant').length,
+        already_generated: filtered.filter(e => e.has_certificate).length,
+      };
+      setEligibleSummary(filteredSummary);
     } catch {
       toast.error('ไม่สามารถโหลดรายการได้');
     } finally {
       setEligibleLoading(false);
     }
-  }, [filterCategory, filterMedal]);
+  }, [filterCategory, filterMedal, filterLevel]);
 
   // Load certificates
   const loadCertificates = useCallback(async () => {
     setCertLoading(true);
     try {
       const params = {};
+      if (filterLevel) params.level = filterLevel;
       if (filterCategory) params.category_id = filterCategory;
       if (filterMedal) params.medal = filterMedal;
       if (search) params.search = search;
@@ -89,7 +103,7 @@ export default function CertificateList() {
     } finally {
       setCertLoading(false);
     }
-  }, [filterCategory, filterMedal, search]);
+  }, [filterLevel, filterCategory, filterMedal, search]);
 
   useEffect(() => {
     if (activeTab === 'eligible') loadEligible();
@@ -148,6 +162,8 @@ export default function CertificateList() {
       toast.info('สร้างเกียรติบัตรครบแล้ว');
       return;
     }
+    const levelLabel = filterLevel === 'district' ? 'ระดับเขตพื้นที่' : 'ระดับกลุ่มโรงเรียน';
+    if (!confirm(`สร้างเกียรติบัตร ${levelLabel} ทั้งหมด ${notGenerated.length} รายการ?`)) return;
     setGenerating(true);
     try {
       const res = await certificateService.generate({ score_ids: notGenerated });
@@ -309,6 +325,28 @@ export default function CertificateList() {
             </span>
           )}
         </button>
+      </div>
+
+      {/* Level Tabs */}
+      <div className="flex gap-2 mb-4">
+        {[
+          { value: 'group', label: 'ระดับกลุ่มโรงเรียน', color: 'green' },
+          { value: 'district', label: 'ระดับเขตพื้นที่', color: 'blue' },
+        ].map(lv => (
+          <button
+            key={lv.value}
+            onClick={() => { setFilterLevel(lv.value); setSelectedScoreIds([]); setSelectedCertIds([]); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
+              filterLevel === lv.value
+                ? lv.color === 'green'
+                  ? 'bg-green-600 text-white border-green-600'
+                  : 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {lv.label}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
