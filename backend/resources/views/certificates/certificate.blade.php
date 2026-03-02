@@ -219,18 +219,18 @@
                 <div class="student-name">{{ $cert->recipient_name ?? $cert->student_name }}</div>
                 <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
 
-                @if($isTeacher)
-                    <div class="competition-text">ครูผู้ฝึกสอน กิจกรรม {{ $cert->competition_name }}</div>
-                @else
-                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
-                @endif
-
                 <div class="medal-text {{ $medalClass }}">
                     ได้รับรางวัลระดับ{{ $medalLabel }}
                     @if(!empty($rankingText))
                         {{ $rankingText }}
                     @endif
                 </div>
+
+                @if($isTeacher)
+                    <div class="competition-text">ครูผู้ฝึกสอน กิจกรรม {{ $cert->competition_name }}</div>
+                @else
+                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                @endif
             </div>
 
             {{-- QR Code — กลางล่าง --}}
