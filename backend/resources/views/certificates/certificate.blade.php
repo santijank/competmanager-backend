@@ -58,18 +58,38 @@
         }
 
         /* ============================================ */
-        /* ข้อมูลนักเรียน — ซ้อนตรงกลางพื้นหลัง       */
-        /* พื้นหลังมี header/footer/ลายเซ็น อยู่แล้ว   */
-        /* ช่องว่างอยู่ประมาณ 32%-52% ของความสูงหน้า    */
+        /* เลขที่เอกสาร — มุมขวาบน                      */
+        /* ============================================ */
+        .document-number {
+            position: absolute;
+            top: 8mm;
+            right: 12mm;
+            z-index: 2;
+            font-size: 11pt;
+            color: #333;
+        }
+
+        /* ============================================ */
+        /* ข้อมูลผู้รับเกียรติบัตร — ซ้อนตรงกลาง         */
+        /* พื้นหลังมี header/footer/ลายเซ็น อยู่แล้ว     */
+        /* ช่องว่างอยู่ประมาณ 32%-55% ของความสูงหน้า      */
         /* ============================================ */
         .student-overlay {
             position: absolute;
-            top: 80mm;
+            top: 78mm;
             left: 50mm;
             right: 50mm;
-            height: 40mm;
+            height: 50mm;
             z-index: 1;
             text-align: center;
+        }
+
+        .recipient-label {
+            font-size: 14pt;
+            color: #555;
+            margin-bottom: 0;
+            line-height: 1.0;
+            padding: 0;
         }
 
         .student-name {
@@ -101,6 +121,15 @@
             font-size: 20pt;
             font-weight: bold;
             margin-top: 0;
+            line-height: 1.2;
+            padding: 0;
+        }
+
+        .ranking-text {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #8B0000;
+            margin-top: 0;
             line-height: 1.0;
             padding: 0;
         }
@@ -110,11 +139,12 @@
         .medal-bronze { color: #cd7f32; }
         .medal-participant { color: #2a6496; }
 
-        /* QR Code — มุมซ้ายล่าง */
+        /* QR Code — กลางล่าง */
         .qr-section {
             position: absolute;
             bottom: 8mm;
-            left: 12mm;
+            left: 50%;
+            margin-left: -11mm;
             z-index: 2;
             text-align: center;
         }
@@ -162,6 +192,8 @@
             $medalLabel = $medalLabels[$cert->medal] ?? '-';
             $medalClass = $medalClasses[$cert->medal] ?? '';
             $certBackground = $cert->cert_background ?? null;
+            $isTeacher = ($cert->recipient_type ?? 'student') === 'teacher';
+            $rankingText = $cert->ranking_text ?? '';
         @endphp
 
         <div class="certificate-page">
@@ -170,15 +202,36 @@
                 <img src="{{ $certBackground }}" class="background-image" />
             @endif
 
-            {{-- ข้อมูลนักเรียน ซ้อนบนพื้นหลัง --}}
+            {{-- เลขที่เอกสาร — มุมขวาบน --}}
+            @if(!empty($cert->document_number))
+                <div class="document-number">เลขที่ {{ $cert->document_number }}</div>
+            @endif
+
+            {{-- ข้อมูลผู้รับเกียรติบัตร ซ้อนบนพื้นหลัง --}}
             <div class="student-overlay">
-                <div class="student-name">{{ $cert->student_name }}</div>
+                {{-- ถ้าเป็นครู แสดงคำว่า "ครูผู้ฝึกสอน" --}}
+                @if($isTeacher)
+                    <div class="recipient-label">ครูผู้ฝึกสอน</div>
+                @endif
+
+                <div class="student-name">{{ $cert->recipient_name ?? $cert->student_name }}</div>
                 <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
-                <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
-                <div class="medal-text {{ $medalClass }}">ได้รับรางวัลระดับ{{ $medalLabel }}</div>
+
+                @if($isTeacher)
+                    <div class="competition-text">ครูผู้ฝึกสอน กิจกรรม {{ $cert->competition_name }}</div>
+                @else
+                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                @endif
+
+                <div class="medal-text {{ $medalClass }}">
+                    ได้รับรางวัลระดับ{{ $medalLabel }}
+                    @if(!empty($rankingText))
+                        {{ $rankingText }}
+                    @endif
+                </div>
             </div>
 
-            {{-- QR Code --}}
+            {{-- QR Code — กลางล่าง --}}
             @if(!empty($cert->qr_data_uri))
                 <div class="qr-section">
                     <img src="{{ $cert->qr_data_uri }}" alt="QR" />
@@ -186,7 +239,7 @@
                 </div>
             @endif
 
-            {{-- รหัสเกียรติบัตร --}}
+            {{-- รหัสเกียรติบัตร — มุมขวาล่าง --}}
             @if($cert->certificate_code && $cert->certificate_code !== 'PREVIEW')
                 <div class="cert-code">{{ $cert->certificate_code }}</div>
             @endif

@@ -197,6 +197,11 @@ export const certificateService = {
     const qs = new URLSearchParams(params).toString();
     return `${baseUrl}/certificates/preview?${qs}`;
   },
+
+  // Number settings
+  getNumberSettings: () => api.get('/certificates/number-settings'),
+  updateNumberSetting: (data) => api.post('/certificates/number-settings', data),
+  resetNumberSettings: (data = {}) => api.post('/certificates/number-settings/reset', data),
 };
 
 // ============================================

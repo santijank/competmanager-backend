@@ -206,6 +206,12 @@ export default function Sidebar({ isOpen, onClose }) {
           icon: BarChart3,
           path: '/school/results',
           roles: ['teacher', 'school_admin'],
+        },
+        {
+          label: 'เกียรติบัตร',
+          icon: Award,
+          path: '/school/certificates',
+          roles: ['teacher', 'school_admin'],
         }
       );
     }

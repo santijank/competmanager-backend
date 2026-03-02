@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
+use App\Models\CertificateNumberSetting;
 use App\Models\Score;
 use App\Models\Competition;
 use App\Models\SystemSetting;
@@ -42,13 +43,30 @@ class CertificateController extends Controller
                 $query->where('medal', $request->medal);
             }
 
+            // Filter by logged-in user's school
+            if ($request->filled('my_school')) {
+                $user = auth()->user();
+                if ($user && $user->school_id) {
+                    $schoolName = $user->school?->name;
+                    if ($schoolName) {
+                        $query->where('school_name', $schoolName);
+                    }
+                }
+            }
+
+            if ($request->filled('recipient_type')) {
+                $query->where('recipient_type', $request->recipient_type);
+            }
+
             if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('student_name', 'like', "%{$search}%")
+                      ->orWhere('recipient_name', 'like', "%{$search}%")
                       ->orWhere('school_name', 'like', "%{$search}%")
                       ->orWhere('competition_name', 'like', "%{$search}%")
-                      ->orWhere('certificate_code', 'like', "%{$search}%");
+                      ->orWhere('certificate_code', 'like', "%{$search}%")
+                      ->orWhere('document_number', 'like', "%{$search}%");
                 });
             }
 
@@ -120,31 +138,39 @@ class CertificateController extends Controller
                 ->orderBy('rank')
                 ->get();
 
-            // ดึง score_ids ที่มี certificate แล้ว
-            $existingScoreIds = Certificate::whereIn('score_id', $scores->pluck('id'))
-                ->pluck('score_id')
+            // ดึง score_ids ที่มี certificate แล้ว + จำนวนที่ออกแล้ว
+            $existingCounts = Certificate::whereIn('score_id', $scores->pluck('id'))
+                ->groupBy('score_id')
+                ->selectRaw('score_id, COUNT(*) as cert_count')
+                ->pluck('cert_count', 'score_id')
                 ->toArray();
 
-            $data = $scores->map(function ($score) use ($existingScoreIds) {
+            $data = $scores->map(function ($score) use ($existingCounts) {
                 $reg = $score->registration;
                 $comp = $reg?->competition;
                 $school = $reg?->school;
+
+                $studentNames = $reg?->getStudentNamesList() ?? [];
+                $teacherNames = $reg?->getTeacherNamesList() ?? [];
+                $totalPersons = count($studentNames) + count($teacherNames);
 
                 return [
                     'score_id' => $score->id,
                     'competition_id' => $score->competition_id,
                     'competition_name' => $comp?->name ?? '-',
-                    'competition_level' => $comp?->level ?? '-',
+                    'competition_level' => $comp?->competition_level ?? '-',
                     'category_name' => $comp?->category?->name ?? '-',
                     'category_id' => $comp?->category_id,
                     'school_name' => $school?->name ?? '-',
-                    'student_names' => $reg?->getStudentNamesList() ?? [],
-                    'teacher_names' => $reg?->getTeacherNamesList() ?? [],
+                    'student_names' => $studentNames,
+                    'teacher_names' => $teacherNames,
                     'team_name' => $reg?->team_name,
                     'score' => $score->score,
                     'medal' => $score->medal,
                     'rank' => $score->rank,
-                    'has_certificate' => in_array($score->id, $existingScoreIds),
+                    'has_certificate' => isset($existingCounts[$score->id]),
+                    'certificate_count' => $existingCounts[$score->id] ?? 0,
+                    'total_persons' => $totalPersons,
                 ];
             });
 
@@ -173,7 +199,8 @@ class CertificateController extends Controller
     }
 
     /**
-     * สร้างเกียรติบัตร (รายเดียวหรือหลายรายการ)
+     * สร้างเกียรติบัตร — 1 ฉบับต่อ 1 คน (นักเรียน + ครูแยกชุดกัน)
+     * พร้อมเลขที่เอกสารรันอัตโนมัติ
      */
     public function generate(Request $request): JsonResponse
     {
@@ -190,7 +217,7 @@ class CertificateController extends Controller
 
             foreach ($scoreIds as $scoreId) {
                 try {
-                    // ข้ามถ้ามี certificate แล้ว
+                    // ข้ามถ้ามี certificate แล้ว (score_id เดียวกัน)
                     if (Certificate::where('score_id', $scoreId)->exists()) {
                         $skipped++;
                         continue;
@@ -209,36 +236,75 @@ class CertificateController extends Controller
                     $reg = $score->registration;
                     $comp = $reg->competition;
                     $school = $reg->school;
+                    $level = $comp->competition_level ?? 'district';
 
-                    $certCode = $this->generateCode($comp);
+                    // ===== สร้างเกียรติบัตรรายคน — นักเรียน =====
+                    $studentNames = $reg->getStudentNamesList();
+                    foreach ($studentNames as $studentName) {
+                        $certCode = $this->generateCode($comp);
+                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'student');
 
-                    Certificate::create([
-                        'certificate_code' => $certCode,
-                        'score_id' => $score->id,
-                        'competition_id' => $comp->id,
-                        'student_name' => $reg->getStudentNamesString(', '),
-                        'school_name' => $school->name ?? '-',
-                        'competition_name' => $comp->name,
-                        'category_name' => $comp->category?->name,
-                        'teacher_names' => $reg->getTeacherNamesList(),
-                        'level' => $comp->competition_level ?? 'group',
-                        'rank' => $score->rank,
-                        'medal' => $score->medal,
-                        'score' => $score->score,
-                        'issue_date' => now(),
-                        'generated_by' => auth()->id(),
-                        'generated_at' => now(),
-                    ]);
+                        Certificate::create([
+                            'certificate_code' => $certCode,
+                            'document_number' => $docNumber,
+                            'recipient_type' => 'student',
+                            'recipient_name' => $studentName,
+                            'score_id' => $score->id,
+                            'competition_id' => $comp->id,
+                            'student_name' => $studentName,
+                            'school_name' => $school->name ?? '-',
+                            'competition_name' => $comp->name,
+                            'category_name' => $comp->category?->name,
+                            'teacher_names' => $reg->getTeacherNamesList(),
+                            'level' => $level,
+                            'rank' => $score->rank,
+                            'medal' => $score->medal,
+                            'score' => $score->score,
+                            'issue_date' => now(),
+                            'generated_by' => auth()->id(),
+                            'generated_at' => now(),
+                        ]);
+                        $created++;
+                    }
 
-                    $created++;
+                    // ===== สร้างเกียรติบัตรรายคน — ครูผู้ฝึกสอน =====
+                    $teacherNames = $reg->getTeacherNamesList();
+                    foreach ($teacherNames as $teacherName) {
+                        $certCode = $this->generateCode($comp);
+                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'teacher');
+
+                        Certificate::create([
+                            'certificate_code' => $certCode,
+                            'document_number' => $docNumber,
+                            'recipient_type' => 'teacher',
+                            'recipient_name' => $teacherName,
+                            'score_id' => $score->id,
+                            'competition_id' => $comp->id,
+                            'student_name' => $teacherName, // ชื่อผู้รับเกียรติบัตร
+                            'school_name' => $school->name ?? '-',
+                            'competition_name' => $comp->name,
+                            'category_name' => $comp->category?->name,
+                            'teacher_names' => $reg->getTeacherNamesList(),
+                            'level' => $level,
+                            'rank' => $score->rank,
+                            'medal' => $score->medal,
+                            'score' => $score->score,
+                            'issue_date' => now(),
+                            'generated_by' => auth()->id(),
+                            'generated_at' => now(),
+                        ]);
+                        $created++;
+                    }
+
                 } catch (\Exception $e) {
                     $errors[] = "Score #{$scoreId}: " . $e->getMessage();
+                    Log::error("Certificate generate error for score #{$scoreId}: " . $e->getMessage());
                 }
             }
 
             return response()->json([
                 'success' => $created > 0 || $skipped > 0,
-                'message' => "สร้างเกียรติบัตรสำเร็จ {$created} รายการ" .
+                'message' => "สร้างเกียรติบัตรสำเร็จ {$created} ฉบับ" .
                     ($skipped > 0 ? " (ข้าม {$skipped} รายการที่มีแล้ว)" : ''),
                 'data' => [
                     'created' => $created,
@@ -321,16 +387,29 @@ class CertificateController extends Controller
 
                 $reg = $score->registration;
                 $comp = $reg->competition;
+                $recipientType = $request->input('recipient_type', 'student');
+
+                // ใช้ชื่อคนแรกในรายชื่อเป็นตัวอย่าง
+                if ($recipientType === 'teacher') {
+                    $names = $reg->getTeacherNamesList();
+                    $recipientName = $names[0] ?? 'ครูผู้ฝึกสอน (ตัวอย่าง)';
+                } else {
+                    $names = $reg->getStudentNamesList();
+                    $recipientName = $names[0] ?? 'นักเรียน (ตัวอย่าง)';
+                }
 
                 $certificate = new Certificate([
                     'certificate_code' => 'PREVIEW',
+                    'document_number' => 'สพป.นฐ.๑-' . ($recipientType === 'teacher' ? 'คร.' : 'นร.') . '๐๐๐๐/๒๕๖๙',
+                    'recipient_type' => $recipientType,
+                    'recipient_name' => $recipientName,
                     'competition_id' => $comp->id,
-                    'student_name' => $reg->getStudentNamesString(', '),
+                    'student_name' => $recipientName,
                     'school_name' => $reg->school->name ?? '-',
                     'competition_name' => $comp->name,
                     'category_name' => $comp->category?->name,
                     'teacher_names' => $reg->getTeacherNamesList(),
-                    'level' => $comp->competition_level ?? 'group',
+                    'level' => $comp->competition_level ?? 'district',
                     'rank' => $score->rank,
                     'medal' => $score->medal,
                     'score' => $score->score,
@@ -483,6 +562,9 @@ class CertificateController extends Controller
                 'success' => true,
                 'data' => [
                     'certificate_code' => $certificate->certificate_code,
+                    'document_number' => $certificate->document_number,
+                    'recipient_type' => $certificate->recipient_type ?? 'student',
+                    'recipient_name' => $certificate->recipient_name ?? $certificate->student_name,
                     'student_name' => $certificate->student_name,
                     'school_name' => $certificate->school_name,
                     'competition_name' => $certificate->competition_name,
@@ -491,6 +573,7 @@ class CertificateController extends Controller
                     'level_label' => $certificate->level_label,
                     'medal' => $certificate->medal,
                     'medal_label' => $certificate->medal_label,
+                    'ranking_text' => $certificate->ranking_text,
                     'score' => $certificate->score,
                     'rank' => $certificate->rank,
                     'issue_date' => $certificate->issue_date?->format('Y-m-d'),
@@ -528,6 +611,100 @@ class CertificateController extends Controller
         } catch (\Exception $e) {
             Log::warning('QR code generation failed: ' . $e->getMessage());
             return '';
+        }
+    }
+
+    /**
+     * ดึงการตั้งค่าเลขที่เกียรติบัตร
+     */
+    public function numberSettings(): JsonResponse
+    {
+        try {
+            $settings = CertificateNumberSetting::all();
+            return response()->json([
+                'success' => true,
+                'data' => $settings,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate numberSettings error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถโหลดการตั้งค่าได้'
+            ], 500);
+        }
+    }
+
+    /**
+     * อัพเดตการตั้งค่าเลขที่เกียรติบัตร
+     */
+    public function updateNumberSettings(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'id' => 'required|integer|exists:certificate_number_settings,id',
+                'prefix' => 'sometimes|string|max:50',
+                'year' => 'sometimes|string|max:10',
+                'last_number' => 'sometimes|integer|min:0',
+            ]);
+
+            $setting = CertificateNumberSetting::findOrFail($request->id);
+
+            if ($request->filled('prefix')) {
+                $setting->prefix = $request->prefix;
+            }
+            if ($request->filled('year')) {
+                $setting->year = $request->year;
+            }
+            if ($request->has('last_number')) {
+                $setting->last_number = (int) $request->last_number;
+            }
+
+            $setting->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'บันทึกการตั้งค่าสำเร็จ',
+                'data' => $setting,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate updateNumberSettings error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถบันทึกการตั้งค่าได้: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * รีเซ็ตเลขรันทั้งหมด
+     */
+    public function resetNumberSettings(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'level' => 'sometimes|string|in:district,group',
+            ]);
+
+            $query = CertificateNumberSetting::query();
+            if ($request->filled('level')) {
+                $query->where('level', $request->level);
+            }
+
+            $query->update([
+                'last_number' => 0,
+                'year' => CertificateNumberSetting::toBuddhistYear(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'รีเซ็ตเลขรันสำเร็จ',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate resetNumberSettings error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถรีเซ็ตได้: ' . $e->getMessage()
+            ], 500);
         }
     }
 

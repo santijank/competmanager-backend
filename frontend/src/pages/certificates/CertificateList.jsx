@@ -406,12 +406,15 @@ export default function CertificateList() {
                         </td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 truncate max-w-[200px]">{item.competition_name}</div>
-                          <div className="text-xs text-gray-500">{item.category_name} | {item.competition_level}</div>
+                          <div className="text-xs text-gray-500">{item.category_name} | {item.competition_level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}</div>
                         </td>
                         <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{item.school_name}</td>
                         <td className="px-3 py-2">
                           <div className="text-gray-800 text-xs">
-                            {item.student_names?.join(', ') || '-'}
+                            <div><span className="text-blue-600 font-medium">นร.</span> {item.student_names?.join(', ') || '-'}</div>
+                            {item.teacher_names?.length > 0 && (
+                              <div className="mt-0.5"><span className="text-green-600 font-medium">คร.</span> {item.teacher_names.join(', ')}</div>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2 text-center text-gray-700">{item.score ?? '-'}</td>
@@ -423,9 +426,13 @@ export default function CertificateList() {
                         <td className="px-3 py-2 text-center text-gray-700">{item.rank ?? '-'}</td>
                         <td className="px-3 py-2 text-center">
                           {item.has_certificate ? (
-                            <span className="text-xs text-green-600 font-medium">สร้างแล้ว</span>
+                            <span className="text-xs text-green-600 font-medium">
+                              สร้างแล้ว {item.certificate_count > 0 ? `(${item.certificate_count} ฉบับ)` : ''}
+                            </span>
                           ) : (
-                            <span className="text-xs text-gray-400">รอสร้าง</span>
+                            <span className="text-xs text-gray-400">
+                              รอสร้าง ({item.total_persons || 0} คน)
+                            </span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-center">
@@ -489,10 +496,11 @@ export default function CertificateList() {
                           }
                         </button>
                       </th>
-                      <th className="px-3 py-3 text-left font-medium text-gray-600">รหัส</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">เลขที่</th>
                       <th className="px-3 py-3 text-left font-medium text-gray-600">กิจกรรม</th>
-                      <th className="px-3 py-3 text-left font-medium text-gray-600">ผู้เข้าแข่งขัน</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">ผู้รับเกียรติบัตร</th>
                       <th className="px-3 py-3 text-left font-medium text-gray-600">โรงเรียน</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">ประเภท</th>
                       <th className="px-3 py-3 text-center font-medium text-gray-600">เหรียญ</th>
                       <th className="px-3 py-3 text-center font-medium text-gray-600">อันดับ</th>
                       <th className="px-3 py-3 text-center font-medium text-gray-600 w-32">ดำเนินการ</th>
@@ -509,15 +517,27 @@ export default function CertificateList() {
                             }
                           </button>
                         </td>
-                        <td className="px-3 py-2 text-xs text-gray-500 font-mono">{cert.certificate_code}</td>
+                        <td className="px-3 py-2">
+                          <div className="text-xs font-medium text-gray-800">{cert.document_number || '-'}</div>
+                          <div className="text-[10px] text-gray-400 font-mono">{cert.certificate_code}</div>
+                        </td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 truncate max-w-[200px]">{cert.competition_name}</div>
                           {cert.category_name && (
                             <div className="text-xs text-gray-500">{cert.category_name}</div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-gray-700 text-xs max-w-[200px] truncate">{cert.student_name}</td>
+                        <td className="px-3 py-2 text-gray-700 text-xs max-w-[200px]">
+                          {cert.recipient_name || cert.student_name}
+                        </td>
                         <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{cert.school_name}</td>
+                        <td className="px-3 py-2 text-center">
+                          {(cert.recipient_type || 'student') === 'teacher' ? (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-300">ครู</span>
+                          ) : (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300">นักเรียน</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-center">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${medalColors[cert.medal] || 'bg-gray-100'}`}>
                             {medalLabels[cert.medal] || cert.medal}

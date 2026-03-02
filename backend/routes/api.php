@@ -191,6 +191,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/generate', [CertificateController::class, 'generate']);
         Route::get('/preview', [CertificateController::class, 'preview']);
         Route::get('/batch-download', [CertificateController::class, 'batchDownload']);
+        Route::get('/number-settings', [CertificateController::class, 'numberSettings']);
+        Route::post('/number-settings', [CertificateController::class, 'updateNumberSettings']);
+        Route::post('/number-settings/reset', [CertificateController::class, 'resetNumberSettings']);
         Route::get('/{id}/download', [CertificateController::class, 'download']);
         Route::delete('/{id}', [CertificateController::class, 'destroy']);
     });

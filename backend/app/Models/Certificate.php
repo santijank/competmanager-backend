@@ -12,6 +12,9 @@ class Certificate extends Model
 
     protected $fillable = [
         'certificate_code',
+        'document_number',
+        'recipient_type',
+        'recipient_name',
         'score_id',
         'result_id',
         'competition_id',
@@ -68,6 +71,31 @@ class Certificate extends Model
             'participant' => 'เข้าร่วม',
             default => $this->medal ?? '-',
         };
+    }
+
+    /**
+     * ข้อความลำดับ: ชนะเลิศ/รองชนะเลิศ
+     */
+    public function getRankingTextAttribute(): string
+    {
+        if (!$this->rank || (int)$this->rank > 3) {
+            return '';
+        }
+
+        switch ((int)$this->rank) {
+            case 1: return 'ชนะเลิศ อันดับ ๑';
+            case 2: return 'รองชนะเลิศ อันดับ ๑';
+            case 3: return 'รองชนะเลิศ อันดับ ๒';
+            default: return '';
+        }
+    }
+
+    /**
+     * เป็นเกียรติบัตรครูหรือไม่
+     */
+    public function getIsTeacherCertAttribute(): bool
+    {
+        return ($this->recipient_type ?? 'student') === 'teacher';
     }
 
     public function getLevelLabelAttribute(): string

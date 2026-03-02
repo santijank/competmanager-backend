@@ -1,9 +1,64 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Save, Upload, Trash2, Image, PenLine, Building2, Users } from 'lucide-react';
+import { Save, Upload, Trash2, Image, PenLine, Building2, Users, Hash, RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
-import api from '@/lib/api';
+import api, { certificateService } from '@/lib/api';
+
+/** Sub-component: แถวตั้งค่าเลขรัน */
+function NumberSettingRow({ setting, onChange, onSave, saving }) {
+  const typeLabel = setting.type === 'teacher' ? 'ครูผู้ฝึกสอน' : 'นักเรียน';
+  const typeColor = setting.type === 'teacher' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700';
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor}`}>
+        {typeLabel}
+      </span>
+      <div className="flex-1 flex flex-wrap gap-3 items-center">
+        <div>
+          <label className="block text-xs text-gray-500 mb-0.5">Prefix</label>
+          <input
+            type="text"
+            value={setting.prefix}
+            onChange={(e) => onChange(setting.id, 'prefix', e.target.value)}
+            className="w-40 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-0.5">ปี พ.ศ.</label>
+          <input
+            type="text"
+            value={setting.year}
+            onChange={(e) => onChange(setting.id, 'year', e.target.value)}
+            className="w-24 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-0.5">เลขรันล่าสุด</label>
+          <input
+            type="number"
+            value={setting.last_number}
+            onChange={(e) => onChange(setting.id, 'last_number', e.target.value)}
+            className="w-24 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            min="0"
+          />
+        </div>
+      </div>
+      <div className="text-xs text-gray-500 mr-2">
+        ถัดไป: <span className="font-mono font-medium text-gray-800">{setting.prefix}{String(parseInt(setting.last_number || 0) + 1).padStart(4, '0')}/{setting.year}</span>
+      </div>
+      <button
+        onClick={() => onSave(setting)}
+        disabled={saving}
+        className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 disabled:opacity-50"
+      >
+        <Save className="w-3 h-3" />
+        บันทึก
+      </button>
+    </div>
+  );
+}
 
 /** Upload ไฟล์ไป Firebase Storage แล้ว return download URL */
 async function uploadToFirebaseStorage(file, path) {
@@ -26,6 +81,11 @@ export default function CertificateSettings() {
   const [backgroundFile, setBackgroundFile] = useState(null);
   const [removeBackground, setRemoveBackground] = useState(false);
   const bgInputRef = useRef(null);
+
+  // Number settings
+  const [numberSettings, setNumberSettings] = useState([]);
+  const [numberSettingsLoading, setNumberSettingsLoading] = useState(false);
+  const [savingNumber, setSavingNumber] = useState(false);
 
   // โหลด school groups ครั้งเดียว
   useEffect(() => {
@@ -78,6 +138,60 @@ export default function CertificateSettings() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  // โหลดการตั้งค่าเลขรัน
+  const fetchNumberSettings = useCallback(async () => {
+    try {
+      setNumberSettingsLoading(true);
+      const res = await certificateService.getNumberSettings();
+      if (res.data?.success) {
+        setNumberSettings(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch number settings:', err);
+    } finally {
+      setNumberSettingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNumberSettings();
+  }, [fetchNumberSettings]);
+
+  const handleNumberSettingChange = (id, field, value) => {
+    setNumberSettings(prev =>
+      prev.map(s => s.id === id ? { ...s, [field]: value } : s)
+    );
+  };
+
+  const handleSaveNumberSetting = async (setting) => {
+    try {
+      setSavingNumber(true);
+      await certificateService.updateNumberSetting({
+        id: setting.id,
+        prefix: setting.prefix,
+        year: setting.year,
+        last_number: parseInt(setting.last_number) || 0,
+      });
+      toast.success('บันทึกการตั้งค่าเลขรันสำเร็จ');
+      fetchNumberSettings();
+    } catch (err) {
+      toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setSavingNumber(false);
+    }
+  };
+
+  const handleResetNumbers = async (level) => {
+    if (!confirm(`ต้องการรีเซ็ตเลขรัน${level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}?`)) return;
+    try {
+      await certificateService.resetNumberSettings({ level });
+      toast.success('รีเซ็ตเลขรันสำเร็จ');
+      fetchNumberSettings();
+    } catch (err) {
+      toast.error('เกิดข้อผิดพลาด');
+    }
+  };
 
   const resetForm = () => {
     setBackgroundPreview(null);
@@ -294,11 +408,11 @@ export default function CertificateSettings() {
             )}
           </div>
 
-          {/* ปุ่มบันทึก */}
+          {/* ปุ่มบันทึกพื้นหลัง */}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-lg"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-lg mb-6"
           >
             {saving ? (
               <>
@@ -308,10 +422,89 @@ export default function CertificateSettings() {
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                บันทึกการตั้งค่าเกียรติบัตร
+                บันทึกการตั้งค่าพื้นหลัง
               </>
             )}
           </button>
+
+          {/* ============================================ */}
+          {/* ตั้งค่าเลขที่เกียรติบัตร                      */}
+          {/* ============================================ */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <Hash className="w-5 h-5 text-purple-600" />
+              ตั้งค่าเลขที่เกียรติบัตร (เลขรัน)
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              กำหนด Prefix, ปี พ.ศ., และเลขรันล่าสุดสำหรับเกียรติบัตรแต่ละประเภท
+              <br />
+              <span className="text-gray-500">ตัวอย่าง: สพป.นฐ.๑-นร.๐๐๐๑/๒๕๖๙</span>
+            </p>
+
+            {numberSettingsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+              </div>
+            ) : (
+              <>
+                {/* District settings */}
+                {numberSettings.filter(s => s.level === 'district').length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-blue-700 flex items-center gap-2">
+                        <Building2 className="w-4 h-4" /> ระดับเขตพื้นที่
+                      </h3>
+                      <button
+                        onClick={() => handleResetNumbers('district')}
+                        className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        <RotateCcw className="w-3 h-3" /> รีเซ็ตเลขรัน
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {numberSettings.filter(s => s.level === 'district').map(setting => (
+                        <NumberSettingRow
+                          key={setting.id}
+                          setting={setting}
+                          onChange={handleNumberSettingChange}
+                          onSave={handleSaveNumberSetting}
+                          saving={savingNumber}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Group settings */}
+                {numberSettings.filter(s => s.level === 'group').length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-green-700 flex items-center gap-2">
+                        <Users className="w-4 h-4" /> ระดับกลุ่มโรงเรียน
+                      </h3>
+                      <button
+                        onClick={() => handleResetNumbers('group')}
+                        className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        <RotateCcw className="w-3 h-3" /> รีเซ็ตเลขรัน
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {numberSettings.filter(s => s.level === 'group').map(setting => (
+                        <NumberSettingRow
+                          key={setting.id}
+                          setting={setting}
+                          onChange={handleNumberSettingChange}
+                          onSave={handleSaveNumberSetting}
+                          saving={savingNumber}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </>
       )}
     </div>
