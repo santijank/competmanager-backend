@@ -26,21 +26,22 @@
         }
 
         @page {
-            margin: 0;
+            margin: 12mm 10mm 12mm 12mm;
         }
 
         body {
             font-family: 'THSarabunNew', sans-serif;
-            font-size: 16pt;
+            font-size: 15pt;
             line-height: 1.2;
             margin: 0;
-            padding: 15mm 12mm 15mm 15mm;
+            padding: 0;
         }
 
         /* ===== HEADER ===== */
         .page-header {
             width: 100%;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            text-align: center;
         }
 
         .header-table {
@@ -54,37 +55,37 @@
         }
 
         .logo-cell {
-            width: 180px;
-            text-align: left;
-            vertical-align: top;
+            width: 120px;
+            text-align: center;
+            vertical-align: middle;
         }
 
         .logo-img {
-            width: 170px;
+            width: 100px;
             height: auto;
         }
 
         .info-cell {
             text-align: left;
-            padding-left: 8px;
+            padding-left: 10px;
             vertical-align: middle;
         }
 
         .header-text {
-            font-size: 15pt;
+            font-size: 16pt;
             font-weight: bold;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
         .header-text-normal {
-            font-size: 15pt;
-            line-height: 1.4;
+            font-size: 14pt;
+            line-height: 1.5;
         }
 
         .school-name-header {
             font-size: 16pt;
             font-weight: bold;
-            margin: 6px 0;
+            margin: 4px 0 6px 0;
             color: #003399;
         }
 
@@ -92,7 +93,7 @@
         table.summary-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14pt;
+            font-size: 13pt;
         }
 
         table.summary-table thead {
@@ -105,8 +106,8 @@
 
         table.summary-table th,
         table.summary-table td {
-            border: 0.5pt solid #000;
-            padding: 4px 6px;
+            border: 0.5pt solid #333;
+            padding: 3px 5px;
             vertical-align: middle;
         }
 
@@ -115,24 +116,25 @@
             color: white;
             font-weight: bold;
             text-align: center;
-            font-size: 14pt;
+            font-size: 13pt;
+            padding: 5px 4px;
         }
 
         table.summary-table td {
-            font-size: 14pt;
+            font-size: 13pt;
         }
 
-        .col-no { width: 6%; text-align: center; }
-        .col-name { width: 40%; text-align: left; padding-left: 6px; }
-        .col-category { width: 20%; text-align: left; padding-left: 6px; font-size: 13pt; }
-        .col-score { width: 10%; text-align: center; font-weight: bold; }
-        .col-rank { width: 8%; text-align: center; }
-        .col-medal { width: 16%; text-align: center; }
+        .col-no { width: 5%; text-align: center; }
+        .col-name { width: 37%; text-align: left; padding-left: 5px; }
+        .col-category { width: 20%; text-align: left; padding-left: 5px; font-size: 12pt; }
+        .col-score { width: 9%; text-align: center; font-weight: bold; }
+        .col-rank { width: 7%; text-align: center; }
+        .col-medal { width: 22%; text-align: center; }
 
-        .medal-gold { background-color: #FFD700; color: #000; padding: 1px 6px; font-weight: bold; }
-        .medal-silver { background-color: #C0C0C0; color: #000; padding: 1px 6px; font-weight: bold; }
-        .medal-bronze { background-color: #CD7F32; color: white; padding: 1px 6px; font-weight: bold; }
-        .medal-participant { background-color: #90EE90; color: #000; padding: 1px 6px; font-weight: bold; }
+        .medal-gold { background-color: #FFD700; color: #000; padding: 1px 8px; font-weight: bold; border-radius: 3px; }
+        .medal-silver { background-color: #C0C0C0; color: #000; padding: 1px 8px; font-weight: bold; border-radius: 3px; }
+        .medal-bronze { background-color: #CD7F32; color: white; padding: 1px 8px; font-weight: bold; border-radius: 3px; }
+        .medal-participant { background-color: #90EE90; color: #000; padding: 1px 8px; font-weight: bold; border-radius: 3px; }
 
         .row-gold { background-color: #FFFDE7; }
         .row-silver { background-color: #F5F5F5; }
@@ -141,17 +143,22 @@
         /* ===== STATS ===== */
         .stats-box {
             width: 100%;
-            border: 1px solid #999;
-            padding: 5px 10px;
+            border: 1pt solid #1a5c1a;
+            padding: 6px 12px;
             margin: 8px 0;
             font-size: 14pt;
-            background-color: #f8f8f8;
+            background-color: #f0f7f0;
+        }
+
+        .stats-box strong {
+            color: #1a5c1a;
         }
 
         .footer {
-            margin-top: 10px;
-            font-size: 12pt;
+            margin-top: 8px;
+            font-size: 11pt;
             text-align: right;
+            color: #666;
         }
     </style>
 </head>
@@ -182,13 +189,12 @@
                 </td>
                 <td class="info-cell">
                     <span class="header-text">สรุปผลการแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 {{ $levelLabel }}</span><br>
-                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span>
+                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
+                    <span class="school-name-header">โรงเรียน{{ $school_name }}</span>
                 </td>
             </tr>
         </table>
     </div>
-
-    <div class="school-name-header">โรงเรียน{{ $school_name }}</div>
 
     <!-- SUMMARY TABLE -->
     <table class="summary-table">
