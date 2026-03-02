@@ -63,9 +63,9 @@
         .document-number {
             position: absolute;
             top: 8mm;
-            right: 12mm;
+            right: 22mm;
             z-index: 2;
-            font-size: 11pt;
+            font-size: 15pt;
             color: #333;
         }
 
