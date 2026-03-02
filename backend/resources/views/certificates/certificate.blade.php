@@ -139,12 +139,11 @@
         .medal-bronze { color: #cd7f32; }
         .medal-participant { color: #2a6496; }
 
-        /* QR Code — กลางล่าง */
+        /* QR Code — มุมซ้ายล่าง */
         .qr-section {
             position: absolute;
-            bottom: 8mm;
-            left: 50%;
-            margin-left: -11mm;
+            bottom: 6mm;
+            left: 10mm;
             z-index: 2;
             text-align: center;
         }
