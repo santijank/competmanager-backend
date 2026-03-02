@@ -194,6 +194,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/number-settings', [CertificateController::class, 'numberSettings']);
         Route::post('/number-settings', [CertificateController::class, 'updateNumberSettings']);
         Route::post('/number-settings/reset', [CertificateController::class, 'resetNumberSettings']);
+        Route::delete('/all', [CertificateController::class, 'destroyAll']);
         Route::get('/{id}/download', [CertificateController::class, 'download']);
         Route::delete('/{id}', [CertificateController::class, 'destroy']);
     });

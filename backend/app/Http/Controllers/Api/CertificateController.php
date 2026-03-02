@@ -457,6 +457,45 @@ class CertificateController extends Controller
     }
 
     /**
+     * ลบเกียรติบัตรทั้งหมด + รีเซ็ตเลขรัน
+     */
+    public function destroyAll(Request $request): JsonResponse
+    {
+        try {
+            $count = Certificate::count();
+
+            if ($count === 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'ไม่มีเกียรติบัตรให้ลบ',
+                    'deleted' => 0,
+                ]);
+            }
+
+            Certificate::truncate();
+
+            // รีเซ็ตเลขรันทั้งหมดกลับเป็น 0
+            CertificateNumberSetting::query()->update([
+                'last_number' => 0,
+            ]);
+
+            Log::info("Certificates destroyed all: {$count} records by user #" . auth()->id());
+
+            return response()->json([
+                'success' => true,
+                'message' => "ลบเกียรติบัตรทั้งหมด {$count} ฉบับ และรีเซ็ตเลขรันสำเร็จ",
+                'deleted' => $count,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate destroyAll error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถลบเกียรติบัตรทั้งหมดได้: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Render PDF จาก Certificate collection
      * ใช้พื้นหลังจากไฟล์ local ตาม level (district/group)
      */

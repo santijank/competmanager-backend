@@ -40,6 +40,7 @@ export default function CertificateList() {
   const [certMeta, setCertMeta] = useState({});
   const [certLoading, setCertLoading] = useState(false);
   const [selectedCertIds, setSelectedCertIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
 
   // Shared filters
   const [categories, setCategories] = useState([]);
@@ -210,6 +211,24 @@ export default function CertificateList() {
       loadCertificates();
     } catch {
       toast.error('ไม่สามารถลบได้');
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const total = certSummary.total || certificates.length;
+    if (!confirm(`⚠️ ต้องการลบเกียรติบัตรทั้งหมด ${total} ฉบับ?\n\nเลขรันจะถูกรีเซ็ตกลับเป็น 0 ด้วย\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!`)) return;
+    if (!confirm(`⚠️ ยืนยันอีกครั้ง: ลบเกียรติบัตรทั้งหมด ${total} ฉบับ?`)) return;
+
+    setDeleting(true);
+    try {
+      const res = await certificateService.destroyAll();
+      toast.success(res.data?.message || 'ลบเกียรติบัตรทั้งหมดสำเร็จ');
+      setSelectedCertIds([]);
+      loadCertificates();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ไม่สามารถลบเกียรติบัตรทั้งหมดได้');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -468,6 +487,14 @@ export default function CertificateList() {
               >
                 <FileDown className="w-4 h-4" />
                 ดาวน์โหลดที่เลือก ({selectedCertIds.length})
+              </button>
+              <button
+                onClick={handleDeleteAll}
+                disabled={deleting || certificates.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                ลบทั้งหมด
               </button>
             </div>
           </div>

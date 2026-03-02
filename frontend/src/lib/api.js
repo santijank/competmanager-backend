@@ -164,6 +164,7 @@ export const certificateService = {
   getEligible: (params = {}) => api.get('/certificates/eligible', { params }),
   generate: (data) => api.post('/certificates/generate', data),
   destroy: (id) => api.delete(`/certificates/${id}`),
+  destroyAll: () => api.delete('/certificates/all'),
 
   download: async (id) => {
     const response = await api.get(`/certificates/${id}/download`, { responseType: 'blob' });
