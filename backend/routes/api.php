@@ -309,7 +309,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('competitions/{id}/scores/export/excel', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportExcel']);
     Route::get('competitions/{id}/scores/export/blank-sheet', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportBlankSheet']);
     Route::get('competitions/{id}/scores/export/leaderboard', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportLeaderboard']);
-    Route::get('scores/export/batch-pdf', [\App\Http\Controllers\Api\ScoreExportController::class, 'batchExportPdf']);
+    Route::match(['get', 'post'], 'scores/export/batch-pdf', [\App\Http\Controllers\Api\ScoreExportController::class, 'batchExportPdf']);
 
     // Admin: Clear test data (results, scores, announcements)
     Route::post('admin/clear-test-data', function(Request $request) {

@@ -145,9 +145,11 @@ const SchoolResults = () => {
     }
     try {
       setExportingAll(true);
-      const response = await api.get('/scores/export/batch-pdf', {
-        params: { ids: allCompIds.join(',') },
+      const response = await api.post('/scores/export/batch-pdf', {
+        ids: allCompIds,
+      }, {
         responseType: 'blob',
+        timeout: 300000, // 5 นาที สำหรับ PDF จำนวนมาก
       });
 
       if (response.data.type === 'application/json') {

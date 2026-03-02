@@ -272,13 +272,18 @@ class ScoreExportController extends Controller
 
     /**
      * Export PDF รวมหลายกิจกรรม (batch) — สำหรับโรงเรียนดาวน์โหลดทั้งหมด
-     * GET /scores/export/batch-pdf?ids=1,2,3
+     * POST /scores/export/batch-pdf  body: { ids: [1,2,3] }
      */
     public function batchExportPdf(Request $request)
     {
         try {
-            $ids = $request->input('ids', '');
-            $competitionIds = array_filter(array_map('intval', explode(',', $ids)));
+            // รองรับทั้ง POST body (array) และ GET query string
+            $idsInput = $request->input('ids', []);
+            if (is_string($idsInput)) {
+                $competitionIds = array_filter(array_map('intval', explode(',', $idsInput)));
+            } else {
+                $competitionIds = array_filter(array_map('intval', (array) $idsInput));
+            }
 
             if (empty($competitionIds)) {
                 return response()->json(['success' => false, 'message' => 'กรุณาระบุกิจกรรม'], 400);
