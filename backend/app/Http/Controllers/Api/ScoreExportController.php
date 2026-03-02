@@ -369,6 +369,104 @@ class ScoreExportController extends Controller
     }
 
     /**
+     * Export PDF รวมทุกกิจกรรมของโรงเรียน — ไม่ต้องส่ง IDs (backend หาเอง)
+     * GET /scores/export/my-school-pdf?level=group|district
+     */
+    public function mySchoolExportPdf(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $level = $request->input('level', 'group'); // 'group' | 'district'
+
+            if (!$user->school_id) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลโรงเรียน'], 400);
+            }
+
+            // หา competitions ที่ published + โรงเรียนนี้มีผลคะแนน
+            $query = Competition::where('is_published', true)
+                ->where('competition_level', $level)
+                ->with(['category', 'schoolGroup']);
+
+            if ($level === 'group' && $user->school_group_id) {
+                $query->where('school_group_id', $user->school_group_id);
+            }
+
+            $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            // กรองเฉพาะกิจกรรมที่โรงเรียนนี้มีคะแนน finalized
+            $schoolId = $user->school_id;
+            $filteredCompetitions = $competitions->filter(function ($comp) use ($schoolId) {
+                return Registration::where('competition_id', $comp->id)
+                    ->where('school_id', $schoolId)
+                    ->where('status', 'approved')
+                    ->whereHas('score', function ($q) {
+                        $q->where('is_finalized', true);
+                    })
+                    ->exists();
+            });
+
+            if ($filteredCompetitions->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
+            }
+
+            $allHtml = '';
+
+            foreach ($filteredCompetitions as $competition) {
+                $registrations = Registration::where('competition_id', $competition->id)
+                    ->where('status', 'approved')
+                    ->with(['school', 'score'])
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                $sorted = $registrations->sortBy(function ($r) {
+                    if ($r->score && $r->score->rank) {
+                        return $r->score->rank;
+                    }
+                    return 9999;
+                })->values();
+
+                $stats = $this->calculateStatistics($registrations);
+
+                $isDistrict = $competition->competition_level === 'district'
+                    || empty($competition->school_group_id);
+                $groupName = $isDistrict
+                    ? 'เขตพื้นที่การศึกษา'
+                    : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
+
+                $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
+
+                $data = [
+                    'competition' => $competition,
+                    'registrations' => $sorted,
+                    'stats' => $stats,
+                    'groupName' => $groupName,
+                    'schedule' => $schedule,
+                    'judges' => collect([]),
+                    'generated_at' => now()->format('d/m/Y H:i:s'),
+                    'generated_by' => $user->name,
+                ];
+
+                $allHtml .= view('exports.scores-pdf', $data)->render();
+            }
+
+            $pdf = PDF::loadHTML($allHtml);
+            $pdf->setPaper('A4', 'portrait');
+
+            $levelLabel = $level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
+            $filename = "ผลคะแนนรวม_{$levelLabel}_" . now()->format('Ymd_His') . '.pdf';
+
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error('My School Export PDF Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * ✅ ตรวจสอบสิทธิ์ - รวม school_admin สำหรับกิจกรรมที่ประกาศผลแล้ว
      */
     private function canExportScores($user, $competition)

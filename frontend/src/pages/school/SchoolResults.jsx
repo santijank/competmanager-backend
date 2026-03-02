@@ -134,22 +134,16 @@ const SchoolResults = () => {
 
   /**
    * ดาวน์โหลด PDF รวมทุกกิจกรรมของโรงเรียน (ตาม tab ที่เลือก)
+   * ใช้ GET /scores/export/my-school-pdf?level=group|district
+   * Backend หาเองว่าโรงเรียนมีกิจกรรมอะไรบ้าง ไม่ต้องส่ง IDs
    */
   const handleExportAll = async () => {
-    const allCompIds = filteredCategories.flatMap(cat =>
-      (cat.competitions || []).map(comp => comp.id)
-    );
-    if (allCompIds.length === 0) {
-      toast.warning('ไม่มีกิจกรรมที่จะดาวน์โหลด');
-      return;
-    }
     try {
       setExportingAll(true);
-      const response = await api.post('/scores/export/batch-pdf', {
-        ids: allCompIds,
-      }, {
+      const response = await api.get('/scores/export/my-school-pdf', {
+        params: { level: activeTab },
         responseType: 'blob',
-        timeout: 300000, // 5 นาที สำหรับ PDF จำนวนมาก
+        timeout: 300000,
       });
 
       if (response.data.type === 'application/json') {
@@ -167,7 +161,7 @@ const SchoolResults = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast.success(`ดาวน์โหลด PDF รวม ${allCompIds.length} กิจกรรมสำเร็จ`);
+      toast.success('ดาวน์โหลด PDF รวมสำเร็จ');
     } catch (error) {
       console.error('Export all PDF error:', error);
       let message = 'ไม่สามารถดาวน์โหลดได้';
