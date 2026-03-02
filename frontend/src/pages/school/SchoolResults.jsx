@@ -413,50 +413,53 @@ const SchoolResults = () => {
                             </button>
                           </div>
 
-                          {/* Results Table */}
-                          {comp.results && comp.results.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                  <tr>
-                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase w-16">อันดับ</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">โรงเรียน</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">ทีม</th>
-                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase w-24">คะแนน</th>
-                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase w-28">เหรียญ</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                  {comp.results.map((result, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50">
-                                      <td className="px-4 py-2 text-center">
-                                        <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 font-semibold rounded-full text-sm">
-                                          {result.rank}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">{result.school_name}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-600">{result.team_name}</td>
-                                      <td className="px-4 py-2 text-center text-sm font-medium text-gray-900">
-                                        {result.score !== null ? parseFloat(result.score).toFixed(2) : '-'}
-                                      </td>
-                                      <td className="px-4 py-2 text-center">
-                                        {result.medal && (
-                                          <span className={`inline-flex items-center space-x-1 px-3 py-1 text-xs font-medium rounded-full ${getMedalColor(result.medal)}`}>
-                                            <span>{getMedalEmoji(result.medal)}</span>
-                                            <span>{getMedalText(result.medal)}</span>
-                                          </span>
-                                        )}
-                                      </td>
+                          {/* Results Table — แสดงเฉพาะของโรงเรียนตนเอง */}
+                          {(() => {
+                            const myResults = schoolId
+                              ? (comp.results || []).filter(r => r.school_id === schoolId)
+                              : (comp.results || []);
+                            return myResults.length > 0 ? (
+                              <div className="overflow-x-auto">
+                                <table className="w-full">
+                                  <thead className="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase w-16">อันดับ</th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">ชื่อทีม</th>
+                                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase w-24">คะแนน</th>
+                                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase w-28">เหรียญ</th>
                                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="px-4 py-4 text-center text-gray-500 text-sm">
-                              ยังไม่มีผลการแข่งขัน
-                            </div>
-                          )}
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {myResults.map((result, idx) => (
+                                      <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-4 py-2 text-center">
+                                          <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 font-semibold rounded-full text-sm">
+                                            {result.rank}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-gray-900">{result.team_name || '-'}</td>
+                                        <td className="px-4 py-2 text-center text-sm font-medium text-gray-900">
+                                          {result.score !== null ? parseFloat(result.score).toFixed(2) : '-'}
+                                        </td>
+                                        <td className="px-4 py-2 text-center">
+                                          {result.medal && (
+                                            <span className={`inline-flex items-center space-x-1 px-3 py-1 text-xs font-medium rounded-full ${getMedalColor(result.medal)}`}>
+                                              <span>{getMedalEmoji(result.medal)}</span>
+                                              <span>{getMedalText(result.medal)}</span>
+                                            </span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div className="px-4 py-4 text-center text-gray-500 text-sm">
+                                ยังไม่มีผลการแข่งขัน
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>

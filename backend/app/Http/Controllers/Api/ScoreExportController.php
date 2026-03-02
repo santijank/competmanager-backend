@@ -425,9 +425,10 @@ class ScoreExportController extends Controller
                 return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
             }
 
-            // ✅ ดึง registrations ทั้งหมดในครั้งเดียว (ลด N+1 queries)
+            // ✅ ดึง registrations เฉพาะของโรงเรียนตนเองเท่านั้น (ลด N+1 + ลด data)
             $allRegistrations = Registration::whereIn('competition_id', $competitions->pluck('id'))
                 ->where('status', 'approved')
+                ->where('school_id', $schoolId)
                 ->with(['school', 'score'])
                 ->get()
                 ->groupBy('competition_id');
@@ -441,6 +442,9 @@ class ScoreExportController extends Controller
             $pages = [];
             foreach ($competitions as $competition) {
                 $registrations = $allRegistrations->get($competition->id, collect());
+
+                // ข้ามถ้าไม่มี registration ของโรงเรียนนี้
+                if ($registrations->isEmpty()) continue;
 
                 $sorted = $registrations->sortBy(function ($r) {
                     if ($r->score && $r->score->rank) {
@@ -468,11 +472,16 @@ class ScoreExportController extends Controller
                 ];
             }
 
-            Log::info("mySchoolExportPdf: rendering {$competitions->count()} pages as single HTML");
+            Log::info("mySchoolExportPdf: rendering " . count($pages) . " pages as single HTML");
+
+            // ดึงชื่อโรงเรียน
+            $school = \App\Models\School::find($schoolId);
+            $schoolName = $school ? $school->name : '';
 
             // ✅ ใช้ batch template (HTML เดียว แทนที่จะ concat หลาย HTML documents)
             $html = view('exports.scores-pdf-batch', [
                 'pages' => $pages,
+                'school_name' => $schoolName,
                 'generated_at' => now()->format('d/m/Y H:i:s'),
                 'generated_by' => $user->name,
             ])->render();

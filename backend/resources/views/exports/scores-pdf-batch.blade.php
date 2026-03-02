@@ -165,11 +165,17 @@
         }
 
         .col-rank { width: 8%; text-align: center; }
-        .col-school { width: 25%; text-align: left; padding-left: 5px; }
-        .col-team { width: 15%; text-align: left; padding-left: 5px; }
-        .col-students { width: 25%; text-align: left; padding-left: 5px; font-size: 14pt; line-height: 1.2; }
-        .col-score { width: 12%; text-align: center; font-weight: bold; font-size: 17pt; }
-        .col-medal { width: 15%; text-align: center; }
+        .col-team { width: 20%; text-align: left; padding-left: 5px; }
+        .col-students { width: 40%; text-align: left; padding-left: 5px; font-size: 14pt; line-height: 1.2; }
+        .col-score { width: 15%; text-align: center; font-weight: bold; font-size: 17pt; }
+        .col-medal { width: 17%; text-align: center; }
+
+        .school-name-header {
+            font-size: 16pt;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #003399;
+        }
 
         .medal-gold { background-color: #FFD700; color: #000; padding: 1px 6px; font-weight: bold; }
         .medal-silver { background-color: #C0C0C0; color: #000; padding: 1px 6px; font-weight: bold; }
@@ -261,11 +267,12 @@
             </table>
         </div>
 
-        <!-- DOCUMENT INFO -->
+        <!-- SCHOOL NAME + DOCUMENT INFO -->
+        <div class="school-name-header">โรงเรียน{{ $school_name }}</div>
         <table class="doc-info" border="0">
             <tr>
                 <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-                <td style="text-align: right; width: 35%;"><span class="doc-badge">เอกสารรายงานผลคะแนน (SC.01)</span></td>
+                <td style="text-align: right; width: 35%;"><span class="doc-badge">รายงานผลคะแนน</span></td>
             </tr>
             <tr>
                 <td style="text-align: left;">
@@ -273,29 +280,17 @@
                     &nbsp;&nbsp;&nbsp;
                     <strong>หมวดหมู่ :</strong> {{ $competition->category->name ?? '-' }}
                 </td>
-                <td style="text-align: right;"></td>
+                <td style="text-align: right;">
+                    <strong>จำนวนทีม :</strong> {{ $stats['total'] }}
+                </td>
             </tr>
         </table>
 
-        <!-- STATISTICS -->
-        <div class="stats-box">
-            <strong>สถิติ:</strong>
-            ทีมทั้งหมด: {{ $stats['total'] }} |
-            มีคะแนน: {{ $stats['with_scores'] }} |
-            ทอง: {{ $stats['gold_count'] }} |
-            เงิน: {{ $stats['silver_count'] }} |
-            ทองแดง: {{ $stats['bronze_count'] }} |
-            คะแนนเฉลี่ย: {{ $stats['average'] }} |
-            สูงสุด: {{ $stats['highest'] }} |
-            ต่ำสุด: {{ $stats['lowest'] }}
-        </div>
-
-        <!-- DATA TABLE -->
+        <!-- DATA TABLE (เฉพาะของโรงเรียนตนเอง — ไม่มีคอลัมน์โรงเรียน) -->
         <table class="data-table">
             <thead>
                 <tr>
                     <th class="col-rank">อันดับ</th>
-                    <th class="col-school">โรงเรียน</th>
                     <th class="col-team">ชื่อทีม</th>
                     <th class="col-students">นักเรียน</th>
                     <th class="col-score">คะแนน</th>
@@ -312,7 +307,6 @@
                                 -
                             @endif
                         </td>
-                        <td class="col-school">{{ $registration->school->name ?? '-' }}</td>
                         <td class="col-team">{{ $registration->team_name ?? '-' }}</td>
                         <td class="col-students">
                             @php
@@ -353,7 +347,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 20px;">ไม่มีข้อมูล</td>
+                        <td colspan="5" style="text-align: center; padding: 20px;">ไม่มีข้อมูล</td>
                     </tr>
                 @endforelse
             </tbody>
