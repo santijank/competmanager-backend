@@ -44,7 +44,7 @@ export default function CertificateList() {
 
   // Shared filters
   const [categories, setCategories] = useState([]);
-  const [filterLevel, setFilterLevel] = useState('group');
+  const [filterLevel, setFilterLevel] = useState('district');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
   const [search, setSearch] = useState('');
