@@ -123,7 +123,7 @@
         .medal-text {
             font-size: 20pt;
             font-weight: bold;
-            margin-top: 0;
+            margin-top: -2mm;
             line-height: 1.2;
             padding: 0;
         }
@@ -146,7 +146,7 @@
         .qr-section {
             position: absolute;
             bottom: 12mm;
-            left: 74mm;
+            left: 80mm;
             z-index: 2;
             text-align: center;
         }
