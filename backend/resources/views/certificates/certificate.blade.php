@@ -139,18 +139,18 @@
         .medal-bronze { color: #cd7f32; }
         .medal-participant { color: #2a6496; }
 
-        /* QR Code — มุมซ้ายล่าง */
+        /* QR Code — ซ้ายล่าง เลี่ยงเจดีย์ทอง */
         .qr-section {
             position: absolute;
-            bottom: 6mm;
-            left: 10mm;
+            bottom: 12mm;
+            left: 38mm;
             z-index: 2;
             text-align: center;
         }
 
         .qr-section img {
-            width: 18mm;
-            height: 18mm;
+            width: 16mm;
+            height: 16mm;
         }
 
         .qr-label {
