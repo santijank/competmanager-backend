@@ -66,6 +66,7 @@
             right: 16mm;
             z-index: 2;
             font-size: 15pt;
+            font-weight: bold;
             color: #333;
         }
 
@@ -143,7 +144,7 @@
         .qr-section {
             position: absolute;
             bottom: 12mm;
-            left: 56mm;
+            left: 74mm;
             z-index: 2;
             text-align: center;
         }
