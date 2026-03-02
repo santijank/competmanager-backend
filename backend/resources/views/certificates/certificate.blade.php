@@ -67,7 +67,7 @@
             z-index: 2;
             font-size: 15pt;
             font-weight: bold;
-            color: #333;
+            color: #fff;
         }
 
         /* ============================================ */
@@ -103,7 +103,8 @@
         }
 
         .school-name {
-            font-size: 18pt;
+            font-size: 20pt;
+            font-weight: bold;
             color: #222;
             margin-bottom: 0;
             line-height: 1.0;
@@ -111,7 +112,8 @@
         }
 
         .competition-text {
-            font-size: 15pt;
+            font-size: 17pt;
+            font-weight: bold;
             color: #333;
             margin-bottom: 0;
             line-height: 1.0;
