@@ -20,7 +20,7 @@ class ScoreExportController extends Controller
     /**
      * Export PDF - ผลคะแนนการแข่งขัน (ใช้หัวเอกสารเหมือนลงทะเบียนนักเรียน)
      */
-    public function exportPdf($competitionId)
+    public function exportPdf(Request $request, $competitionId)
     {
         try {
             $competition = Competition::with(['category', 'schoolGroup'])->findOrFail($competitionId);
@@ -56,26 +56,31 @@ class ScoreExportController extends Controller
             // ดึงข้อมูล schedule สำหรับสถานที่และวันที่แข่งขัน
             $schedule = CompetitionSchedule::where('competition_id', $competitionId)->first();
 
-            // ดึงรายชื่อกรรมการตัดสิน — CompetitionJudge ก่อน → fallback CommitteeMember
-            $judges = CompetitionJudge::where('competition_id', $competitionId)
-                ->orderBy('created_at', 'asc')
-                ->get();
-
-            if ($judges->isEmpty()) {
-                $judges = CommitteeMember::where('competition_id', $competitionId)
-                    ->where('is_active', true)
-                    ->where('member_type', 'committee')
-                    ->orderBy('id', 'asc')
+            // ดึงรายชื่อกรรมการ (ซ่อนถ้ามี ?hide_judges=1)
+            $hideJudges = $request->boolean('hide_judges');
+            if ($hideJudges) {
+                $judges = collect([]);
+            } else {
+                $judges = CompetitionJudge::where('competition_id', $competitionId)
+                    ->orderBy('created_at', 'asc')
                     ->get();
-            }
 
-            if ($judges->isEmpty()) {
-                $judges = CommitteeMember::whereNull('competition_id')
-                    ->where('is_active', true)
-                    ->where('member_type', 'committee')
-                    ->where('level', $competition->competition_level)
-                    ->orderBy('id', 'asc')
-                    ->get();
+                if ($judges->isEmpty()) {
+                    $judges = CommitteeMember::where('competition_id', $competitionId)
+                        ->where('is_active', true)
+                        ->where('member_type', 'committee')
+                        ->orderBy('id', 'asc')
+                        ->get();
+                }
+
+                if ($judges->isEmpty()) {
+                    $judges = CommitteeMember::whereNull('competition_id')
+                        ->where('is_active', true)
+                        ->where('member_type', 'committee')
+                        ->where('level', $competition->competition_level)
+                        ->orderBy('id', 'asc')
+                        ->get();
+                }
             }
 
             $data = [
