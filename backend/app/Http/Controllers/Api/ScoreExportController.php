@@ -284,8 +284,8 @@ class ScoreExportController extends Controller
                 return response()->json(['success' => false, 'message' => 'กรุณาระบุกิจกรรม'], 400);
             }
 
-            if (count($competitionIds) > 50) {
-                return response()->json(['success' => false, 'message' => 'สามารถดาวน์โหลดได้สูงสุด 50 กิจกรรม'], 400);
+            if (count($competitionIds) > 300) {
+                return response()->json(['success' => false, 'message' => 'สามารถดาวน์โหลดได้สูงสุด 300 กิจกรรม'], 400);
             }
 
             $user = auth()->user();
