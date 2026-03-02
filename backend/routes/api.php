@@ -311,6 +311,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('competitions/{id}/scores/export/leaderboard', [\App\Http\Controllers\Api\ScoreExportController::class, 'exportLeaderboard']);
     Route::match(['get', 'post'], 'scores/export/batch-pdf', [\App\Http\Controllers\Api\ScoreExportController::class, 'batchExportPdf']);
     Route::get('scores/export/my-school-pdf', [\App\Http\Controllers\Api\ScoreExportController::class, 'mySchoolExportPdf']);
+    Route::get('scores/export/my-school-excel', [\App\Http\Controllers\Api\ScoreExportController::class, 'mySchoolExportExcel']);
 
     // Admin: Clear test data (results, scores, announcements)
     Route::post('admin/clear-test-data', function(Request $request) {

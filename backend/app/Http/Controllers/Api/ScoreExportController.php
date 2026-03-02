@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ScoresExport;
+use App\Exports\MySchoolScoresExport;
 
 class ScoreExportController extends Controller
 {
@@ -508,6 +509,140 @@ class ScoreExportController extends Controller
                 'user_id' => auth()->id(),
                 'level' => $request->input('level'),
                 'memory_usage' => memory_get_peak_usage(true) / 1024 / 1024 . 'MB',
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Export Excel รวมทุกกิจกรรมของโรงเรียน — ไม่ต้องส่ง IDs (backend หาเอง)
+     * GET /scores/export/my-school-excel?level=group|district
+     */
+    public function mySchoolExportExcel(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $level = $request->input('level', 'group');
+
+            if (!$user->school_id) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลโรงเรียน'], 400);
+            }
+
+            $schoolId = $user->school_id;
+
+            // หา competition IDs ที่โรงเรียนมีคะแนน finalized
+            $competitionIds = Registration::where('school_id', $schoolId)
+                ->where('status', 'approved')
+                ->whereHas('score', function ($q) {
+                    $q->where('is_finalized', true);
+                })
+                ->pluck('competition_id')
+                ->unique()
+                ->toArray();
+
+            if (empty($competitionIds)) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
+            }
+
+            // ดึง competitions
+            $query = Competition::whereIn('id', $competitionIds)
+                ->where('is_published', true)
+                ->where('competition_level', $level)
+                ->with(['category', 'schoolGroup']);
+
+            if ($level === 'group' && $user->school_group_id) {
+                $query->where('school_group_id', $user->school_group_id);
+            }
+
+            $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            if ($competitions->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
+            }
+
+            // ดึง registrations เฉพาะโรงเรียนตนเอง
+            $allRegistrations = Registration::whereIn('competition_id', $competitions->pluck('id'))
+                ->where('status', 'approved')
+                ->where('school_id', $schoolId)
+                ->with(['score'])
+                ->get()
+                ->groupBy('competition_id');
+
+            // สร้าง rows สำหรับ Excel
+            $rows = [];
+            $rowNumber = 0;
+            $totalGold = 0;
+            $totalSilver = 0;
+            $totalBronze = 0;
+            $totalParticipant = 0;
+
+            foreach ($competitions as $competition) {
+                $registrations = $allRegistrations->get($competition->id, collect());
+                if ($registrations->isEmpty()) continue;
+
+                foreach ($registrations as $reg) {
+                    $rowNumber++;
+                    $medal = $reg->score->medal ?? null;
+                    $score = $reg->score->score ?? null;
+                    $rank = $reg->score->rank ?? null;
+
+                    if ($medal === 'gold') $totalGold++;
+                    elseif ($medal === 'silver') $totalSilver++;
+                    elseif ($medal === 'bronze') $totalBronze++;
+                    elseif ($medal === 'participant') $totalParticipant++;
+
+                    $medalText = match ($medal) {
+                        'gold' => 'เหรียญทอง',
+                        'silver' => 'เหรียญเงิน',
+                        'bronze' => 'เหรียญทองแดง',
+                        'participant' => 'เข้าร่วม',
+                        default => '-',
+                    };
+
+                    $rows[] = [
+                        $rowNumber,
+                        $competition->name ?? '-',
+                        $competition->category->name ?? '-',
+                        $score !== null ? number_format($score, 2) : '-',
+                        $rank ?? '-',
+                        $medalText,
+                    ];
+                }
+            }
+
+            if (empty($rows)) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีข้อมูลสำหรับสร้าง Excel'], 404);
+            }
+
+            // ดึงชื่อโรงเรียน
+            $school = \App\Models\School::find($schoolId);
+            $schoolName = $school ? $school->name : '';
+
+            $isDistrict = $level === 'district';
+            $levelLabel = $isDistrict ? 'ระดับเขตพื้นที่การศึกษา' : 'ระดับกลุ่มโรงเรียน';
+
+            $stats = [
+                'total' => $rowNumber,
+                'gold' => $totalGold,
+                'silver' => $totalSilver,
+                'bronze' => $totalBronze,
+                'participant' => $totalParticipant,
+            ];
+
+            $export = new MySchoolScoresExport($rows, $schoolName, $levelLabel, $stats);
+
+            $levelFile = $level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
+            $filename = "ผลคะแนนรวม_{$levelFile}_" . now()->format('Ymd_His') . '.xlsx';
+
+            return Excel::download($export, $filename);
+
+        } catch (\Exception $e) {
+            Log::error('My School Export Excel Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
             ]);
             return response()->json([
                 'success' => false,
