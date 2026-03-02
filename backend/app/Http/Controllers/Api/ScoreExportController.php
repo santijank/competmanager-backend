@@ -371,19 +371,45 @@ class ScoreExportController extends Controller
     /**
      * Export PDF รวมทุกกิจกรรมของโรงเรียน — ไม่ต้องส่ง IDs (backend หาเอง)
      * GET /scores/export/my-school-pdf?level=group|district
+     * ใช้ batch template (HTML เดียว) เพื่อประหยัด memory
      */
     public function mySchoolExportPdf(Request $request)
     {
+        // เพิ่ม memory/time limit สำหรับ batch PDF
+        ini_set('memory_limit', '512M');
+        set_time_limit(300);
+
         try {
             $user = auth()->user();
             $level = $request->input('level', 'group'); // 'group' | 'district'
+
+            Log::info("mySchoolExportPdf: user={$user->id}, school_id={$user->school_id}, level={$level}");
 
             if (!$user->school_id) {
                 return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลโรงเรียน'], 400);
             }
 
-            // หา competitions ที่ published + โรงเรียนนี้มีผลคะแนน
-            $query = Competition::where('is_published', true)
+            $schoolId = $user->school_id;
+
+            // ✅ ใช้ subquery เพื่อหา competition IDs ที่โรงเรียนมีคะแนน finalized (แทน N+1)
+            $competitionIds = Registration::where('school_id', $schoolId)
+                ->where('status', 'approved')
+                ->whereHas('score', function ($q) {
+                    $q->where('is_finalized', true);
+                })
+                ->pluck('competition_id')
+                ->unique()
+                ->toArray();
+
+            Log::info("mySchoolExportPdf: found " . count($competitionIds) . " competition IDs with scores");
+
+            if (empty($competitionIds)) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
+            }
+
+            // ✅ ดึง competitions ทั้งหมดในครั้งเดียว (with eager loading)
+            $query = Competition::whereIn('id', $competitionIds)
+                ->where('is_published', true)
                 ->where('competition_level', $level)
                 ->with(['category', 'schoolGroup']);
 
@@ -393,30 +419,28 @@ class ScoreExportController extends Controller
 
             $competitions = $query->orderBy('category_id')->orderBy('name')->get();
 
-            // กรองเฉพาะกิจกรรมที่โรงเรียนนี้มีคะแนน finalized
-            $schoolId = $user->school_id;
-            $filteredCompetitions = $competitions->filter(function ($comp) use ($schoolId) {
-                return Registration::where('competition_id', $comp->id)
-                    ->where('school_id', $schoolId)
-                    ->where('status', 'approved')
-                    ->whereHas('score', function ($q) {
-                        $q->where('is_finalized', true);
-                    })
-                    ->exists();
-            });
+            Log::info("mySchoolExportPdf: {$competitions->count()} competitions after filtering by level={$level}");
 
-            if ($filteredCompetitions->isEmpty()) {
+            if ($competitions->isEmpty()) {
                 return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
             }
 
-            $allHtml = '';
+            // ✅ ดึง registrations ทั้งหมดในครั้งเดียว (ลด N+1 queries)
+            $allRegistrations = Registration::whereIn('competition_id', $competitions->pluck('id'))
+                ->where('status', 'approved')
+                ->with(['school', 'score'])
+                ->get()
+                ->groupBy('competition_id');
 
-            foreach ($filteredCompetitions as $competition) {
-                $registrations = Registration::where('competition_id', $competition->id)
-                    ->where('status', 'approved')
-                    ->with(['school', 'score'])
-                    ->orderBy('created_at', 'asc')
-                    ->get();
+            // ✅ ดึง schedules ทั้งหมดในครั้งเดียว
+            $allSchedules = CompetitionSchedule::whereIn('competition_id', $competitions->pluck('id'))
+                ->get()
+                ->keyBy('competition_id');
+
+            // ✅ สร้าง pages array สำหรับ batch template
+            $pages = [];
+            foreach ($competitions as $competition) {
+                $registrations = $allRegistrations->get($competition->id, collect());
 
                 $sorted = $registrations->sortBy(function ($r) {
                     if ($r->score && $r->score->rank) {
@@ -433,32 +457,46 @@ class ScoreExportController extends Controller
                     ? 'เขตพื้นที่การศึกษา'
                     : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
 
-                $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
+                $schedule = $allSchedules->get($competition->id);
 
-                $data = [
+                $pages[] = [
                     'competition' => $competition,
                     'registrations' => $sorted,
                     'stats' => $stats,
                     'groupName' => $groupName,
                     'schedule' => $schedule,
-                    'judges' => collect([]),
-                    'generated_at' => now()->format('d/m/Y H:i:s'),
-                    'generated_by' => $user->name,
                 ];
-
-                $allHtml .= view('exports.scores-pdf', $data)->render();
             }
 
-            $pdf = PDF::loadHTML($allHtml);
+            Log::info("mySchoolExportPdf: rendering {$competitions->count()} pages as single HTML");
+
+            // ✅ ใช้ batch template (HTML เดียว แทนที่จะ concat หลาย HTML documents)
+            $html = view('exports.scores-pdf-batch', [
+                'pages' => $pages,
+                'generated_at' => now()->format('d/m/Y H:i:s'),
+                'generated_by' => $user->name,
+            ])->render();
+
+            Log::info("mySchoolExportPdf: HTML rendered, size=" . strlen($html) . " bytes. Generating PDF...");
+
+            $pdf = PDF::loadHTML($html);
             $pdf->setPaper('A4', 'portrait');
+            $pdf->getDomPDF()->set_option('isPhpEnabled', true);
 
             $levelLabel = $level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
             $filename = "ผลคะแนนรวม_{$levelLabel}_" . now()->format('Ymd_His') . '.pdf';
 
+            Log::info("mySchoolExportPdf: PDF generated successfully, filename={$filename}");
+
             return $pdf->download($filename);
 
         } catch (\Exception $e) {
-            Log::error('My School Export PDF Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('My School Export PDF Error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+                'level' => $request->input('level'),
+                'memory_usage' => memory_get_peak_usage(true) / 1024 / 1024 . 'MB',
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
