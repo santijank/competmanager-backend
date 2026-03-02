@@ -11,6 +11,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Support\Facades\Log;
 
 class MySchoolScoresExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths, WithTitle
 {
@@ -19,12 +20,6 @@ class MySchoolScoresExport implements FromArray, WithHeadings, WithStyles, WithC
     protected $levelLabel;
     protected $stats;
 
-    /**
-     * @param array $rows  — flat array of ['no','activity','category','score','rank','medal']
-     * @param string $schoolName
-     * @param string $levelLabel  — e.g. ระดับกลุ่มโรงเรียน / ระดับเขตพื้นที่การศึกษา
-     * @param array $stats — ['total','gold','silver','bronze','participant']
-     */
     public function __construct(array $rows, string $schoolName, string $levelLabel, array $stats)
     {
         $this->rows = $rows;
@@ -45,9 +40,9 @@ class MySchoolScoresExport implements FromArray, WithHeadings, WithStyles, WithC
         $data[] = [
             'สรุป',
             "รวมทั้งหมด {$this->stats['total']} รายการ",
-            "เหรียญทอง {$this->stats['gold']}",
-            "เหรียญเงิน {$this->stats['silver']}",
-            "เหรียญทองแดง {$this->stats['bronze']}",
+            "ทอง {$this->stats['gold']}",
+            "เงิน {$this->stats['silver']}",
+            "ทองแดง {$this->stats['bronze']}",
             "เข้าร่วม {$this->stats['participant']}",
         ];
 
@@ -81,179 +76,170 @@ class MySchoolScoresExport implements FromArray, WithHeadings, WithStyles, WithC
      */
     public function styles(Worksheet $sheet)
     {
-        $lastCol = 'F';
+        try {
+            $lastCol = 'F';
+            $lastRow = $sheet->getHighestRow();
+            $dataRowCount = count($this->rows);
 
-        // --- Title rows (merge & style) ---
-        // Row 1: Title
-        $sheet->mergeCells("A1:{$lastCol}1");
-        $sheet->getStyle('A1')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 16],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-        ]);
+            Log::info("MySchoolScoresExport styles: lastRow={$lastRow}, dataRowCount={$dataRowCount}");
 
-        // Row 2: Office name
-        $sheet->mergeCells("A2:{$lastCol}2");
-        $sheet->getStyle('A2')->applyFromArray([
-            'font' => ['size' => 13],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-        ]);
+            // --- Title rows (merge & style) ---
+            $sheet->mergeCells("A1:{$lastCol}1");
+            $sheet->getStyle('A1')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 16],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
 
-        // Row 3: School name
-        $sheet->mergeCells("A3:{$lastCol}3");
-        $sheet->getStyle('A3')->applyFromArray([
-            'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '003399']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-        ]);
+            $sheet->mergeCells("A2:{$lastCol}2");
+            $sheet->getStyle('A2')->applyFromArray([
+                'font' => ['size' => 13],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
 
-        // Row 4: Print date
-        $sheet->mergeCells("A4:{$lastCol}4");
-        $sheet->getStyle('A4')->applyFromArray([
-            'font' => ['size' => 11, 'color' => ['rgb' => '666666']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-        ]);
+            $sheet->mergeCells("A3:{$lastCol}3");
+            $sheet->getStyle('A3')->applyFromArray([
+                'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '003399']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
 
-        // Row 6: Column headers (green header like PDF)
-        $sheet->getStyle("A6:{$lastCol}6")->applyFromArray([
-            'font' => [
-                'bold' => true,
-                'color' => ['rgb' => 'FFFFFF'],
-                'size' => 12,
-            ],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '1A5C1A'],
-            ],
-            'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical' => Alignment::VERTICAL_CENTER,
-            ],
-            'borders' => [
-                'allBorders' => ['borderStyle' => Border::BORDER_THIN],
-            ],
-        ]);
+            $sheet->mergeCells("A4:{$lastCol}4");
+            $sheet->getStyle('A4')->applyFromArray([
+                'font' => ['size' => 11, 'color' => ['rgb' => '666666']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
 
-        // --- Data rows ---
-        $dataStartRow = 7;
-        $lastRow = $sheet->getHighestRow();
-        $dataEndRow = $lastRow - 2; // exclude stats rows
-
-        if ($dataEndRow >= $dataStartRow) {
-            // Borders for data
-            $sheet->getStyle("A{$dataStartRow}:{$lastCol}{$dataEndRow}")->applyFromArray([
+            // Row 6: Column headers (green header)
+            $sheet->getStyle("A6:{$lastCol}6")->applyFromArray([
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => 'FFFFFF'],
+                    'size' => 12,
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '1A5C1A'],
+                ],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
                 'borders' => [
                     'allBorders' => ['borderStyle' => Border::BORDER_THIN],
                 ],
-                'alignment' => [
-                    'vertical' => Alignment::VERTICAL_CENTER,
-                ],
             ]);
 
-            // Center: ที่, คะแนน, อันดับ, ผลรางวัล
-            $sheet->getStyle("A{$dataStartRow}:A{$dataEndRow}")->applyFromArray([
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-            ]);
-            $sheet->getStyle("D{$dataStartRow}:D{$dataEndRow}")->applyFromArray([
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-                'font' => ['bold' => true],
-            ]);
-            $sheet->getStyle("E{$dataStartRow}:E{$dataEndRow}")->applyFromArray([
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-            ]);
-            $sheet->getStyle("F{$dataStartRow}:F{$dataEndRow}")->applyFromArray([
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-            ]);
+            // --- Data rows ---
+            $dataStartRow = 7;
+            $dataEndRow = 6 + $dataRowCount; // ใช้ count จริงแทน getHighestRow
 
-            // Color-code medal column
-            foreach (range($dataStartRow, $dataEndRow) as $row) {
-                $medalText = $sheet->getCell("F{$row}")->getValue();
-                $bgColor = $this->getMedalColor($medalText);
-                $rowBg = $this->getMedalRowColor($medalText);
+            if ($dataEndRow >= $dataStartRow) {
+                // Borders + alignment for data
+                $sheet->getStyle("A{$dataStartRow}:{$lastCol}{$dataEndRow}")->applyFromArray([
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN],
+                    ],
+                    'alignment' => [
+                        'vertical' => Alignment::VERTICAL_CENTER,
+                    ],
+                ]);
 
-                if ($bgColor) {
-                    $sheet->getStyle("F{$row}")->applyFromArray([
-                        'fill' => [
-                            'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => $bgColor],
-                        ],
-                        'font' => ['bold' => true],
-                    ]);
-                }
+                // Center columns
+                $sheet->getStyle("A{$dataStartRow}:A{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("D{$dataStartRow}:D{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("D{$dataStartRow}:D{$dataEndRow}")->getFont()->setBold(true);
+                $sheet->getStyle("E{$dataStartRow}:E{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("F{$dataStartRow}:F{$dataEndRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-                // Light row background
-                if ($rowBg) {
-                    $sheet->getStyle("A{$row}:E{$row}")->applyFromArray([
-                        'fill' => [
-                            'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => $rowBg],
-                        ],
-                    ]);
+                // Color-code medal column
+                for ($row = $dataStartRow; $row <= $dataEndRow; $row++) {
+                    $medalText = $sheet->getCell("F{$row}")->getValue();
+                    $bgColor = $this->getMedalColor($medalText);
+                    $rowBg = $this->getMedalRowColor($medalText);
+
+                    if ($bgColor) {
+                        $sheet->getStyle("F{$row}")->applyFromArray([
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => $bgColor],
+                            ],
+                            'font' => ['bold' => true],
+                        ]);
+                    }
+
+                    if ($rowBg) {
+                        $sheet->getStyle("A{$row}:E{$row}")->applyFromArray([
+                            'fill' => [
+                                'fillType' => Fill::FILL_SOLID,
+                                'startColor' => ['rgb' => $rowBg],
+                            ],
+                        ]);
+                    }
                 }
             }
-        }
 
-        // --- Stats summary row ---
-        $statsRow = $lastRow;
-        $sheet->getStyle("A{$statsRow}:{$lastCol}{$statsRow}")->applyFromArray([
-            'font' => ['bold' => true, 'size' => 11],
-            'fill' => [
-                'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => 'F0F0F0'],
-            ],
-            'borders' => [
-                'allBorders' => ['borderStyle' => Border::BORDER_THIN],
-            ],
-        ]);
+            // --- Stats summary row (last row) ---
+            if ($lastRow > $dataEndRow + 1) {
+                $statsRow = $lastRow;
+                $sheet->getStyle("A{$statsRow}:{$lastCol}{$statsRow}")->applyFromArray([
+                    'font' => ['bold' => true, 'size' => 11],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'F0F0F0'],
+                    ],
+                    'borders' => [
+                        'allBorders' => ['borderStyle' => Border::BORDER_THIN],
+                    ],
+                ]);
+            }
+
+            Log::info("MySchoolScoresExport styles: completed successfully");
+
+        } catch (\Throwable $e) {
+            Log::error("MySchoolScoresExport styles ERROR: " . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            // Don't rethrow — allow Excel to generate without styles if styling fails
+        }
 
         return [];
     }
 
-    /**
-     * Column widths
-     */
     public function columnWidths(): array
     {
         return [
-            'A' => 8,   // ที่
-            'B' => 45,  // กิจกรรม
-            'C' => 25,  // หมวดหมู่
-            'D' => 12,  // คะแนน
-            'E' => 10,  // อันดับ
-            'F' => 18,  // ผลรางวัล
+            'A' => 8,
+            'B' => 45,
+            'C' => 25,
+            'D' => 12,
+            'E' => 10,
+            'F' => 18,
         ];
     }
 
-    /**
-     * Sheet title
-     */
     public function title(): string
     {
-        return 'สรุปผลการแข่งขัน';
+        return 'Summary';
     }
 
-    /**
-     * Medal background color
-     */
     private function getMedalColor($medalText)
     {
-        return match ($medalText) {
-            'เหรียญทอง' => 'FFD700',
-            'เหรียญเงิน' => 'C0C0C0',
-            'เหรียญทองแดง' => 'CD7F32',
-            'เข้าร่วม' => '90EE90',
-            default => null,
-        };
+        switch ($medalText) {
+            case 'เหรียญทอง': return 'FFD700';
+            case 'เหรียญเงิน': return 'C0C0C0';
+            case 'เหรียญทองแดง': return 'CD7F32';
+            case 'เข้าร่วม': return '90EE90';
+            default: return null;
+        }
     }
 
-    /**
-     * Light row background for medal type
-     */
     private function getMedalRowColor($medalText)
     {
-        return match ($medalText) {
-            'เหรียญทอง' => 'FFFDE7',
-            'เหรียญเงิน' => 'F5F5F5',
-            'เหรียญทองแดง' => 'FFF3E0',
-            default => null,
-        };
+        switch ($medalText) {
+            case 'เหรียญทอง': return 'FFFDE7';
+            case 'เหรียญเงิน': return 'F5F5F5';
+            case 'เหรียญทองแดง': return 'FFF3E0';
+            default: return null;
+        }
     }
 }

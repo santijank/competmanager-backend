@@ -527,6 +527,8 @@ class ScoreExportController extends Controller
             $user = auth()->user();
             $level = $request->input('level', 'group');
 
+            Log::info("mySchoolExportExcel: START user={$user->id}, school_id={$user->school_id}, level={$level}");
+
             if (!$user->school_id) {
                 return response()->json(['success' => false, 'message' => 'ไม่พบข้อมูลโรงเรียน'], 400);
             }
@@ -543,6 +545,8 @@ class ScoreExportController extends Controller
                 ->unique()
                 ->toArray();
 
+            Log::info("mySchoolExportExcel: found " . count($competitionIds) . " competition IDs");
+
             if (empty($competitionIds)) {
                 return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
             }
@@ -558,6 +562,8 @@ class ScoreExportController extends Controller
             }
 
             $competitions = $query->orderBy('category_id')->orderBy('name')->get();
+
+            Log::info("mySchoolExportExcel: {$competitions->count()} competitions after filter");
 
             if ($competitions->isEmpty()) {
                 return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรมที่โรงเรียนมีผลรางวัล'], 404);
@@ -594,13 +600,7 @@ class ScoreExportController extends Controller
                     elseif ($medal === 'bronze') $totalBronze++;
                     elseif ($medal === 'participant') $totalParticipant++;
 
-                    $medalText = match ($medal) {
-                        'gold' => 'เหรียญทอง',
-                        'silver' => 'เหรียญเงิน',
-                        'bronze' => 'เหรียญทองแดง',
-                        'participant' => 'เข้าร่วม',
-                        default => '-',
-                    };
+                    $medalText = $this->getMedalTextThai($medal);
 
                     $rows[] = [
                         $rowNumber,
@@ -612,6 +612,8 @@ class ScoreExportController extends Controller
                     ];
                 }
             }
+
+            Log::info("mySchoolExportExcel: {$rowNumber} rows prepared");
 
             if (empty($rows)) {
                 return response()->json(['success' => false, 'message' => 'ไม่มีข้อมูลสำหรับสร้าง Excel'], 404);
@@ -632,15 +634,21 @@ class ScoreExportController extends Controller
                 'participant' => $totalParticipant,
             ];
 
+            Log::info("mySchoolExportExcel: creating export object");
+
             $export = new MySchoolScoresExport($rows, $schoolName, $levelLabel, $stats);
 
             $levelFile = $level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
-            $filename = "ผลคะแนนรวม_{$levelFile}_" . now()->format('Ymd_His') . '.xlsx';
+            $filename = "scores_export_" . now()->format('Ymd_His') . '.xlsx';
+
+            Log::info("mySchoolExportExcel: calling Excel::download, filename={$filename}");
 
             return Excel::download($export, $filename);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('My School Export Excel Error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
                 'user_id' => auth()->id(),
             ]);
@@ -648,6 +656,20 @@ class ScoreExportController extends Controller
                 'success' => false,
                 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Medal text in Thai
+     */
+    private function getMedalTextThai($medal)
+    {
+        switch ($medal) {
+            case 'gold': return 'เหรียญทอง';
+            case 'silver': return 'เหรียญเงิน';
+            case 'bronze': return 'เหรียญทองแดง';
+            case 'participant': return 'เข้าร่วม';
+            default: return '-';
         }
     }
 
