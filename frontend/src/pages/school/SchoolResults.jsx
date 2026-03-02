@@ -19,6 +19,7 @@ const SchoolResults = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({ totalComps: 0, gold: 0, silver: 0, bronze: 0 });
   const [exportingPdf, setExportingPdf] = useState(null);
+  const [exportingAll, setExportingAll] = useState(false);
   const [activeTab, setActiveTab] = useState('group'); // 'group' | 'district'
 
   useEffect(() => {
@@ -130,6 +131,58 @@ const SchoolResults = () => {
     }
   };
 
+  /**
+   * ดาวน์โหลด PDF รวมทุกกิจกรรมของโรงเรียน (ตาม tab ที่เลือก)
+   */
+  const handleExportAll = async () => {
+    const allCompIds = filteredCategories.flatMap(cat =>
+      (cat.competitions || []).map(comp => comp.id)
+    );
+    if (allCompIds.length === 0) {
+      toast.warning('ไม่มีกิจกรรมที่จะดาวน์โหลด');
+      return;
+    }
+    try {
+      setExportingAll(true);
+      const response = await api.get('/scores/export/batch-pdf', {
+        params: { ids: allCompIds.join(',') },
+        responseType: 'blob',
+      });
+
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || 'เกิดข้อผิดพลาด');
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const tabLabel = activeTab === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
+      link.setAttribute('download', `ผลคะแนนรวม_${tabLabel}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success(`ดาวน์โหลด PDF รวม ${allCompIds.length} กิจกรรมสำเร็จ`);
+    } catch (error) {
+      console.error('Export all PDF error:', error);
+      let message = 'ไม่สามารถดาวน์โหลดได้';
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const json = JSON.parse(text);
+          message = json.message || message;
+        } catch (e) { /* ignore */ }
+      } else if (error.message) {
+        message = error.message;
+      }
+      toast.error(message);
+    } finally {
+      setExportingAll(false);
+    }
+  };
+
   // Filter categories by active tab + search + only show competitions where user's school has results
   const schoolId = user?.school_id;
   const filteredCategories = categories
@@ -198,14 +251,24 @@ const SchoolResults = () => {
                 </p>
               </div>
             </div>
-            <button
-              onClick={fetchResults}
-              disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>รีเฟรช</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleExportAll}
+                disabled={exportingAll || filteredCategories.length === 0}
+                className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileDown className={`w-4 h-4 ${exportingAll ? 'animate-bounce' : ''}`} />
+                <span>{exportingAll ? 'กำลังสร้าง PDF...' : 'ดาวน์โหลดทั้งหมด'}</span>
+              </button>
+              <button
+                onClick={fetchResults}
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>รีเฟรช</span>
+              </button>
+            </div>
           </div>
         </div>
 

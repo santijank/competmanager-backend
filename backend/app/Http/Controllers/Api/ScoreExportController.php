@@ -266,6 +266,120 @@ class ScoreExportController extends Controller
     }
 
     /**
+     * Export PDF รวมหลายกิจกรรม (batch) — สำหรับโรงเรียนดาวน์โหลดทั้งหมด
+     * GET /scores/export/batch-pdf?ids=1,2,3
+     */
+    public function batchExportPdf(Request $request)
+    {
+        try {
+            $ids = $request->input('ids', '');
+            $competitionIds = array_filter(array_map('intval', explode(',', $ids)));
+
+            if (empty($competitionIds)) {
+                return response()->json(['success' => false, 'message' => 'กรุณาระบุกิจกรรม'], 400);
+            }
+
+            if (count($competitionIds) > 50) {
+                return response()->json(['success' => false, 'message' => 'สามารถดาวน์โหลดได้สูงสุด 50 กิจกรรม'], 400);
+            }
+
+            $user = auth()->user();
+            $competitions = Competition::with(['category', 'schoolGroup'])
+                ->whereIn('id', $competitionIds)
+                ->orderBy('category_id')
+                ->orderBy('name')
+                ->get();
+
+            if ($competitions->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบกิจกรรม'], 404);
+            }
+
+            // รวม HTML ของทุกกิจกรรม
+            $allHtml = '';
+
+            foreach ($competitions as $competition) {
+                if (!$this->canExportScores($user, $competition)) {
+                    continue;
+                }
+
+                $registrations = Registration::where('competition_id', $competition->id)
+                    ->where('status', 'approved')
+                    ->with(['school', 'score'])
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                $sorted = $registrations->sortBy(function ($r) {
+                    if ($r->score && $r->score->rank) {
+                        return $r->score->rank;
+                    }
+                    return 9999;
+                })->values();
+
+                $stats = $this->calculateStatistics($registrations);
+
+                $isDistrict = $competition->competition_level === 'district'
+                    || empty($competition->school_group_id);
+                $groupName = $isDistrict
+                    ? 'เขตพื้นที่การศึกษา'
+                    : ($competition->schoolGroup->name ?? 'กลุ่มโรงเรียน');
+
+                $schedule = CompetitionSchedule::where('competition_id', $competition->id)->first();
+
+                $judges = CompetitionJudge::where('competition_id', $competition->id)
+                    ->orderBy('created_at', 'asc')
+                    ->get();
+
+                if ($judges->isEmpty()) {
+                    $judges = CommitteeMember::where('competition_id', $competition->id)
+                        ->where('is_active', true)
+                        ->where('member_type', 'committee')
+                        ->orderBy('id', 'asc')
+                        ->get();
+                }
+
+                if ($judges->isEmpty()) {
+                    $judges = CommitteeMember::whereNull('competition_id')
+                        ->where('is_active', true)
+                        ->where('member_type', 'committee')
+                        ->where('level', $competition->competition_level)
+                        ->orderBy('id', 'asc')
+                        ->get();
+                }
+
+                $data = [
+                    'competition' => $competition,
+                    'registrations' => $sorted,
+                    'stats' => $stats,
+                    'groupName' => $groupName,
+                    'schedule' => $schedule,
+                    'judges' => $judges,
+                    'generated_at' => now()->format('d/m/Y H:i:s'),
+                    'generated_by' => $user->name,
+                ];
+
+                $allHtml .= view('exports.scores-pdf', $data)->render();
+            }
+
+            if (empty($allHtml)) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีกิจกรรมที่สามารถดาวน์โหลดได้'], 404);
+            }
+
+            $pdf = PDF::loadHTML($allHtml);
+            $pdf->setPaper('A4', 'portrait');
+
+            $filename = 'ผลคะแนนรวม_' . now()->format('Ymd_His') . '.pdf';
+            return $pdf->download($filename);
+
+        } catch (\Exception $e) {
+            Log::error('Batch Export PDF Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาดในการสร้าง PDF: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * ✅ ตรวจสอบสิทธิ์ - รวม school_admin สำหรับกิจกรรมที่ประกาศผลแล้ว
      */
     private function canExportScores($user, $competition)
