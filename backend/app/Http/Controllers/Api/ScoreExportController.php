@@ -478,25 +478,22 @@ class ScoreExportController extends Controller
                 ];
             }
 
-            Log::info("mySchoolExportPdf: rendering " . count($pages) . " pages as single HTML");
+            Log::info("mySchoolExportPdf: rendering " . count($pages) . " pages");
 
             // ดึงชื่อโรงเรียน
             $school = \App\Models\School::find($schoolId);
             $schoolName = $school ? $school->name : '';
 
-            // ✅ ใช้ batch template (HTML เดียว แทนที่จะ concat หลาย HTML documents)
-            $html = view('exports.scores-pdf-batch', [
+            // ✅ ใช้ PDF::loadView() แทน loadHTML() เพื่อแก้ปัญหา Thai encoding
+            $viewData = [
                 'pages' => $pages,
                 'school_name' => $schoolName,
                 'generated_at' => now()->format('d/m/Y H:i:s'),
                 'generated_by' => $user->name,
-            ])->render();
+            ];
 
-            Log::info("mySchoolExportPdf: HTML rendered, size=" . strlen($html) . " bytes. Generating PDF...");
-
-            $pdf = PDF::loadHTML($html);
+            $pdf = PDF::loadView('exports.scores-pdf-batch', $viewData);
             $pdf->setPaper('A4', 'portrait');
-            $pdf->getDomPDF()->set_option('isPhpEnabled', true);
 
             $levelLabel = $level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
             $filename = "ผลคะแนนรวม_{$levelLabel}_" . now()->format('Ymd_His') . '.pdf';

@@ -18,8 +18,8 @@
             src: url("{{ storage_path('fonts/THSarabunNew/THSarabunNew Bold.ttf') }}") format('truetype');
         }
 
-        div, span, table, tr, td, th, p, h1, h2, h3, h4, h5, h6, img {
-            font-family: 'THSarabunNew', sans-serif;
+        * {
+            font-family: 'THSarabunNew', sans-serif !important;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
