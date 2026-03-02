@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>ผลคะแนนการแข่งขัน (รวม)</title>
+    <title>สรุปผลการแข่งขัน</title>
     <style>
         @font-face {
             font-family: 'THSarabunNew';
@@ -32,24 +32,15 @@
         body {
             font-family: 'THSarabunNew', sans-serif;
             font-size: 16pt;
-            line-height: 1.0;
+            line-height: 1.2;
             margin: 0;
-            padding: 0;
-        }
-
-        .competition-page {
-            padding: 20mm 15mm 20mm 18mm;
-            page-break-after: always;
-        }
-
-        .competition-page:last-child {
-            page-break-after: auto;
+            padding: 15mm 12mm 15mm 15mm;
         }
 
         /* ===== HEADER ===== */
         .page-header {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .header-table {
@@ -63,301 +54,227 @@
         }
 
         .logo-cell {
-            width: 210px;
+            width: 180px;
             text-align: left;
             vertical-align: top;
         }
 
         .logo-img {
-            width: 200px;
+            width: 170px;
             height: auto;
         }
 
         .info-cell {
             text-align: left;
-            padding-left: 10px;
+            padding-left: 8px;
             vertical-align: middle;
         }
 
         .header-text {
-            font-size: 16pt;
+            font-size: 15pt;
             font-weight: bold;
-            line-height: 1.5;
+            line-height: 1.4;
         }
 
         .header-text-normal {
-            font-size: 16pt;
-            line-height: 1.5;
-        }
-
-        .header-text-green {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #006600;
-            line-height: 1.5;
-        }
-
-        /* ===== DOCUMENT INFO ===== */
-        .doc-info {
-            width: 100%;
-            margin-bottom: 6px;
-            font-size: 16pt;
-            border-collapse: collapse;
-        }
-
-        .doc-info td {
-            padding: 1px 0;
-            vertical-align: top;
-        }
-
-        .doc-badge {
-            border: 1px solid #333;
-            padding: 2px 8px;
-            font-size: 14pt;
-        }
-
-        /* ===== STATS BOX ===== */
-        .stats-box {
-            width: 100%;
-            border: 1px solid #999;
-            padding: 5px 10px;
-            margin-bottom: 8px;
-            font-size: 14pt;
-            background-color: #f8f8f8;
-        }
-
-        /* ===== TABLE STYLES ===== */
-        table.data-table {
-            width: 100%;
-            border-collapse: collapse;
             font-size: 15pt;
+            line-height: 1.4;
         }
-
-        table.data-table thead {
-            display: table-header-group;
-        }
-
-        table.data-table tbody {
-            display: table-row-group;
-        }
-
-        table.data-table tr {
-            page-break-inside: avoid;
-        }
-
-        table.data-table th,
-        table.data-table td {
-            border: 0.5pt solid #000;
-            padding: 3px 5px;
-            vertical-align: middle;
-        }
-
-        table.data-table th {
-            background-color: #1a5c1a;
-            color: white;
-            font-weight: bold;
-            text-align: center;
-            font-size: 15pt;
-        }
-
-        table.data-table td {
-            font-size: 15pt;
-        }
-
-        .col-rank { width: 8%; text-align: center; }
-        .col-team { width: 20%; text-align: left; padding-left: 5px; }
-        .col-students { width: 40%; text-align: left; padding-left: 5px; font-size: 14pt; line-height: 1.2; }
-        .col-score { width: 15%; text-align: center; font-weight: bold; font-size: 17pt; }
-        .col-medal { width: 17%; text-align: center; }
 
         .school-name-header {
             font-size: 16pt;
             font-weight: bold;
-            margin-bottom: 6px;
+            margin: 6px 0;
             color: #003399;
         }
+
+        /* ===== SUMMARY TABLE ===== */
+        table.summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14pt;
+        }
+
+        table.summary-table thead {
+            display: table-header-group;
+        }
+
+        table.summary-table tr {
+            page-break-inside: avoid;
+        }
+
+        table.summary-table th,
+        table.summary-table td {
+            border: 0.5pt solid #000;
+            padding: 4px 6px;
+            vertical-align: middle;
+        }
+
+        table.summary-table th {
+            background-color: #1a5c1a;
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14pt;
+        }
+
+        table.summary-table td {
+            font-size: 14pt;
+        }
+
+        .col-no { width: 6%; text-align: center; }
+        .col-name { width: 40%; text-align: left; padding-left: 6px; }
+        .col-category { width: 20%; text-align: left; padding-left: 6px; font-size: 13pt; }
+        .col-score { width: 10%; text-align: center; font-weight: bold; }
+        .col-rank { width: 8%; text-align: center; }
+        .col-medal { width: 16%; text-align: center; }
 
         .medal-gold { background-color: #FFD700; color: #000; padding: 1px 6px; font-weight: bold; }
         .medal-silver { background-color: #C0C0C0; color: #000; padding: 1px 6px; font-weight: bold; }
         .medal-bronze { background-color: #CD7F32; color: white; padding: 1px 6px; font-weight: bold; }
         .medal-participant { background-color: #90EE90; color: #000; padding: 1px 6px; font-weight: bold; }
 
+        .row-gold { background-color: #FFFDE7; }
+        .row-silver { background-color: #F5F5F5; }
+        .row-bronze { background-color: #FFF3E0; }
+
+        /* ===== STATS ===== */
+        .stats-box {
+            width: 100%;
+            border: 1px solid #999;
+            padding: 5px 10px;
+            margin: 8px 0;
+            font-size: 14pt;
+            background-color: #f8f8f8;
+        }
+
         .footer {
             margin-top: 10px;
-            font-size: 13pt;
+            font-size: 12pt;
             text-align: right;
         }
     </style>
 </head>
 <body>
-@foreach($pages as $pageIndex => $page)
     @php
-        $competition = $page['competition'];
-        $registrations = $page['registrations'];
-        $stats = $page['stats'];
-        $groupName = $page['groupName'];
-        $schedule = $page['schedule'] ?? null;
-
-        $isDistrictComp = ($competition->competition_level ?? '') === 'district'
-            || empty($competition->school_group_id);
-        $activityName = $competition->name ?? '-';
-        $activityCode = $competition->code ?? '-';
-
-        $venueName = '';
-        if (isset($schedule) && $schedule) {
-            $venueParts = [];
-            if ($schedule->venue) $venueParts[] = $schedule->venue;
-            if ($schedule->room) $venueParts[] = $schedule->room;
-            $venueName = implode(' ', $venueParts);
-        }
-        if (empty($venueName)) {
-            $venueName = $competition->venue ?? '';
+        $levelLabel = '';
+        $groupName = '';
+        if (count($pages) > 0) {
+            $firstComp = $pages[0]['competition'];
+            $isDistrict = ($firstComp->competition_level ?? '') === 'district';
+            $levelLabel = $isDistrict ? 'ระดับเขตพื้นที่การศึกษา' : 'ระดับกลุ่มโรงเรียน';
+            $groupName = $pages[0]['groupName'] ?? '';
         }
 
-        $competitionDateText = '';
-        $thaiMonths = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-                      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-
-        $dateToUse = null;
-        if (isset($schedule) && $schedule && $schedule->competition_date) {
-            $dateToUse = $schedule->competition_date;
-        } elseif ($competition->competition_date) {
-            $dateToUse = $competition->competition_date;
-        }
-
-        if ($dateToUse) {
-            if (is_string($dateToUse)) {
-                $dateToUse = \Carbon\Carbon::parse($dateToUse);
-            }
-            $day = $dateToUse->format('j');
-            $month = $thaiMonths[(int)$dateToUse->format('n')];
-            $rawYear = (int) $dateToUse->format('Y');
-            $year = $rawYear > 2400 ? $rawYear : $rawYear + 543;
-            $competitionDateText = "วันที่แข่งขัน วันที่ {$day} {$month} พ.ศ.{$year}";
-        }
-
-        $venueAndDate = '';
-        if ($venueName && $competitionDateText) {
-            $venueAndDate = "ณ {$venueName} {$competitionDateText}";
-        } elseif ($venueName) {
-            $venueAndDate = "ณ {$venueName}";
-        } elseif ($competitionDateText) {
-            $venueAndDate = $competitionDateText;
-        }
+        // นับสถิติรวม
+        $totalGold = 0; $totalSilver = 0; $totalBronze = 0; $totalParticipant = 0;
+        $rowNumber = 0;
     @endphp
 
-    <div class="competition-page">
-        <!-- HEADER -->
-        <div class="page-header">
-            <table class="header-table">
-                <tr>
-                    <td class="logo-cell">
-                        @if(file_exists(public_path('images/smart-sesao-logo.png')))
-                            <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
-                        @endif
-                    </td>
-                    <td class="info-cell">
-                        <span class="header-text">กิจกรรมแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 ระดับ {{ $groupName }}</span><br>
-                        <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span><br>
-                        @if($venueAndDate)
-                            <span class="header-text-green">{{ $venueAndDate }}</span>
-                        @endif
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- SCHOOL NAME + DOCUMENT INFO -->
-        <div class="school-name-header">โรงเรียน{{ $school_name }}</div>
-        <table class="doc-info" border="0">
+    <!-- HEADER -->
+    <div class="page-header">
+        <table class="header-table">
             <tr>
-                <td style="text-align: left; width: 65%;"><strong>กิจกรรม :</strong> {{ $activityName }}</td>
-                <td style="text-align: right; width: 35%;"><span class="doc-badge">รายงานผลคะแนน</span></td>
-            </tr>
-            <tr>
-                <td style="text-align: left;">
-                    <strong>รหัสกิจกรรม :</strong> {{ $activityCode }}
-                    &nbsp;&nbsp;&nbsp;
-                    <strong>หมวดหมู่ :</strong> {{ $competition->category->name ?? '-' }}
+                <td class="logo-cell">
+                    @if(file_exists(public_path('images/smart-sesao-logo.png')))
+                        <img src="{{ public_path('images/smart-sesao-logo.png') }}" class="logo-img" alt="Logo">
+                    @endif
                 </td>
-                <td style="text-align: right;">
-                    <strong>จำนวนทีม :</strong> {{ $stats['total'] }}
+                <td class="info-cell">
+                    <span class="header-text">สรุปผลการแข่งขันศิลปหัตถกรรมนักเรียน ครั้งที่ 73 {{ $levelLabel }}</span><br>
+                    <span class="header-text-normal">สำนักงานเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</span>
                 </td>
             </tr>
         </table>
+    </div>
 
-        <!-- DATA TABLE (เฉพาะของโรงเรียนตนเอง — ไม่มีคอลัมน์โรงเรียน) -->
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th class="col-rank">อันดับ</th>
-                    <th class="col-team">ชื่อทีม</th>
-                    <th class="col-students">นักเรียน</th>
-                    <th class="col-score">คะแนน</th>
-                    <th class="col-medal">เหรียญ</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($registrations as $registration)
-                    <tr>
-                        <td class="col-rank">
-                            @if($registration->score && $registration->score->rank)
-                                {{ $registration->score->rank }}
-                            @else
-                                -
-                            @endif
-                        </td>
-                        <td class="col-team">{{ $registration->team_name ?? '-' }}</td>
-                        <td class="col-students">
-                            @php
-                                $studentNames = $registration->getStudentNamesList();
-                            @endphp
-                            @if(count($studentNames) > 0)
-                                @foreach($studentNames as $index => $studentName)
-                                    {{ ($index + 1) }}. {{ $studentName }}@if(!$loop->last)<br>@endif
-                                @endforeach
-                            @else
-                                -
-                            @endif
-                        </td>
+    <div class="school-name-header">โรงเรียน{{ $school_name }}</div>
+
+    <!-- SUMMARY TABLE -->
+    <table class="summary-table">
+        <thead>
+            <tr>
+                <th class="col-no">ที่</th>
+                <th class="col-name">กิจกรรม</th>
+                <th class="col-category">หมวดหมู่</th>
+                <th class="col-score">คะแนน</th>
+                <th class="col-rank">อันดับ</th>
+                <th class="col-medal">ผลรางวัล</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($pages as $page)
+                @php
+                    $competition = $page['competition'];
+                    $registrations = $page['registrations'];
+                @endphp
+                @foreach($registrations as $reg)
+                    @php
+                        $rowNumber++;
+                        $medal = $reg->score->medal ?? null;
+                        $score = $reg->score->score ?? null;
+                        $rank = $reg->score->rank ?? null;
+
+                        if ($medal === 'gold') $totalGold++;
+                        elseif ($medal === 'silver') $totalSilver++;
+                        elseif ($medal === 'bronze') $totalBronze++;
+                        elseif ($medal === 'participant') $totalParticipant++;
+
+                        $rowClass = '';
+                        if ($medal === 'gold') $rowClass = 'row-gold';
+                        elseif ($medal === 'silver') $rowClass = 'row-silver';
+                        elseif ($medal === 'bronze') $rowClass = 'row-bronze';
+                    @endphp
+                    <tr class="{{ $rowClass }}">
+                        <td class="col-no">{{ $rowNumber }}</td>
+                        <td class="col-name">{{ $competition->name ?? '-' }}</td>
+                        <td class="col-category">{{ $competition->category->name ?? '-' }}</td>
                         <td class="col-score">
-                            @if($registration->score)
-                                {{ number_format($registration->score->score, 2) }}
+                            @if($score !== null)
+                                {{ number_format($score, 2) }}
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="col-rank">
+                            @if($rank)
+                                {{ $rank }}
                             @else
                                 -
                             @endif
                         </td>
                         <td class="col-medal">
-                            @if($registration->score && $registration->score->medal)
-                                @if($registration->score->medal == 'gold')
-                                    <span class="medal-gold">ทอง</span>
-                                @elseif($registration->score->medal == 'silver')
-                                    <span class="medal-silver">เงิน</span>
-                                @elseif($registration->score->medal == 'bronze')
-                                    <span class="medal-bronze">ทองแดง</span>
-                                @elseif($registration->score->medal == 'participant')
-                                    <span class="medal-participant">เข้าร่วม</span>
-                                @else
-                                    <span style="color: #999;">ไม่ได้เข้าแข่งขัน</span>
-                                @endif
+                            @if($medal == 'gold')
+                                <span class="medal-gold">เหรียญทอง</span>
+                            @elseif($medal == 'silver')
+                                <span class="medal-silver">เหรียญเงิน</span>
+                            @elseif($medal == 'bronze')
+                                <span class="medal-bronze">เหรียญทองแดง</span>
+                            @elseif($medal == 'participant')
+                                <span class="medal-participant">เข้าร่วม</span>
                             @else
                                 -
                             @endif
                         </td>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px;">ไม่มีข้อมูล</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                @endforeach
+            @endforeach
+        </tbody>
+    </table>
 
-        <div class="footer">
-            <div>พิมพ์โดย: {{ $generated_by }}</div>
-            <div>วันที่: {{ $generated_at }}</div>
-        </div>
+    <!-- STATS SUMMARY -->
+    <div class="stats-box">
+        <strong>สรุป:</strong>
+        รวมทั้งหมด {{ $rowNumber }} รายการ |
+        เหรียญทอง {{ $totalGold }} |
+        เหรียญเงิน {{ $totalSilver }} |
+        เหรียญทองแดง {{ $totalBronze }} |
+        เข้าร่วม {{ $totalParticipant }}
     </div>
-@endforeach
+
+    <div class="footer">
+        <div>พิมพ์โดย: {{ $generated_by }}</div>
+        <div>วันที่: {{ $generated_at }}</div>
+    </div>
 </body>
 </html>
