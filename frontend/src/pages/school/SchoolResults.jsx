@@ -18,7 +18,8 @@ const SchoolResults = () => {
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({ totalComps: 0, gold: 0, silver: 0, bronze: 0 });
-  const [exportingPdf, setExportingPdf] = useState(null); // track which competition is exporting
+  const [exportingPdf, setExportingPdf] = useState(null);
+  const [activeTab, setActiveTab] = useState('group'); // 'group' | 'district'
 
   useEffect(() => {
     fetchResults();
@@ -32,7 +33,6 @@ const SchoolResults = () => {
       });
       const data = response.data?.data || [];
       setCategories(data);
-      calculateStats(data);
 
       // Auto-expand first category
       if (data.length > 0) {
@@ -43,25 +43,6 @@ const SchoolResults = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = (data) => {
-    let totalComps = 0, gold = 0, silver = 0, bronze = 0;
-    data.forEach(cat => {
-      if (cat.competitions) {
-        cat.competitions.forEach(comp => {
-          totalComps++;
-          if (comp.results) {
-            comp.results.forEach(r => {
-              if (r.medal === 'gold') gold++;
-              else if (r.medal === 'silver') silver++;
-              else if (r.medal === 'bronze') bronze++;
-            });
-          }
-        });
-      }
-    });
-    setStats({ totalComps, gold, silver, bronze });
   };
 
   const toggleCategory = (categoryName) => {
@@ -149,16 +130,45 @@ const SchoolResults = () => {
     }
   };
 
-  // Filter categories by search
-  const filteredCategories = searchTerm
-    ? categories.map(cat => ({
-        ...cat,
-        competitions: (cat.competitions || []).filter(comp =>
+  // Filter categories by active tab + search + only show competitions where user's school has results
+  const schoolId = user?.school_id;
+  const filteredCategories = categories
+    .map(cat => ({
+      ...cat,
+      competitions: (cat.competitions || []).filter(comp => {
+        const matchesTab = comp.competition_level === activeTab;
+        const matchesSearch = !searchTerm ||
           comp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          comp.code?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      })).filter(cat => cat.competitions.length > 0)
-    : categories;
+          comp.code?.toLowerCase().includes(searchTerm.toLowerCase());
+        // แสดงเฉพาะกิจกรรมที่โรงเรียนตัวเองมีผลรางวัล
+        const hasSchoolResults = schoolId
+          ? (comp.results || []).some(r => r.school_id === schoolId)
+          : (comp.results || []).length > 0;
+        return matchesTab && matchesSearch && hasSchoolResults;
+      })
+    }))
+    .filter(cat => cat.competitions.length > 0);
+
+  // Recalculate stats when tab or data changes (count only user's school medals)
+  useEffect(() => {
+    let totalComps = 0, gold = 0, silver = 0, bronze = 0;
+    categories.forEach(cat => {
+      (cat.competitions || []).forEach(comp => {
+        if (comp.competition_level !== activeTab) return;
+        const schoolResults = schoolId
+          ? (comp.results || []).filter(r => r.school_id === schoolId)
+          : (comp.results || []);
+        if (schoolResults.length === 0) return;
+        totalComps++;
+        schoolResults.forEach(r => {
+          if (r.medal === 'gold') gold++;
+          else if (r.medal === 'silver') silver++;
+          else if (r.medal === 'bronze') bronze++;
+        });
+      });
+    });
+    setStats({ totalComps, gold, silver, bronze });
+  }, [categories, activeTab, schoolId]);
 
   if (loading) {
     return (
@@ -184,7 +194,7 @@ const SchoolResults = () => {
                   ประกาศผลการแข่งขัน
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  ผลการแข่งขันที่ประกาศแล้วทั้งหมดของกลุ่ม
+                  ผลการแข่งขันที่ประกาศแล้วทั้งหมด
                 </p>
               </div>
             </div>
@@ -216,6 +226,32 @@ const SchoolResults = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <p className="text-sm text-gray-600">🥉 เหรียญทองแดง</p>
             <p className="text-2xl font-bold text-orange-600">{stats.bronze}</p>
+          </div>
+        </div>
+
+        {/* Level Tabs */}
+        <div className="bg-white rounded-lg border border-gray-200 mb-6 overflow-hidden">
+          <div className="flex">
+            <button
+              onClick={() => { setActiveTab('group'); setExpandedCategories(new Set()); }}
+              className={`flex-1 py-3 px-4 text-center font-semibold text-sm transition-colors ${
+                activeTab === 'group'
+                  ? 'text-white bg-green-600'
+                  : 'text-gray-500 hover:text-green-700 hover:bg-green-50'
+              }`}
+            >
+              ระดับกลุ่มโรงเรียน
+            </button>
+            <button
+              onClick={() => { setActiveTab('district'); setExpandedCategories(new Set()); }}
+              className={`flex-1 py-3 px-4 text-center font-semibold text-sm transition-colors ${
+                activeTab === 'district'
+                  ? 'text-white bg-blue-600'
+                  : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'
+              }`}
+            >
+              ระดับเขตพื้นที่การศึกษา
+            </button>
           </div>
         </div>
 
@@ -297,9 +333,6 @@ const SchoolResults = () => {
                                 <h4 className="text-base font-medium text-gray-900">
                                   {comp.name}
                                 </h4>
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                  {comp.competition_level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}
-                                </span>
                               </div>
                               {comp.level && (
                                 <p className="text-sm text-gray-500 mt-1">ระดับชั้น: {comp.level}</p>

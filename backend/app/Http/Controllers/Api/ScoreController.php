@@ -1188,6 +1188,7 @@ class ScoreController extends Controller
                                     return [
                                         'rank' => $reg->score->rank,
                                         'team_name' => $reg->team_name,
+                                        'school_id' => $reg->school_id,
                                         'school_name' => $reg->school->name ?? '-',
                                         'score' => $reg->score->score,
                                         'medal' => $reg->score->medal,
