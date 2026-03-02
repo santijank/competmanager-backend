@@ -93,7 +93,7 @@ const SchoolResults = () => {
     try {
       setExportingPdf(competitionId);
       const response = await api.get(`/competitions/${competitionId}/scores/export/pdf`, {
-        params: { hide_judges: 1 },
+        params: { hide_judges: 1, school_only: 1 },
         responseType: 'blob'
       });
 

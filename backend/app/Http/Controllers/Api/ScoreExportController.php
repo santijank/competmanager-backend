@@ -30,11 +30,17 @@ class ScoreExportController extends Controller
                 return response()->json(['success' => false, 'message' => 'คุณไม่มีสิทธิ์เข้าถึงข้อมูลนี้'], 403);
             }
 
-            $registrations = Registration::where('competition_id', $competitionId)
+            $regQuery = Registration::where('competition_id', $competitionId)
                 ->where('status', 'approved')
-                ->with(['school', 'score'])
-                ->orderBy('created_at', 'asc')
-                ->get();
+                ->with(['school', 'score']);
+
+            // ✅ ถ้ามี school_only=1 แสดงเฉพาะโรงเรียนของ user
+            $schoolOnly = $request->boolean('school_only');
+            if ($schoolOnly && $user->school_id) {
+                $regQuery->where('school_id', $user->school_id);
+            }
+
+            $registrations = $regQuery->orderBy('created_at', 'asc')->get();
 
             // เรียงตาม rank (ทีมที่มีคะแนนขึ้นก่อน)
             $sorted = $registrations->sortBy(function ($r) {
