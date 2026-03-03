@@ -203,6 +203,10 @@ export const certificateService = {
   getEligibleCommittee: (params = {}) => api.get('/certificates/eligible-committee', { params }),
   generateCommittee: (data) => api.post('/certificates/generate-committee', data),
 
+  // Staff certificates (คณะกรรมการดำเนินการ)
+  getEligibleStaff: (params = {}) => api.get('/certificates/eligible-staff', { params }),
+  generateStaff: (data) => api.post('/certificates/generate-staff', data),
+
   // Number settings
   getNumberSettings: () => api.get('/certificates/number-settings'),
   updateNumberSetting: (data) => api.post('/certificates/number-settings', data),

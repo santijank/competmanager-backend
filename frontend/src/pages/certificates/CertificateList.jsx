@@ -49,6 +49,13 @@ export default function CertificateList() {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [generatingCommittee, setGeneratingCommittee] = useState(false);
 
+  // Staff tab state (คณะกรรมการดำเนินการ)
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [staffSummary, setStaffSummary] = useState({});
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+  const [generatingStaff, setGeneratingStaff] = useState(false);
+
   // Shared filters
   const [categories, setCategories] = useState([]);
   const [filterLevel, setFilterLevel] = useState('district');
@@ -134,11 +141,34 @@ export default function CertificateList() {
     }
   }, [filterLevel, filterCategory]);
 
+  // Load staff members (คณะกรรมการดำเนินการ)
+  const loadStaff = useCallback(async () => {
+    setStaffLoading(true);
+    try {
+      const params = {};
+      if (filterLevel) params.level = filterLevel;
+      if (filterCategory) params.category_id = filterCategory;
+      const res = await certificateService.getEligibleStaff(params);
+      const allData = res.data?.data || [];
+      const filtered = filterLevel ? allData.filter(e => e.competition_level === filterLevel) : allData;
+      setStaffMembers(filtered);
+      setStaffSummary({
+        total: filtered.length,
+        already_generated: filtered.filter(e => e.has_certificate).length,
+      });
+    } catch {
+      toast.error('ไม่สามารถโหลดรายการคณะกรรมการดำเนินการได้');
+    } finally {
+      setStaffLoading(false);
+    }
+  }, [filterLevel, filterCategory]);
+
   useEffect(() => {
     if (activeTab === 'eligible') loadEligible();
     else if (activeTab === 'committee') loadCommittee();
+    else if (activeTab === 'staff') loadStaff();
     else loadCertificates();
-  }, [activeTab, loadEligible, loadCertificates, loadCommittee]);
+  }, [activeTab, loadEligible, loadCertificates, loadCommittee, loadStaff]);
 
   // Filter eligible by search locally
   const filteredEligible = eligible.filter(item => {
@@ -351,6 +381,73 @@ export default function CertificateList() {
     }
   };
 
+  // === Staff Tab Actions ===
+
+  const filteredStaff = staffMembers.filter(item => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      item.name?.toLowerCase().includes(q) ||
+      item.organization?.toLowerCase().includes(q) ||
+      item.competition_name?.toLowerCase().includes(q) ||
+      item.position?.toLowerCase().includes(q)
+    );
+  });
+
+  const toggleSelectStaff = (id) => {
+    setSelectedStaffIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllStaff = () => {
+    const notGenerated = filteredStaff.filter(e => !e.has_certificate).map(e => e.member_id);
+    if (selectedStaffIds.length === notGenerated.length) {
+      setSelectedStaffIds([]);
+    } else {
+      setSelectedStaffIds(notGenerated);
+    }
+  };
+
+  const handleGenerateStaff = async () => {
+    if (selectedStaffIds.length === 0) {
+      toast.warning('กรุณาเลือกรายการ');
+      return;
+    }
+    setGeneratingStaff(true);
+    try {
+      const res = await certificateService.generateStaff({ member_ids: selectedStaffIds });
+      toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
+      setSelectedStaffIds([]);
+      loadStaff();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setGeneratingStaff(false);
+    }
+  };
+
+  const handleGenerateAllStaff = async () => {
+    const notGenerated = filteredStaff.filter(e => !e.has_certificate).map(e => e.member_id);
+    if (notGenerated.length === 0) {
+      toast.info('สร้างเกียรติบัตรครบแล้ว');
+      return;
+    }
+    const levelLabel = filterLevel === 'district' ? 'ระดับเขตพื้นที่' : 'ระดับกลุ่มโรงเรียน';
+    if (!confirm(`สร้างเกียรติบัตรคณะกรรมการดำเนินการ ${levelLabel} ทั้งหมด ${notGenerated.length} รายการ?`)) return;
+    setGeneratingStaff(true);
+    try {
+      const res = await certificateService.generateStaff({ member_ids: notGenerated });
+      toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
+      setSelectedStaffIds([]);
+      loadStaff();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด');
+    } finally {
+      setGeneratingStaff(false);
+    }
+  };
+
   // === Summary Badge ===
   const SummaryBadges = ({ summary }) => (
     <div className="flex flex-wrap gap-2 text-sm">
@@ -416,6 +513,16 @@ export default function CertificateList() {
           }`}
         >
           คณะกรรมการตัดสิน
+        </button>
+        <button
+          onClick={() => setActiveTab('staff')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            activeTab === 'staff'
+              ? 'border-teal-600 text-teal-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          คณะกรรมการดำเนินการ
         </button>
         <button
           onClick={() => setActiveTab('generated')}
@@ -726,6 +833,112 @@ export default function CertificateList() {
         </div>
       )}
 
+      {/* =================== STAFF TAB =================== */}
+      {activeTab === 'staff' && (
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex flex-wrap gap-2 text-sm">
+              {staffSummary.total > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                  ทั้งหมด {staffSummary.total}
+                </span>
+              )}
+              {staffSummary.already_generated > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                  สร้างแล้ว {staffSummary.already_generated}
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerateStaff}
+                disabled={generatingStaff || selectedStaffIds.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingStaff ? <Loader className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                สร้างที่เลือก ({selectedStaffIds.length})
+              </button>
+              <button
+                onClick={handleGenerateAllStaff}
+                disabled={generatingStaff}
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                <Award className="w-4 h-4" />
+                สร้างทั้งหมด
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border overflow-hidden">
+            {staffLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader className="w-6 h-6 animate-spin text-teal-500" />
+                <span className="ml-2 text-gray-500">กำลังโหลด...</span>
+              </div>
+            ) : filteredStaff.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                ไม่พบรายการคณะกรรมการดำเนินการ
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-3 text-center w-10">
+                        <button onClick={selectAllStaff}>
+                          {selectedStaffIds.length === filteredStaff.filter(e => !e.has_certificate).length && filteredStaff.filter(e => !e.has_certificate).length > 0
+                            ? <CheckSquare className="w-4 h-4 text-teal-600" />
+                            : <Square className="w-4 h-4 text-gray-400" />
+                          }
+                        </button>
+                      </th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">ชื่อ-สกุล</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">ตำแหน่ง</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">หน่วยงาน</th>
+                      <th className="px-3 py-3 text-left font-medium text-gray-600">กิจกรรม</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">หมวดหมู่</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">สถานะ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredStaff.map((item) => (
+                      <tr key={`${item.member_id}-${item.competition_id}`} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
+                        <td className="px-3 py-2 text-center">
+                          {item.has_certificate ? (
+                            <span className="text-green-500 text-xs font-medium">&#10003;</span>
+                          ) : (
+                            <button onClick={() => toggleSelectStaff(item.member_id)}>
+                              {selectedStaffIds.includes(item.member_id)
+                                ? <CheckSquare className="w-4 h-4 text-teal-600" />
+                                : <Square className="w-4 h-4 text-gray-400" />
+                              }
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
+                        <td className="px-3 py-2 text-gray-700 text-xs">{item.position || '-'}</td>
+                        <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{item.organization || '-'}</td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-gray-900 truncate max-w-[200px]">{item.competition_name}</div>
+                        </td>
+                        <td className="px-3 py-2 text-center text-xs text-gray-500">{item.category_name}</td>
+                        <td className="px-3 py-2 text-center">
+                          {item.has_certificate ? (
+                            <span className="text-xs text-green-600 font-medium">สร้างแล้ว</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">รอสร้าง</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* =================== GENERATED TAB =================== */}
       {activeTab === 'generated' && (
         <div>
@@ -813,7 +1026,9 @@ export default function CertificateList() {
                         <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{cert.school_name}</td>
                         <td className="px-3 py-2 text-center">
                           {(cert.recipient_type || 'student') === 'committee' ? (
-                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-300">กรรมการ</span>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-300">กก.ตัดสิน</span>
+                          ) : (cert.recipient_type || 'student') === 'staff' ? (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700 border border-teal-300">กก.ดำเนินการ</span>
                           ) : (cert.recipient_type || 'student') === 'teacher' ? (
                             <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-300">ครู</span>
                           ) : (

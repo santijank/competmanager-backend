@@ -443,6 +443,7 @@ class CertificateController extends Controller
         try {
             $query = CommitteeMember::with(['competition.category'])
                 ->active()
+                ->byType('committee')
                 ->whereNotNull('competition_id');
 
             if ($request->filled('level')) {
@@ -592,6 +593,161 @@ class CertificateController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Certificate generateCommittee error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถสร้างเกียรติบัตรได้: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * รายการคณะกรรมการดำเนินการที่มีสิทธิ์ออกเกียรติบัตร
+     */
+    public function eligibleStaff(Request $request): JsonResponse
+    {
+        try {
+            $query = CommitteeMember::with(['competition.category'])
+                ->active()
+                ->byType('staff')
+                ->whereNotNull('competition_id');
+
+            if ($request->filled('level')) {
+                $query->byLevel($request->level);
+            }
+
+            if ($request->filled('category_id')) {
+                $query->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
+            }
+
+            $members = $query->orderBy('competition_id')->orderBy('name')->get();
+
+            $existingCerts = Certificate::where('recipient_type', 'staff')
+                ->selectRaw("CONCAT(competition_id, '-', recipient_name) as cert_key")
+                ->pluck('cert_key')
+                ->toArray();
+
+            $data = $members->map(function ($member) use ($existingCerts) {
+                $comp = $member->competition;
+                $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
+                $certKey = $comp->id . '-' . $cleanName;
+                $hasCert = in_array($certKey, $existingCerts);
+
+                return [
+                    'member_id' => $member->id,
+                    'name' => $cleanName,
+                    'position' => $member->position,
+                    'organization' => $member->organization,
+                    'member_type' => $member->member_type,
+                    'level' => $member->level,
+                    'competition_id' => $comp->id,
+                    'competition_name' => $comp->name ?? '-',
+                    'competition_level' => $comp->competition_level ?? 'district',
+                    'category_name' => $comp->category?->name ?? '-',
+                    'category_id' => $comp->category_id,
+                    'has_certificate' => $hasCert,
+                ];
+            });
+
+            $summary = [
+                'total' => $data->count(),
+                'already_generated' => $data->where('has_certificate', true)->count(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $data->values(),
+                'summary' => $summary,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate eligibleStaff error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถโหลดรายการได้'
+            ], 500);
+        }
+    }
+
+    /**
+     * สร้างเกียรติบัตรคณะกรรมการดำเนินการ
+     */
+    public function generateStaff(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'member_ids' => 'required|array|min:1',
+                'member_ids.*' => 'integer|exists:committee_members,id',
+            ]);
+
+            $memberIds = $request->member_ids;
+            $created = 0;
+            $skipped = 0;
+            $errors = [];
+
+            foreach ($memberIds as $memberId) {
+                try {
+                    $member = CommitteeMember::with(['competition.category'])->findOrFail($memberId);
+                    $comp = $member->competition;
+
+                    if (!$comp) {
+                        $errors[] = "Member #{$memberId}: ไม่มีกิจกรรมที่ผูกไว้";
+                        continue;
+                    }
+
+                    $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
+
+                    $exists = Certificate::where('competition_id', $comp->id)
+                        ->where('recipient_name', $cleanName)
+                        ->where('recipient_type', 'staff')
+                        ->exists();
+
+                    if ($exists) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $level = $comp->competition_level ?? 'district';
+                    $certCode = $this->generateCode($comp);
+                    $docNumber = CertificateNumberSetting::getNextNumber($level, 'staff');
+
+                    Certificate::create([
+                        'certificate_code' => $certCode,
+                        'document_number' => $docNumber,
+                        'recipient_type' => 'staff',
+                        'recipient_name' => $cleanName,
+                        'score_id' => null,
+                        'competition_id' => $comp->id,
+                        'student_name' => $cleanName,
+                        'school_name' => $member->organization ?? '-',
+                        'competition_name' => $comp->name,
+                        'category_name' => $comp->category?->name,
+                        'teacher_names' => null,
+                        'level' => $level,
+                        'rank' => null,
+                        'medal' => null,
+                        'score' => null,
+                        'issue_date' => now(),
+                        'generated_by' => auth()->id(),
+                        'generated_at' => now(),
+                    ]);
+                    $created++;
+                } catch (\Exception $e) {
+                    $errors[] = "Member #{$memberId}: " . $e->getMessage();
+                    Log::error("Certificate generateStaff error for member #{$memberId}: " . $e->getMessage());
+                }
+            }
+
+            return response()->json([
+                'success' => $created > 0 || $skipped > 0,
+                'message' => "สร้างเกียรติบัตรคณะกรรมการดำเนินการสำเร็จ {$created} ฉบับ" .
+                    ($skipped > 0 ? " (ข้าม {$skipped} รายการที่มีแล้ว)" : ''),
+                'data' => [
+                    'created' => $created,
+                    'skipped' => $skipped,
+                    'errors' => $errors,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate generateStaff error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'ไม่สามารถสร้างเกียรติบัตรได้: ' . $e->getMessage()
