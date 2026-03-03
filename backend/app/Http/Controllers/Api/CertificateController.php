@@ -241,43 +241,23 @@ class CertificateController extends Controller
                     $school = $reg->school;
                     $level = $comp->competition_level ?? 'district';
 
-                    // ===== ดึงชื่อกลุ่ม + วันแข่งขันจาก schedule =====
+                    // ===== ดึงชื่อกลุ่ม + วันแข่งขัน =====
                     $groupName = null;
                     $competitionDateText = null;
+                    $schoolGroupId = $comp->school_group_id;
 
-                    if ($level === 'group' && $comp->school_group_id) {
-                        $group = SchoolGroup::find($comp->school_group_id);
+                    if ($level === 'group' && $schoolGroupId) {
+                        $group = SchoolGroup::find($schoolGroupId);
                         $groupName = $group?->name;
-
-                        // ดึงวันแข่งจาก competition_schedules
-                        $schedule = CompetitionSchedule::where('competition_id', $comp->id)
-                            ->where('school_group_id', $comp->school_group_id)
-                            ->where('level', 'group')
-                            ->first();
-
-                        if ($schedule && $schedule->competition_date) {
-                            $competitionDateText = $this->formatThaiDate($schedule->competition_date);
-                        } elseif ($comp->competition_date) {
-                            $competitionDateText = $this->formatThaiDate($comp->competition_date);
-                        }
-                    } elseif ($level === 'district') {
-                        // ระดับเขต — ดึงวันจาก schedule ระดับเขต หรือ competition
-                        $schedule = CompetitionSchedule::where('competition_id', $comp->id)
-                            ->where('level', 'district')
-                            ->first();
-
-                        if ($schedule && $schedule->competition_date) {
-                            $competitionDateText = $this->formatThaiDate($schedule->competition_date);
-                        } elseif ($comp->competition_date) {
-                            $competitionDateText = $this->formatThaiDate($comp->competition_date);
-                        }
+                        // ดึงวันแข่งจาก school_groups (ผู้ใช้กรอกเอง)
+                        $competitionDateText = $group?->competition_date_text;
                     }
 
                     // ===== สร้างเกียรติบัตรรายคน — นักเรียน =====
                     $studentNames = $reg->getStudentNamesList();
                     foreach ($studentNames as $studentName) {
                         $certCode = $this->generateCode($comp);
-                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'student');
+                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'student', $level === 'group' ? $schoolGroupId : null);
 
                         Certificate::create([
                             'certificate_code' => $certCode,
@@ -308,7 +288,7 @@ class CertificateController extends Controller
                     $teacherNames = $reg->getTeacherNamesList();
                     foreach ($teacherNames as $teacherName) {
                         $certCode = $this->generateCode($comp);
-                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'teacher');
+                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'teacher', $level === 'group' ? $schoolGroupId : null);
 
                         Certificate::create([
                             'certificate_code' => $certCode,
@@ -1122,6 +1102,66 @@ class CertificateController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'ไม่สามารถรีเซ็ตได้: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ดึงตั้งค่าเกียรติบัตรเฉพาะกลุ่ม (number settings + วันแข่ง)
+     */
+    public function groupCertificateSettings(int $groupId): JsonResponse
+    {
+        try {
+            $group = SchoolGroup::findOrFail($groupId);
+
+            $settings = CertificateNumberSetting::where('level', 'group')
+                ->where('school_group_id', $groupId)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'group' => [
+                        'id' => $group->id,
+                        'name' => $group->name,
+                        'competition_date_text' => $group->competition_date_text,
+                    ],
+                    'settings' => $settings,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('groupCertificateSettings error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถโหลดการตั้งค่ากลุ่มได้'
+            ], 500);
+        }
+    }
+
+    /**
+     * อัพเดตวันแข่งขันของกลุ่ม
+     */
+    public function updateGroupDate(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'school_group_id' => 'required|integer|exists:school_groups,id',
+                'competition_date_text' => 'nullable|string|max:255',
+            ]);
+
+            $group = SchoolGroup::findOrFail($request->school_group_id);
+            $group->competition_date_text = $request->competition_date_text;
+            $group->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'บันทึกวันแข่งขันสำเร็จ',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('updateGroupDate error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถบันทึกวันแข่งขันได้: ' . $e->getMessage()
             ], 500);
         }
     }

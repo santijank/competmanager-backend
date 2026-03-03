@@ -211,6 +211,10 @@ export const certificateService = {
   getNumberSettings: () => api.get('/certificates/number-settings'),
   updateNumberSetting: (data) => api.post('/certificates/number-settings', data),
   resetNumberSettings: (data = {}) => api.post('/certificates/number-settings/reset', data),
+
+  // Group-specific settings
+  getGroupCertSettings: (groupId) => api.get(`/certificates/group-settings/${groupId}`),
+  updateGroupDate: (data) => api.post('/certificates/group-date', data),
 };
 
 // ============================================

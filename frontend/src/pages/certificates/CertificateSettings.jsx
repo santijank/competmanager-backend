@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Save, Upload, Trash2, Image, PenLine, Building2, Users, Hash, RotateCcw } from 'lucide-react';
+import { Save, Upload, Trash2, Image, PenLine, Building2, Users, Hash, RotateCcw, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -7,8 +7,20 @@ import api, { certificateService } from '@/lib/api';
 
 /** Sub-component: แถวตั้งค่าเลขรัน */
 function NumberSettingRow({ setting, onChange, onSave, saving }) {
-  const typeLabel = setting.type === 'teacher' ? 'ครูผู้ฝึกสอน' : 'นักเรียน';
-  const typeColor = setting.type === 'teacher' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700';
+  const typeLabels = {
+    student: 'นักเรียน',
+    teacher: 'ครูผู้ฝึกสอน',
+    committee: 'กก.ตัดสิน',
+    staff: 'กก.ดำเนินการ',
+  };
+  const typeColors = {
+    student: 'bg-blue-100 text-blue-700',
+    teacher: 'bg-green-100 text-green-700',
+    committee: 'bg-purple-100 text-purple-700',
+    staff: 'bg-teal-100 text-teal-700',
+  };
+  const typeLabel = typeLabels[setting.type] || setting.type;
+  const typeColor = typeColors[setting.type] || 'bg-gray-100 text-gray-700';
 
   return (
     <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -82,10 +94,16 @@ export default function CertificateSettings() {
   const [removeBackground, setRemoveBackground] = useState(false);
   const bgInputRef = useRef(null);
 
-  // Number settings
+  // Number settings (district)
   const [numberSettings, setNumberSettings] = useState([]);
   const [numberSettingsLoading, setNumberSettingsLoading] = useState(false);
   const [savingNumber, setSavingNumber] = useState(false);
+
+  // Group-specific settings
+  const [groupSettings, setGroupSettings] = useState([]);
+  const [groupSettingsLoading, setGroupSettingsLoading] = useState(false);
+  const [groupDateText, setGroupDateText] = useState('');
+  const [savingGroupDate, setSavingGroupDate] = useState(false);
 
   // โหลด school groups ครั้งเดียว
   useEffect(() => {
@@ -129,7 +147,6 @@ export default function CertificateSettings() {
       }
     } catch (error) {
       console.error('Failed to fetch certificate settings:', error);
-      toast.error('ไม่สามารถโหลดการตั้งค่าได้');
     } finally {
       setLoading(false);
     }
@@ -139,13 +156,15 @@ export default function CertificateSettings() {
     fetchSettings();
   }, [fetchSettings]);
 
-  // โหลดการตั้งค่าเลขรัน
+  // โหลดการตั้งค่าเลขรัน (district only - ไม่มี school_group_id)
   const fetchNumberSettings = useCallback(async () => {
     try {
       setNumberSettingsLoading(true);
       const res = await certificateService.getNumberSettings();
       if (res.data?.success) {
-        setNumberSettings(res.data.data || []);
+        // กรองเฉพาะ district + group ที่ไม่มี school_group_id (legacy)
+        const allSettings = res.data.data || [];
+        setNumberSettings(allSettings.filter(s => !s.school_group_id));
       }
     } catch (err) {
       console.error('Failed to fetch number settings:', err);
@@ -158,8 +177,37 @@ export default function CertificateSettings() {
     fetchNumberSettings();
   }, [fetchNumberSettings]);
 
+  // โหลดตั้งค่าเฉพาะกลุ่ม
+  const fetchGroupSettings = useCallback(async () => {
+    if (!selectedGroupId) return;
+    try {
+      setGroupSettingsLoading(true);
+      const res = await certificateService.getGroupCertSettings(selectedGroupId);
+      if (res.data?.success) {
+        setGroupSettings(res.data.data.settings || []);
+        setGroupDateText(res.data.data.group?.competition_date_text || '');
+      }
+    } catch (err) {
+      console.error('Failed to fetch group settings:', err);
+    } finally {
+      setGroupSettingsLoading(false);
+    }
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    if (activeTab === 'group' && selectedGroupId) {
+      fetchGroupSettings();
+    }
+  }, [activeTab, selectedGroupId, fetchGroupSettings]);
+
   const handleNumberSettingChange = (id, field, value) => {
     setNumberSettings(prev =>
+      prev.map(s => s.id === id ? { ...s, [field]: value } : s)
+    );
+  };
+
+  const handleGroupSettingChange = (id, field, value) => {
+    setGroupSettings(prev =>
       prev.map(s => s.id === id ? { ...s, [field]: value } : s)
     );
   };
@@ -174,11 +222,25 @@ export default function CertificateSettings() {
         last_number: parseInt(setting.last_number) || 0,
       });
       toast.success('บันทึกการตั้งค่าเลขรันสำเร็จ');
-      fetchNumberSettings();
     } catch (err) {
       toast.error('เกิดข้อผิดพลาดในการบันทึก');
     } finally {
       setSavingNumber(false);
+    }
+  };
+
+  const handleSaveGroupDate = async () => {
+    try {
+      setSavingGroupDate(true);
+      await certificateService.updateGroupDate({
+        school_group_id: selectedGroupId,
+        competition_date_text: groupDateText,
+      });
+      toast.success('บันทึกวันแข่งขันสำเร็จ');
+    } catch (err) {
+      toast.error('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setSavingGroupDate(false);
     }
   };
 
@@ -263,7 +325,7 @@ export default function CertificateSettings() {
           <PenLine className="w-7 h-7 text-amber-600" />
           ตั้งค่าเกียรติบัตร
         </h1>
-        <p className="text-gray-600 mt-1">กำหนดภาพพื้นหลังสำหรับเกียรติบัตร แยกตามระดับ</p>
+        <p className="text-gray-600 mt-1">กำหนดภาพพื้นหลังและเลขที่เกียรติบัตร แยกตามระดับ</p>
       </div>
 
       {/* Tabs: ระดับเขต / ระดับกลุ่ม */}
@@ -441,68 +503,101 @@ export default function CertificateSettings() {
               <span className="text-gray-500">ตัวอย่าง: สพป.นฐ.๑-นร.๐๐๐๑/๒๕๖๙</span>
             </p>
 
-            {numberSettingsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-              </div>
+            {activeTab === 'district' ? (
+              /* ==================== ระดับเขต ==================== */
+              numberSettingsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-blue-700 flex items-center gap-2">
+                      <Building2 className="w-4 h-4" /> ระดับเขตพื้นที่
+                    </h3>
+                    <button
+                      onClick={() => handleResetNumbers('district')}
+                      className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                    >
+                      <RotateCcw className="w-3 h-3" /> รีเซ็ตเลขรัน
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {numberSettings.filter(s => s.level === 'district').map(setting => (
+                      <NumberSettingRow
+                        key={setting.id}
+                        setting={setting}
+                        onChange={handleNumberSettingChange}
+                        onSave={handleSaveNumberSetting}
+                        saving={savingNumber}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
             ) : (
-              <>
-                {/* District settings */}
-                {numberSettings.filter(s => s.level === 'district').length > 0 && (
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-blue-700 flex items-center gap-2">
-                        <Building2 className="w-4 h-4" /> ระดับเขตพื้นที่
-                      </h3>
+              /* ==================== ระดับกลุ่ม ==================== */
+              groupSettingsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                </div>
+              ) : (
+                <div>
+                  {/* วันแข่งขัน */}
+                  <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <h3 className="font-medium text-amber-800 flex items-center gap-2 mb-3">
+                      <Calendar className="w-4 h-4" /> วันที่จัดการแข่งขัน — {currentGroupName}
+                    </h3>
+                    <p className="text-xs text-amber-600 mb-2">
+                      กรอกเป็นภาษาไทย เช่น "๒๐ กุมภาพันธ์ ๒๕๖๙" — จะแสดงบนเกียรติบัตรระดับกลุ่ม
+                    </p>
+                    <div className="flex gap-3 items-end">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={groupDateText}
+                          onChange={(e) => setGroupDateText(e.target.value)}
+                          placeholder="เช่น ๒๐ กุมภาพันธ์ ๒๕๖๙"
+                          className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                        />
+                      </div>
                       <button
-                        onClick={() => handleResetNumbers('district')}
-                        className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
+                        onClick={handleSaveGroupDate}
+                        disabled={savingGroupDate}
+                        className="flex items-center gap-1 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
                       >
-                        <RotateCcw className="w-3 h-3" /> รีเซ็ตเลขรัน
+                        <Save className="w-4 h-4" />
+                        {savingGroupDate ? 'กำลังบันทึก...' : 'บันทึกวันแข่ง'}
                       </button>
                     </div>
-                    <div className="space-y-3">
-                      {numberSettings.filter(s => s.level === 'district').map(setting => (
-                        <NumberSettingRow
-                          key={setting.id}
-                          setting={setting}
-                          onChange={handleNumberSettingChange}
-                          onSave={handleSaveNumberSetting}
-                          saving={savingNumber}
-                        />
-                      ))}
-                    </div>
                   </div>
-                )}
 
-                {/* Group settings */}
-                {numberSettings.filter(s => s.level === 'group').length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-green-700 flex items-center gap-2">
-                        <Users className="w-4 h-4" /> ระดับกลุ่มโรงเรียน
-                      </h3>
-                      <button
-                        onClick={() => handleResetNumbers('group')}
-                        className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50"
-                      >
-                        <RotateCcw className="w-3 h-3" /> รีเซ็ตเลขรัน
-                      </button>
-                    </div>
+                  {/* เลขรันเฉพาะกลุ่ม */}
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-green-700 flex items-center gap-2">
+                      <Users className="w-4 h-4" /> เลขรัน — {currentGroupName}
+                    </h3>
+                  </div>
+                  {groupSettings.length > 0 ? (
                     <div className="space-y-3">
-                      {numberSettings.filter(s => s.level === 'group').map(setting => (
+                      {groupSettings.map(setting => (
                         <NumberSettingRow
                           key={setting.id}
                           setting={setting}
-                          onChange={handleNumberSettingChange}
+                          onChange={handleGroupSettingChange}
                           onSave={handleSaveNumberSetting}
                           saving={savingNumber}
                         />
                       ))}
                     </div>
-                  </div>
-                )}
-              </>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500">
+                      <p>ยังไม่มีการตั้งค่าเลขรันสำหรับกลุ่มนี้</p>
+                      <p className="text-sm">ระบบจะสร้างอัตโนมัติเมื่อ deploy migration ใหม่</p>
+                    </div>
+                  )}
+                </div>
+              )
             )}
           </div>
         </>

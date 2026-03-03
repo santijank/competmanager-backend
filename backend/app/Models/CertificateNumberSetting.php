@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 class CertificateNumberSetting extends Model
 {
     protected $fillable = [
-        'level', 'type', 'prefix', 'year', 'last_number',
+        'level', 'type', 'school_group_id', 'prefix', 'year', 'last_number',
     ];
 
     protected $casts = [
@@ -16,30 +16,44 @@ class CertificateNumberSetting extends Model
     ];
 
     /**
-     * ดึง setting ตาม level + type
+     * ดึง setting ตาม level + type + school_group_id
      */
-    public static function getSetting(string $level, string $type): ?self
+    public static function getSetting(string $level, string $type, ?int $schoolGroupId = null): ?self
     {
-        return static::where('level', $level)->where('type', $type)->first();
+        $query = static::where('level', $level)->where('type', $type);
+
+        if ($schoolGroupId) {
+            $query->where('school_group_id', $schoolGroupId);
+        } else {
+            $query->whereNull('school_group_id');
+        }
+
+        return $query->first();
     }
 
     /**
      * สร้างเลขที่เอกสารถัดไป พร้อม lock เพื่อป้องกัน race condition
      * เช่น สพป.นฐ.๑-นร.๐๐๐๑/๒๕๖๙
      */
-    public static function getNextNumber(string $level, string $type): string
+    public static function getNextNumber(string $level, string $type, ?int $schoolGroupId = null): string
     {
-        return DB::transaction(function () use ($level, $type) {
-            $setting = static::where('level', $level)
-                ->where('type', $type)
-                ->lockForUpdate()
-                ->first();
+        return DB::transaction(function () use ($level, $type, $schoolGroupId) {
+            $query = static::where('level', $level)->where('type', $type);
+
+            if ($schoolGroupId) {
+                $query->where('school_group_id', $schoolGroupId);
+            } else {
+                $query->whereNull('school_group_id');
+            }
+
+            $setting = $query->lockForUpdate()->first();
 
             if (!$setting) {
                 // สร้าง default ถ้ายังไม่มี
                 $setting = static::create([
                     'level' => $level,
                     'type' => $type,
+                    'school_group_id' => $schoolGroupId,
                     'prefix' => $type === 'teacher' ? 'สพป.นฐ.๑-คร.' : 'สพป.นฐ.๑-นร.',
                     'year' => self::toBuddhistYear(),
                     'last_number' => 0,

@@ -16,6 +16,7 @@ class SchoolGroup extends Model
         'name',
         'description',
         'is_active',
+        'competition_date_text',
         'registration_start_date',
         'registration_end_date',
         'registration_announcement',
