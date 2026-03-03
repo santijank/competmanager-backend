@@ -469,12 +469,14 @@ class CertificateController extends Controller
 
             $data = $members->map(function ($member) use ($existingCerts) {
                 $comp = $member->competition;
-                $certKey = $comp->id . '-' . $member->name;
+                // ตัดเลขลำดับนำหน้าออก เช่น "1. นางทับทิม" → "นางทับทิม"
+                $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
+                $certKey = $comp->id . '-' . $cleanName;
                 $hasCert = in_array($certKey, $existingCerts);
 
                 return [
                     'member_id' => $member->id,
-                    'name' => $member->name,
+                    'name' => $cleanName,
                     'position' => $member->position,
                     'organization' => $member->organization,
                     'member_type' => $member->member_type,
@@ -533,9 +535,12 @@ class CertificateController extends Controller
                         continue;
                     }
 
+                    // ตัดเลขลำดับนำหน้าออก เช่น "1. นางทับทิม" → "นางทับทิม"
+                    $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
+
                     // ข้ามถ้ามีเกียรติบัตรแล้ว (เช็คจาก competition_id + recipient_name + recipient_type)
                     $exists = Certificate::where('competition_id', $comp->id)
-                        ->where('recipient_name', $member->name)
+                        ->where('recipient_name', $cleanName)
                         ->where('recipient_type', 'committee')
                         ->exists();
 
@@ -552,10 +557,10 @@ class CertificateController extends Controller
                         'certificate_code' => $certCode,
                         'document_number' => $docNumber,
                         'recipient_type' => 'committee',
-                        'recipient_name' => $member->name,
+                        'recipient_name' => $cleanName,
                         'score_id' => null,
                         'competition_id' => $comp->id,
-                        'student_name' => $member->name,
+                        'student_name' => $cleanName,
                         'school_name' => $member->organization ?? '-',
                         'competition_name' => $comp->name,
                         'category_name' => $comp->category?->name,
