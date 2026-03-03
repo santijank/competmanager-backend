@@ -141,27 +141,25 @@ export default function CertificateList() {
     }
   }, [filterLevel, filterCategory]);
 
-  // Load staff members (คณะกรรมการดำเนินการ)
+  // Load staff members (คณะกรรมการดำเนินการ) — ไม่ผูกกิจกรรม, filter ตาม member.level
   const loadStaff = useCallback(async () => {
     setStaffLoading(true);
     try {
       const params = {};
       if (filterLevel) params.level = filterLevel;
-      if (filterCategory) params.category_id = filterCategory;
       const res = await certificateService.getEligibleStaff(params);
       const allData = res.data?.data || [];
-      const filtered = filterLevel ? allData.filter(e => e.competition_level === filterLevel) : allData;
-      setStaffMembers(filtered);
-      setStaffSummary({
-        total: filtered.length,
-        already_generated: filtered.filter(e => e.has_certificate).length,
+      setStaffMembers(allData);
+      setStaffSummary(res.data?.summary || {
+        total: allData.length,
+        already_generated: allData.filter(e => e.has_certificate).length,
       });
     } catch {
       toast.error('ไม่สามารถโหลดรายการคณะกรรมการดำเนินการได้');
     } finally {
       setStaffLoading(false);
     }
-  }, [filterLevel, filterCategory]);
+  }, [filterLevel]);
 
   useEffect(() => {
     if (activeTab === 'eligible') loadEligible();
@@ -895,14 +893,13 @@ export default function CertificateList() {
                       <th className="px-3 py-3 text-left font-medium text-gray-600">ชื่อ-สกุล</th>
                       <th className="px-3 py-3 text-left font-medium text-gray-600">ตำแหน่ง</th>
                       <th className="px-3 py-3 text-left font-medium text-gray-600">หน่วยงาน</th>
-                      <th className="px-3 py-3 text-left font-medium text-gray-600">กิจกรรม</th>
-                      <th className="px-3 py-3 text-center font-medium text-gray-600">หมวดหมู่</th>
+                      <th className="px-3 py-3 text-center font-medium text-gray-600">ระดับ</th>
                       <th className="px-3 py-3 text-center font-medium text-gray-600">สถานะ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {filteredStaff.map((item) => (
-                      <tr key={`${item.member_id}-${item.competition_id}`} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
+                      <tr key={item.member_id} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
                         <td className="px-3 py-2 text-center">
                           {item.has_certificate ? (
                             <span className="text-green-500 text-xs font-medium">&#10003;</span>
@@ -917,11 +914,8 @@ export default function CertificateList() {
                         </td>
                         <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
                         <td className="px-3 py-2 text-gray-700 text-xs">{item.position || '-'}</td>
-                        <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{item.organization || '-'}</td>
-                        <td className="px-3 py-2">
-                          <div className="font-medium text-gray-900 truncate max-w-[200px]">{item.competition_name}</div>
-                        </td>
-                        <td className="px-3 py-2 text-center text-xs text-gray-500">{item.category_name}</td>
+                        <td className="px-3 py-2 text-gray-700 truncate max-w-[200px]">{item.organization || '-'}</td>
+                        <td className="px-3 py-2 text-center text-xs text-gray-500">{item.level === 'district' ? 'เขต' : 'กลุ่ม'}</td>
                         <td className="px-3 py-2 text-center">
                           {item.has_certificate ? (
                             <span className="text-xs text-green-600 font-medium">สร้างแล้ว</span>

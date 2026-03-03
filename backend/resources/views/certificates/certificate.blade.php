@@ -226,7 +226,6 @@
                     <div class="medal-text" style="color: #1a5276;">
                         เป็นคณะกรรมการดำเนินการ
                     </div>
-                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
                 @elseif($isTeacher)
                     <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
                     <div class="medal-text {{ $medalClass }}">

@@ -602,35 +602,27 @@ class CertificateController extends Controller
 
     /**
      * รายการคณะกรรมการดำเนินการที่มีสิทธิ์ออกเกียรติบัตร
+     * Staff ไม่ผูกกับ competition — ออก 1 ใบ/คน
      */
     public function eligibleStaff(Request $request): JsonResponse
     {
         try {
-            $query = CommitteeMember::with(['competition.category'])
-                ->active()
-                ->byType('staff')
-                ->whereNotNull('competition_id');
+            $query = CommitteeMember::active()->byType('staff');
 
             if ($request->filled('level')) {
                 $query->byLevel($request->level);
             }
 
-            if ($request->filled('category_id')) {
-                $query->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
-            }
+            $members = $query->orderBy('name')->get();
 
-            $members = $query->orderBy('competition_id')->orderBy('name')->get();
-
-            $existingCerts = Certificate::where('recipient_type', 'staff')
-                ->selectRaw("CONCAT(competition_id, '-', recipient_name) as cert_key")
-                ->pluck('cert_key')
+            // เช็คว่ามีเกียรติบัตรแล้วหรือยัง (1 ใบ/คน, ไม่มี competition_id)
+            $existingNames = Certificate::where('recipient_type', 'staff')
+                ->pluck('recipient_name')
                 ->toArray();
 
-            $data = $members->map(function ($member) use ($existingCerts) {
-                $comp = $member->competition;
+            $data = $members->map(function ($member) use ($existingNames) {
                 $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
-                $certKey = $comp->id . '-' . $cleanName;
-                $hasCert = in_array($certKey, $existingCerts);
+                $hasCert = in_array($cleanName, $existingNames);
 
                 return [
                     'member_id' => $member->id,
@@ -639,11 +631,6 @@ class CertificateController extends Controller
                     'organization' => $member->organization,
                     'member_type' => $member->member_type,
                     'level' => $member->level,
-                    'competition_id' => $comp->id,
-                    'competition_name' => $comp->name ?? '-',
-                    'competition_level' => $comp->competition_level ?? 'district',
-                    'category_name' => $comp->category?->name ?? '-',
-                    'category_id' => $comp->category_id,
                     'has_certificate' => $hasCert,
                 ];
             });
@@ -669,6 +656,7 @@ class CertificateController extends Controller
 
     /**
      * สร้างเกียรติบัตรคณะกรรมการดำเนินการ
+     * 1 ใบ/คน ไม่ผูกกิจกรรม
      */
     public function generateStaff(Request $request): JsonResponse
     {
@@ -685,18 +673,11 @@ class CertificateController extends Controller
 
             foreach ($memberIds as $memberId) {
                 try {
-                    $member = CommitteeMember::with(['competition.category'])->findOrFail($memberId);
-                    $comp = $member->competition;
-
-                    if (!$comp) {
-                        $errors[] = "Member #{$memberId}: ไม่มีกิจกรรมที่ผูกไว้";
-                        continue;
-                    }
-
+                    $member = CommitteeMember::findOrFail($memberId);
                     $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
 
-                    $exists = Certificate::where('competition_id', $comp->id)
-                        ->where('recipient_name', $cleanName)
+                    // ข้ามถ้ามีเกียรติบัตรแล้ว (เช็คจาก recipient_name + recipient_type)
+                    $exists = Certificate::where('recipient_name', $cleanName)
                         ->where('recipient_type', 'staff')
                         ->exists();
 
@@ -705,8 +686,8 @@ class CertificateController extends Controller
                         continue;
                     }
 
-                    $level = $comp->competition_level ?? 'district';
-                    $certCode = $this->generateCode($comp);
+                    $level = $member->level ?? 'district';
+                    $certCode = 'STAFF-' . strtoupper(substr(md5($member->id . now()), 0, 8));
                     $docNumber = CertificateNumberSetting::getNextNumber($level, 'staff');
 
                     Certificate::create([
@@ -715,11 +696,11 @@ class CertificateController extends Controller
                         'recipient_type' => 'staff',
                         'recipient_name' => $cleanName,
                         'score_id' => null,
-                        'competition_id' => $comp->id,
+                        'competition_id' => null,
                         'student_name' => $cleanName,
                         'school_name' => $member->organization ?? '-',
-                        'competition_name' => $comp->name,
-                        'category_name' => $comp->category?->name,
+                        'competition_name' => null,
+                        'category_name' => null,
                         'teacher_names' => null,
                         'level' => $level,
                         'rank' => null,
