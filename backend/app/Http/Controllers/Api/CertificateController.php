@@ -810,9 +810,14 @@ class CertificateController extends Controller
         ];
 
         $enrichedCerts = $certificates->map(function ($cert) use ($bgPaths) {
-            // เลือกพื้นหลังตาม level
-            $level = $cert->level ?? 'district';
-            $bgPath = $bgPaths[$level] ?? $bgPaths['district'];
+            // คณะกรรมการตัดสิน/ดำเนินการ ใช้พื้นหลังระดับเขตเสมอ
+            $recipientType = $cert->recipient_type ?? 'student';
+            if (in_array($recipientType, ['committee', 'staff'])) {
+                $bgPath = $bgPaths['district'];
+            } else {
+                $level = $cert->level ?? 'district';
+                $bgPath = $bgPaths[$level] ?? $bgPaths['district'];
+            }
 
             if (file_exists($bgPath)) {
                 $cert->cert_background = $bgPath;
