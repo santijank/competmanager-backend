@@ -823,27 +823,66 @@ class CertificateController extends Controller
      */
     private function renderPdf($certificates)
     {
-        // เตรียม background paths (local files — ไม่ต้อง download จากที่ไหน)
-        $bgPaths = [
+        // Fallback: local files
+        $localBgPaths = [
             'district' => public_path('images/cert/district_bg.png'),
             'group' => public_path('images/cert/group_bg.png'),
         ];
 
-        $enrichedCerts = $certificates->map(function ($cert) use ($bgPaths) {
+        // Cache ดึง background จาก system_settings (เพื่อไม่ต้อง download ซ้ำ)
+        $bgCache = [];
+
+        $enrichedCerts = $certificates->map(function ($cert) use ($localBgPaths, &$bgCache) {
             // คณะกรรมการตัดสิน/ดำเนินการ ใช้พื้นหลังระดับเขตเสมอ
             $recipientType = $cert->recipient_type ?? 'student';
+            $level = $cert->level ?? 'district';
+
             if (in_array($recipientType, ['committee', 'staff'])) {
-                $bgPath = $bgPaths['district'];
+                $settingKey = 'cert_district_background_image';
+                $fallbackLevel = 'district';
+            } elseif ($level === 'group') {
+                // ดึง school_group_id จาก cert หรือ competition
+                $groupId = $cert->competition?->school_group_id ?? null;
+                if ($groupId) {
+                    $settingKey = "cert_group_{$groupId}_background_image";
+                } else {
+                    $settingKey = 'cert_group_background_image';
+                }
+                $fallbackLevel = 'group';
             } else {
-                $level = $cert->level ?? 'district';
-                $bgPath = $bgPaths[$level] ?? $bgPaths['district'];
+                $settingKey = 'cert_district_background_image';
+                $fallbackLevel = 'district';
             }
 
-            if (file_exists($bgPath)) {
-                $cert->cert_background = $bgPath;
+            // ดึงจาก cache หรือ system_settings
+            if (!isset($bgCache[$settingKey])) {
+                $bgUrl = SystemSetting::getValue($settingKey);
+                if ($bgUrl) {
+                    // Download จาก Firebase Storage แปลงเป็น base64 สำหรับ DomPDF
+                    $bgCache[$settingKey] = $this->urlToBase64($bgUrl);
+                } else {
+                    $bgCache[$settingKey] = null;
+                }
+            }
+
+            $bgValue = $bgCache[$settingKey];
+
+            if ($bgValue && str_starts_with($bgValue, 'data:')) {
+                // ใช้ base64 data URI จาก system_settings
+                $cert->cert_background = $bgValue;
+            } elseif ($bgValue) {
+                // เป็น URL ที่ download ไม่สำเร็จ ลอง local fallback
+                $localPath = $localBgPaths[$fallbackLevel] ?? $localBgPaths['district'];
+                $cert->cert_background = file_exists($localPath) ? $localPath : null;
             } else {
-                Log::warning("Certificate background not found: {$bgPath}");
-                $cert->cert_background = null;
+                // ไม่มีใน settings → ใช้ local fallback
+                $localPath = $localBgPaths[$fallbackLevel] ?? $localBgPaths['district'];
+                if (file_exists($localPath)) {
+                    $cert->cert_background = $localPath;
+                } else {
+                    Log::warning("Certificate background not found for key: {$settingKey}");
+                    $cert->cert_background = null;
+                }
             }
 
             // สร้าง QR Code สำหรับ certificate จริง (ไม่ใช่ preview)
