@@ -77,7 +77,7 @@
         /* ============================================ */
         .student-overlay {
             position: absolute;
-            top: 72mm;
+            top: 78mm;
             left: 50mm;
             right: 50mm;
             height: 50mm;
