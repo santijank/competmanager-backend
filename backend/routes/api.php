@@ -195,6 +195,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/number-settings', [CertificateController::class, 'updateNumberSettings']);
         Route::post('/number-settings/reset', [CertificateController::class, 'resetNumberSettings']);
         Route::delete('/all', [CertificateController::class, 'destroyAll']);
+        Route::get('/eligible-committee', [CertificateController::class, 'eligibleCommittee']);
+        Route::post('/generate-committee', [CertificateController::class, 'generateCommittee']);
         Route::get('/{id}/download', [CertificateController::class, 'download']);
         Route::delete('/{id}', [CertificateController::class, 'destroy']);
     });

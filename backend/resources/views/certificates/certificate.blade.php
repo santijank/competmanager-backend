@@ -195,6 +195,7 @@
             $medalClass = $medalClasses[$cert->medal] ?? '';
             $certBackground = $cert->cert_background ?? null;
             $isTeacher = ($cert->recipient_type ?? 'student') === 'teacher';
+            $isCommittee = ($cert->recipient_type ?? 'student') === 'committee';
             $rankingText = $cert->ranking_text ?? '';
         @endphp
 
@@ -212,9 +213,15 @@
             {{-- ข้อมูลผู้รับเกียรติบัตร ซ้อนบนพื้นหลัง --}}
             <div class="student-overlay">
                 <div class="student-name">{{ $cert->recipient_name ?? $cert->student_name }}</div>
-                <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
 
-                @if($isTeacher)
+                @if($isCommittee)
+                    <div class="school-name">{{ $cert->school_name }}</div>
+                    <div class="medal-text" style="color: #1a5276;">
+                        เป็นคณะกรรมการตัดสิน
+                    </div>
+                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                @elseif($isTeacher)
+                    <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
                     <div class="medal-text {{ $medalClass }}">
                         เป็นครูผู้ฝึกสอนนักเรียน ได้รับรางวัลระดับ{{ $medalLabel }}
                         @if(!empty($rankingText))
@@ -223,6 +230,7 @@
                     </div>
                     <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
                 @else
+                    <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
                     <div class="medal-text {{ $medalClass }}">
                         ได้รับรางวัลระดับ{{ $medalLabel }}
                         @if(!empty($rankingText))

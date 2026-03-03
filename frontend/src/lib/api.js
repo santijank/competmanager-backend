@@ -199,6 +199,10 @@ export const certificateService = {
     return `${baseUrl}/certificates/preview?${qs}`;
   },
 
+  // Committee certificates
+  getEligibleCommittee: (params = {}) => api.get('/certificates/eligible-committee', { params }),
+  generateCommittee: (data) => api.post('/certificates/generate-committee', data),
+
   // Number settings
   getNumberSettings: () => api.get('/certificates/number-settings'),
   updateNumberSetting: (data) => api.post('/certificates/number-settings', data),
