@@ -77,7 +77,7 @@
         /* ============================================ */
         .student-overlay {
             position: absolute;
-            top: 78mm;
+            top: 72mm;
             left: 50mm;
             right: 50mm;
             height: 50mm;
@@ -211,24 +211,24 @@
 
             {{-- ข้อมูลผู้รับเกียรติบัตร ซ้อนบนพื้นหลัง --}}
             <div class="student-overlay">
-                {{-- ถ้าเป็นครู แสดงคำว่า "ครูผู้ฝึกสอน" --}}
-                @if($isTeacher)
-                    <div class="recipient-label">ครูผู้ฝึกสอน</div>
-                @endif
-
                 <div class="student-name">{{ $cert->recipient_name ?? $cert->student_name }}</div>
                 <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
 
-                <div class="medal-text {{ $medalClass }}">
-                    ได้รับรางวัลระดับ{{ $medalLabel }}
-                    @if(!empty($rankingText))
-                        {{ $rankingText }}
-                    @endif
-                </div>
-
                 @if($isTeacher)
-                    <div class="competition-text">ครูผู้ฝึกสอน กิจกรรม {{ $cert->competition_name }}</div>
+                    <div class="medal-text {{ $medalClass }}">
+                        เป็นครูผู้ฝึกสอนนักเรียน ได้รับรางวัลระดับ{{ $medalLabel }}
+                        @if(!empty($rankingText))
+                            {{ $rankingText }}
+                        @endif
+                    </div>
+                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
                 @else
+                    <div class="medal-text {{ $medalClass }}">
+                        ได้รับรางวัลระดับ{{ $medalLabel }}
+                        @if(!empty($rankingText))
+                            {{ $rankingText }}
+                        @endif
+                    </div>
                     <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
                 @endif
             </div>
