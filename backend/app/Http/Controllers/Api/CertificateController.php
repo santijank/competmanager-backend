@@ -844,7 +844,7 @@ class CertificateController extends Controller
         // เตรียม background paths (local files — ไม่ต้อง download จากที่ไหน)
         $bgPaths = [
             'district' => public_path('images/cert/district_bg.png'),
-            'group' => public_path('images/cert/group_bg.jpg'),
+            'group' => public_path('images/cert/group_bg.png'),
         ];
 
         $enrichedCerts = $certificates->map(function ($cert) use ($bgPaths) {
