@@ -570,7 +570,8 @@ class CertificateController extends Controller
 
                     $level = $comp->competition_level ?? 'district';
                     $certCode = $this->generateCode($comp);
-                    $docNumber = CertificateNumberSetting::getNextNumber($level, 'committee');
+                    $schoolGroupId = ($level === 'group') ? ($member->school_group_id ?? $comp->school_group_id ?? null) : null;
+                    $docNumber = CertificateNumberSetting::getNextNumber($level, 'committee', $schoolGroupId);
 
                     Certificate::create([
                         'certificate_code' => $certCode,
@@ -706,7 +707,8 @@ class CertificateController extends Controller
 
                     $level = $member->level ?? 'district';
                     $certCode = 'STAFF-' . strtoupper(substr(md5($member->id . now()), 0, 8));
-                    $docNumber = CertificateNumberSetting::getNextNumber($level, 'staff');
+                    $schoolGroupId = ($level === 'group') ? ($member->school_group_id ?? null) : null;
+                    $docNumber = CertificateNumberSetting::getNextNumber($level, 'staff', $schoolGroupId);
 
                     Certificate::create([
                         'certificate_code' => $certCode,
