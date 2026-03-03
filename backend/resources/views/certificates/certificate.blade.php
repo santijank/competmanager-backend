@@ -165,7 +165,7 @@
         /* ข้อมูลกลุ่ม + วันแข่ง (สำหรับระดับกลุ่ม) */
         .group-info {
             position: absolute;
-            top: 118mm;
+            top: 130mm;
             left: 50mm;
             right: 50mm;
             z-index: 1;
@@ -173,15 +173,16 @@
         }
 
         .group-name-text {
-            font-size: 16pt;
+            font-size: 20pt;
             font-weight: bold;
-            color: #1a5276;
+            color: #ffffff;
             line-height: 1.2;
         }
 
         .competition-date-text {
-            font-size: 14pt;
-            color: #333;
+            font-size: 18pt;
+            font-weight: bold;
+            color: #ffffff;
             line-height: 1.2;
         }
 
