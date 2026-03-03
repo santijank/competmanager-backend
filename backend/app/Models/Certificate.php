@@ -25,6 +25,8 @@ class Certificate extends Model
         'category_name',
         'teacher_names',
         'level',
+        'group_name',
+        'competition_date_text',
         'rank',
         'medal',
         'score',

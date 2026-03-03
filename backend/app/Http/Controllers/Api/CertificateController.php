@@ -8,6 +8,8 @@ use App\Models\CertificateNumberSetting;
 use App\Models\Score;
 use App\Models\Competition;
 use App\Models\CommitteeMember;
+use App\Models\CompetitionSchedule;
+use App\Models\SchoolGroup;
 use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -239,6 +241,38 @@ class CertificateController extends Controller
                     $school = $reg->school;
                     $level = $comp->competition_level ?? 'district';
 
+                    // ===== ดึงชื่อกลุ่ม + วันแข่งขันจาก schedule =====
+                    $groupName = null;
+                    $competitionDateText = null;
+
+                    if ($level === 'group' && $comp->school_group_id) {
+                        $group = SchoolGroup::find($comp->school_group_id);
+                        $groupName = $group?->name;
+
+                        // ดึงวันแข่งจาก competition_schedules
+                        $schedule = CompetitionSchedule::where('competition_id', $comp->id)
+                            ->where('school_group_id', $comp->school_group_id)
+                            ->where('level', 'group')
+                            ->first();
+
+                        if ($schedule && $schedule->competition_date) {
+                            $competitionDateText = $this->formatThaiDate($schedule->competition_date);
+                        } elseif ($comp->competition_date) {
+                            $competitionDateText = $this->formatThaiDate($comp->competition_date);
+                        }
+                    } elseif ($level === 'district') {
+                        // ระดับเขต — ดึงวันจาก schedule ระดับเขต หรือ competition
+                        $schedule = CompetitionSchedule::where('competition_id', $comp->id)
+                            ->where('level', 'district')
+                            ->first();
+
+                        if ($schedule && $schedule->competition_date) {
+                            $competitionDateText = $this->formatThaiDate($schedule->competition_date);
+                        } elseif ($comp->competition_date) {
+                            $competitionDateText = $this->formatThaiDate($comp->competition_date);
+                        }
+                    }
+
                     // ===== สร้างเกียรติบัตรรายคน — นักเรียน =====
                     $studentNames = $reg->getStudentNamesList();
                     foreach ($studentNames as $studentName) {
@@ -258,6 +292,8 @@ class CertificateController extends Controller
                             'category_name' => $comp->category?->name,
                             'teacher_names' => $reg->getTeacherNamesList(),
                             'level' => $level,
+                            'group_name' => $groupName,
+                            'competition_date_text' => $competitionDateText,
                             'rank' => $score->rank,
                             'medal' => $score->medal,
                             'score' => $score->score,
@@ -281,12 +317,14 @@ class CertificateController extends Controller
                             'recipient_name' => $teacherName,
                             'score_id' => $score->id,
                             'competition_id' => $comp->id,
-                            'student_name' => $teacherName, // ชื่อผู้รับเกียรติบัตร
+                            'student_name' => $teacherName,
                             'school_name' => $school->name ?? '-',
                             'competition_name' => $comp->name,
                             'category_name' => $comp->category?->name,
                             'teacher_names' => $reg->getTeacherNamesList(),
                             'level' => $level,
+                            'group_name' => $groupName,
+                            'competition_date_text' => $competitionDateText,
                             'rank' => $score->rank,
                             'medal' => $score->medal,
                             'score' => $score->score,
@@ -958,6 +996,40 @@ class CertificateController extends Controller
             Log::warning('QR code generation failed: ' . $e->getMessage());
             return '';
         }
+    }
+
+    /**
+     * แปลงวันที่เป็นรูปแบบไทย เช่น "๒๗ กุมภาพันธ์ ๒๕๖๙"
+     */
+    private function formatThaiDate($date): string
+    {
+        if (!$date) return '';
+
+        $thaiMonths = [
+            1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม',
+            4 => 'เมษายน', 5 => 'พฤษภาคม', 6 => 'มิถุนายน',
+            7 => 'กรกฎาคม', 8 => 'สิงหาคม', 9 => 'กันยายน',
+            10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม',
+        ];
+
+        $thaiDigits = ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'];
+
+        if (is_string($date)) {
+            $date = \Carbon\Carbon::parse($date);
+        }
+
+        $day = $date->day;
+        $month = $thaiMonths[$date->month] ?? '';
+        $rawYear = $date->year;
+        // ถ้าปี < 2400 คือปี ค.ศ. ต้อง +543
+        $year = $rawYear < 2400 ? $rawYear + 543 : $rawYear;
+
+        $text = "{$day} {$month} {$year}";
+
+        // แปลงเป็นเลขไทย
+        return preg_replace_callback('/\d/', function ($m) use ($thaiDigits) {
+            return $thaiDigits[(int)$m[0]];
+        }, $text);
     }
 
     /**

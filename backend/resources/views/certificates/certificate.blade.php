@@ -162,6 +162,29 @@
             margin-top: 0.5mm;
         }
 
+        /* ข้อมูลกลุ่ม + วันแข่ง (สำหรับระดับกลุ่ม) */
+        .group-info {
+            position: absolute;
+            top: 118mm;
+            left: 50mm;
+            right: 50mm;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .group-name-text {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1a5276;
+            line-height: 1.2;
+        }
+
+        .competition-date-text {
+            font-size: 14pt;
+            color: #333;
+            line-height: 1.2;
+        }
+
         /* รหัสเกียรติบัตร — มุมขวาล่าง */
         .cert-code {
             font-size: 8pt;
@@ -246,6 +269,16 @@
                     <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
                 @endif
             </div>
+
+            {{-- ชื่อกลุ่ม + วันแข่ง (สำหรับระดับกลุ่ม) --}}
+            @if(($cert->level ?? 'district') === 'group' && !empty($cert->group_name))
+                <div class="group-info">
+                    <div class="group-name-text">ระดับกลุ่มโรงเรียน {{ $cert->group_name }}</div>
+                    @if(!empty($cert->competition_date_text))
+                        <div class="competition-date-text">วันที่ {{ $cert->competition_date_text }}</div>
+                    @endif
+                </div>
+            @endif
 
             {{-- QR Code — กลางล่าง --}}
             @if(!empty($cert->qr_data_uri))
