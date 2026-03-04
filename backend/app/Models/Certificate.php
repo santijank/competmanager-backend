@@ -85,7 +85,7 @@ class Certificate extends Model
         }
 
         switch ((int)$this->rank) {
-            case 1: return 'ชนะเลิศ อันดับ ๑';
+            case 1: return 'ชนะเลิศ';
             case 2: return 'รองชนะเลิศ อันดับ ๑';
             case 3: return 'รองชนะเลิศ อันดับ ๒';
             default: return '';
