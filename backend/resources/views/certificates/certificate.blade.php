@@ -77,7 +77,7 @@
         /* ============================================ */
         .student-overlay {
             position: absolute;
-            top: 68mm;
+            top: 78mm;
             left: 50mm;
             right: 50mm;
             height: 50mm;
@@ -236,7 +236,7 @@
             @endif
 
             {{-- ข้อมูลผู้รับเกียรติบัตร ซ้อนบนพื้นหลัง --}}
-            <div class="student-overlay" @if($isStaff || $isCommittee) style="top: 78mm;" @endif>
+            <div class="student-overlay">
                 <div class="student-name">{{ $cert->recipient_name ?? $cert->student_name }}</div>
 
                 @if($isCommittee)
