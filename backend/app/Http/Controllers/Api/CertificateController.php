@@ -902,10 +902,8 @@ class CertificateController extends Controller
             $recipientType = $cert->recipient_type ?? 'student';
             $level = $cert->level ?? 'district';
 
-            if (in_array($recipientType, ['committee', 'staff'])) {
-                $settingKey = 'cert_district_background_image';
-                $fallbackLevel = 'district';
-            } elseif ($level === 'group') {
+            // ทุกประเภท (student/teacher/committee/staff) ใช้ background ตาม level
+            if ($level === 'group') {
                 $groupId = $cert->competition?->school_group_id ?? null;
                 $settingKey = $groupId ? "cert_group_{$groupId}_background_image" : 'cert_group_background_image';
                 $fallbackLevel = 'group';
