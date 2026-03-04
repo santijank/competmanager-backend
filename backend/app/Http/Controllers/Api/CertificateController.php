@@ -882,7 +882,7 @@ class CertificateController extends Controller
 
     /**
      * Render PDF จาก Certificate collection
-     * ใช้พื้นหลังจากไฟล์ local ตาม level (district/group)
+     * ดาวน์โหลดพื้นหลังเก็บเป็นไฟล์บน disk → ส่ง file path ให้ DomPDF (ประหยัด memory)
      */
     private function renderPdf($certificates)
     {
@@ -892,11 +892,10 @@ class CertificateController extends Controller
             'group' => public_path('images/cert/group_bg.png'),
         ];
 
-        // Cache ดึง background จาก system_settings (เพื่อไม่ต้อง download ซ้ำ)
-        $bgCache = [];
+        // Cache path ต่อ settingKey (เพื่อไม่ต้อง resolve ซ้ำ)
+        $bgPathCache = [];
 
-        $enrichedCerts = $certificates->map(function ($cert) use ($localBgPaths, &$bgCache) {
-            // คณะกรรมการตัดสิน/ดำเนินการ ใช้พื้นหลังระดับเขตเสมอ
+        $enrichedCerts = $certificates->map(function ($cert) use ($localBgPaths, &$bgPathCache) {
             $recipientType = $cert->recipient_type ?? 'student';
             $level = $cert->level ?? 'district';
 
@@ -904,51 +903,36 @@ class CertificateController extends Controller
                 $settingKey = 'cert_district_background_image';
                 $fallbackLevel = 'district';
             } elseif ($level === 'group') {
-                // ดึง school_group_id จาก cert หรือ competition
                 $groupId = $cert->competition?->school_group_id ?? null;
-                if ($groupId) {
-                    $settingKey = "cert_group_{$groupId}_background_image";
-                } else {
-                    $settingKey = 'cert_group_background_image';
-                }
+                $settingKey = $groupId ? "cert_group_{$groupId}_background_image" : 'cert_group_background_image';
                 $fallbackLevel = 'group';
             } else {
                 $settingKey = 'cert_district_background_image';
                 $fallbackLevel = 'district';
             }
 
-            // ดึงจาก cache หรือ system_settings
-            if (!isset($bgCache[$settingKey])) {
+            // Resolve background file path (ใช้ cache ถ้า resolve แล้ว)
+            if (!array_key_exists($settingKey, $bgPathCache)) {
                 $bgUrl = SystemSetting::getValue($settingKey);
-                if ($bgUrl) {
-                    // Download จาก Firebase Storage แปลงเป็น base64 สำหรับ DomPDF
-                    $bgCache[$settingKey] = $this->urlToBase64($bgUrl);
+                if ($bgUrl && !str_starts_with($bgUrl, 'data:')) {
+                    // Download จาก Firebase Storage → เก็บเป็นไฟล์ local
+                    $bgPathCache[$settingKey] = $this->downloadBackground($bgUrl);
                 } else {
-                    $bgCache[$settingKey] = null;
+                    $bgPathCache[$settingKey] = null;
                 }
             }
 
-            $bgValue = $bgCache[$settingKey];
+            $bgFilePath = $bgPathCache[$settingKey];
 
-            if ($bgValue && str_starts_with($bgValue, 'data:')) {
-                // ใช้ base64 data URI จาก system_settings
-                $cert->cert_background = $bgValue;
-            } elseif ($bgValue) {
-                // เป็น URL ที่ download ไม่สำเร็จ ลอง local fallback
+            if ($bgFilePath && file_exists($bgFilePath)) {
+                $cert->cert_background = $bgFilePath;
+            } else {
+                // Fallback: local file
                 $localPath = $localBgPaths[$fallbackLevel] ?? $localBgPaths['district'];
                 $cert->cert_background = file_exists($localPath) ? $localPath : null;
-            } else {
-                // ไม่มีใน settings → ใช้ local fallback
-                $localPath = $localBgPaths[$fallbackLevel] ?? $localBgPaths['district'];
-                if (file_exists($localPath)) {
-                    $cert->cert_background = $localPath;
-                } else {
-                    Log::warning("Certificate background not found for key: {$settingKey}");
-                    $cert->cert_background = null;
-                }
             }
 
-            // สร้าง QR Code สำหรับ certificate จริง (ไม่ใช่ preview)
+            // สร้าง QR Code
             if ($cert->certificate_code && $cert->certificate_code !== 'PREVIEW') {
                 $cert->qr_data_uri = $this->generateQrDataUri($cert->certificate_code);
             } else {
@@ -967,32 +951,28 @@ class CertificateController extends Controller
     }
 
     /**
-     * Download รูปจาก URL แปลงเป็น Base64 data URI สำหรับ DomPDF
-     * ใช้ file cache เพื่อไม่ต้อง download ซ้ำทุกครั้ง (cache 24 ชม.)
-     * Fallback: return URL เดิมถ้า download ไม่สำเร็จ
+     * Download รูปจาก URL เก็บเป็นไฟล์บน disk (ไม่ใช้ base64)
+     * DomPDF อ่านจาก file path โดยตรง → ประหยัด memory มาก
+     * Cache 24 ชม. ไม่ต้อง download ซ้ำ
      */
-    private function urlToBase64(string $url): string
+    private function downloadBackground(string $url): ?string
     {
         try {
-            // ===== File Cache =====
             $cacheDir = storage_path('app/cert_bg_cache');
             if (!is_dir($cacheDir)) {
                 @mkdir($cacheDir, 0755, true);
             }
 
-            $cacheFile = $cacheDir . '/' . md5($url) . '.b64';
+            // ใช้ md5(url) เป็นชื่อไฟล์
+            $cacheFile = $cacheDir . '/' . md5($url) . '.img';
 
             // ถ้า cache มีอยู่แล้ว และอายุไม่เกิน 24 ชม. → ใช้เลย
-            if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) {
-                $cached = @file_get_contents($cacheFile);
-                if ($cached && str_starts_with($cached, 'data:')) {
-                    Log::debug("Using cached background image", ['cache' => basename($cacheFile)]);
-                    return $cached;
-                }
+            if (file_exists($cacheFile) && filesize($cacheFile) > 1000 && (time() - filemtime($cacheFile)) < 86400) {
+                return $cacheFile;
             }
 
-            // ===== Download จาก Firebase Storage =====
-            Log::info("Downloading image for PDF", ['url' => substr($url, 0, 120)]);
+            // Download จาก Firebase Storage
+            Log::info("Downloading background for cert PDF", ['url' => substr($url, 0, 100)]);
 
             $context = stream_context_create([
                 'http' => [
@@ -1007,30 +987,19 @@ class CertificateController extends Controller
             ]);
 
             $content = @file_get_contents($url, false, $context);
-            if ($content === false) {
-                $err = error_get_last();
-                Log::error("Failed to download image from URL", [
-                    'url' => substr($url, 0, 120),
-                    'error' => $err['message'] ?? 'unknown',
-                ]);
-                return $url;
+            if ($content === false || strlen($content) < 1000) {
+                Log::error("Failed to download background", ['url' => substr($url, 0, 100)]);
+                return null;
             }
 
-            Log::info("Image downloaded successfully", ['size' => strlen($content)]);
+            // เก็บเป็นไฟล์ (ไม่ต้อง base64 encode → ประหยัด memory ~33%)
+            @file_put_contents($cacheFile, $content);
+            Log::info("Background cached as file", ['size' => strlen($content), 'file' => basename($cacheFile)]);
 
-            $finfo = new \finfo(FILEINFO_MIME_TYPE);
-            $mimeType = $finfo->buffer($content);
-
-            $base64 = 'data:' . $mimeType . ';base64,' . base64_encode($content);
-
-            // ===== Save to cache =====
-            @file_put_contents($cacheFile, $base64);
-            Log::debug("Background image cached", ['cache' => basename($cacheFile)]);
-
-            return $base64;
+            return $cacheFile;
         } catch (\Exception $e) {
-            Log::warning("Failed to convert URL to Base64: {$e->getMessage()}");
-            return $url;
+            Log::warning("downloadBackground error: {$e->getMessage()}");
+            return null;
         }
     }
 
