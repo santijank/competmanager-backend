@@ -142,6 +142,16 @@
         .medal-bronze { color: #cd7f32; }
         .medal-participant { color: #2a6496; }
 
+        /* ระดับเขต — สีตัวอักษรเหลืองขาว (พื้นหลังเข้ม) */
+        .cert-district .student-name { color: #fff8dc; }
+        .cert-district .school-name { color: #fff8dc; }
+        .cert-district .competition-text { color: #fff8dc; }
+        .cert-district .medal-text { color: #ffe066 !important; }
+        .cert-district .medal-gold { color: #ffd700 !important; }
+        .cert-district .medal-silver { color: #e0e0e0 !important; }
+        .cert-district .medal-bronze { color: #f0c070 !important; }
+        .cert-district .medal-participant { color: #a0d8f0 !important; }
+
         /* QR Code — ซ้ายล่าง เลี่ยงเจดีย์ทอง */
         .qr-section {
             position: absolute;
@@ -224,7 +234,7 @@
             $rankingText = $cert->ranking_text ?? '';
         @endphp
 
-        <div class="certificate-page">
+        <div class="certificate-page {{ ($cert->level ?? 'district') === 'district' ? 'cert-district' : '' }}">
             {{-- ภาพพื้นหลัง (local file) --}}
             @if($certBackground)
                 <img src="{{ $certBackground }}" class="background-image" />
