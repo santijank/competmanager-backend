@@ -271,13 +271,10 @@
                 @endif
             </div>
 
-            {{-- ชื่อกลุ่ม + วันแข่ง (สำหรับระดับกลุ่ม) --}}
-            @if(($cert->level ?? 'district') === 'group' && !empty($cert->group_name))
+            {{-- วันแข่ง (สำหรับระดับกลุ่ม) --}}
+            @if(($cert->level ?? 'district') === 'group' && !empty($cert->competition_date_text))
                 <div class="group-info">
-                    <div class="group-name-text">ระดับกลุ่มโรงเรียน {{ $cert->group_name }}</div>
-                    @if(!empty($cert->competition_date_text))
-                        <div class="competition-date-text">วันที่ {{ $cert->competition_date_text }}</div>
-                    @endif
+                    <div class="competition-date-text">วันที่ {{ $cert->competition_date_text }}</div>
                 </div>
             @endif
 
