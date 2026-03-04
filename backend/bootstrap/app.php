@@ -26,8 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'log.activity' => \App\Http\Middleware\LogActivity::class,
         ]);
 
-        // Append LogActivity and TrackUserActivity to api middleware group
+        // Append middleware to api group
+        // TokenFromQuery ต้องอยู่ก่อน auth:sanctum เพื่อ copy ?token= → Authorization header
         $middleware->api(append: [
+            \App\Http\Middleware\TokenFromQuery::class,
             \App\Http\Middleware\LogActivity::class,
             \App\Http\Middleware\TrackUserActivity::class,
         ]);

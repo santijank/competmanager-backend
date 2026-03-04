@@ -166,31 +166,18 @@ export const certificateService = {
   destroy: (id) => api.delete(`/certificates/${id}`),
   destroyAll: () => api.delete('/certificates/all'),
 
-  download: async (id) => {
-    const response = await api.get(`/certificates/${id}/download`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `certificate_${id}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+  // ใช้ window.open() แทน XHR blob เพื่อหลีกเลี่ยงปัญหา CORS + timeout
+  download: (id) => {
+    const token = localStorage.getItem('auth_token');
+    const baseUrl = api.defaults.baseURL || '';
+    window.open(`${baseUrl}/certificates/${id}/download?token=${token}`, '_blank');
   },
 
-  batchDownload: async (ids) => {
-    const response = await api.get('/certificates/batch-download', {
-      params: { ids },
-      responseType: 'blob',
-    });
-    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `certificates_batch.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+  batchDownload: (ids) => {
+    const token = localStorage.getItem('auth_token');
+    const baseUrl = api.defaults.baseURL || '';
+    const idsStr = ids.join(',');
+    window.open(`${baseUrl}/certificates/batch-download?ids=${idsStr}&token=${token}`, '_blank');
   },
 
   previewUrl: (params) => {

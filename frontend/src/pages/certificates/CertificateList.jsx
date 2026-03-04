@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search, Award, Download, Eye, Trash2, Loader,
   CheckSquare, Square, Filter, FileDown, ChevronDown, Users,
@@ -23,6 +24,8 @@ const medalColors = {
 
 export default function CertificateList() {
   const { user } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const urlLevel = searchParams.get('level'); // 'group' or 'district' from sidebar
 
   // Tab state
   const [activeTab, setActiveTab] = useState('eligible');
@@ -58,10 +61,21 @@ export default function CertificateList() {
 
   // Shared filters
   const [categories, setCategories] = useState([]);
-  const [filterLevel, setFilterLevel] = useState('district');
+  const [filterLevel, setFilterLevel] = useState(urlLevel || 'district');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
   const [search, setSearch] = useState('');
+
+  // Sync filterLevel เมื่อ URL query param เปลี่ยน (เช่น กดเมนู sidebar)
+  useEffect(() => {
+    if (urlLevel && urlLevel !== filterLevel) {
+      setFilterLevel(urlLevel);
+      setSelectedScoreIds([]);
+      setSelectedCertIds([]);
+      setSelectedMemberIds([]);
+      setSelectedStaffIds([]);
+    }
+  }, [urlLevel]);
 
   // Load categories
   useEffect(() => {
@@ -487,7 +501,9 @@ export default function CertificateList() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Award className="w-7 h-7 text-yellow-600" />
-        <h1 className="text-2xl font-bold text-gray-900">เกียรติบัตร</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {urlLevel === 'group' ? 'เกียรติบัตรระดับกลุ่ม' : urlLevel === 'district' ? 'เกียรติบัตรระดับเขต' : 'เกียรติบัตร'}
+        </h1>
       </div>
 
       {/* Tabs */}
@@ -539,27 +555,29 @@ export default function CertificateList() {
         </button>
       </div>
 
-      {/* Level Tabs */}
-      <div className="flex gap-2 mb-4">
-        {[
-          { value: 'group', label: 'ระดับกลุ่มโรงเรียน', color: 'green' },
-          { value: 'district', label: 'ระดับเขตพื้นที่', color: 'blue' },
-        ].map(lv => (
-          <button
-            key={lv.value}
-            onClick={() => { setFilterLevel(lv.value); setSelectedScoreIds([]); setSelectedCertIds([]); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
-              filterLevel === lv.value
-                ? lv.color === 'green'
-                  ? 'bg-green-600 text-white border-green-600'
-                  : 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {lv.label}
-          </button>
-        ))}
-      </div>
+      {/* Level Tabs — ซ่อนถ้าเข้ามาจากเมนูที่ระบุ level แล้ว */}
+      {!urlLevel && (
+        <div className="flex gap-2 mb-4">
+          {[
+            { value: 'group', label: 'ระดับกลุ่มโรงเรียน', color: 'green' },
+            { value: 'district', label: 'ระดับเขตพื้นที่', color: 'blue' },
+          ].map(lv => (
+            <button
+              key={lv.value}
+              onClick={() => { setFilterLevel(lv.value); setSelectedScoreIds([]); setSelectedCertIds([]); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition border ${
+                filterLevel === lv.value
+                  ? lv.color === 'green'
+                    ? 'bg-green-600 text-white border-green-600'
+                    : 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {lv.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg border p-4 mb-4">
@@ -1030,9 +1048,13 @@ export default function CertificateList() {
                           )}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${medalColors[cert.medal] || 'bg-gray-100'}`}>
-                            {medalLabels[cert.medal] || cert.medal}
-                          </span>
+                          {cert.medal ? (
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${medalColors[cert.medal] || 'bg-gray-100'}`}>
+                              {medalLabels[cert.medal] || cert.medal}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-center text-gray-700">{cert.rank ?? '-'}</td>
                         <td className="px-3 py-2 text-center">

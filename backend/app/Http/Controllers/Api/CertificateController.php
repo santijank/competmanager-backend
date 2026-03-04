@@ -366,6 +366,10 @@ class CertificateController extends Controller
     {
         try {
             $ids = $request->input('ids', []);
+            // รองรับทั้ง array (จาก XHR) และ comma-separated string (จาก window.open)
+            if (is_string($ids)) {
+                $ids = array_filter(array_map('intval', explode(',', $ids)));
+            }
             if (empty($ids)) {
                 return response()->json(['success' => false, 'message' => 'กรุณาเลือกเกียรติบัตร'], 400);
             }
@@ -905,16 +909,35 @@ class CertificateController extends Controller
 
     /**
      * Download รูปจาก URL แปลงเป็น Base64 data URI สำหรับ DomPDF
+     * ใช้ file cache เพื่อไม่ต้อง download ซ้ำทุกครั้ง (cache 24 ชม.)
      * Fallback: return URL เดิมถ้า download ไม่สำเร็จ
      */
     private function urlToBase64(string $url): string
     {
         try {
+            // ===== File Cache =====
+            $cacheDir = storage_path('app/cert_bg_cache');
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+
+            $cacheFile = $cacheDir . '/' . md5($url) . '.b64';
+
+            // ถ้า cache มีอยู่แล้ว และอายุไม่เกิน 24 ชม. → ใช้เลย
+            if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) {
+                $cached = @file_get_contents($cacheFile);
+                if ($cached && str_starts_with($cached, 'data:')) {
+                    Log::debug("Using cached background image", ['cache' => basename($cacheFile)]);
+                    return $cached;
+                }
+            }
+
+            // ===== Download จาก Firebase Storage =====
             Log::info("Downloading image for PDF", ['url' => substr($url, 0, 120)]);
 
             $context = stream_context_create([
                 'http' => [
-                    'timeout' => 30,
+                    'timeout' => 15,
                     'user_agent' => 'CompetManager-PDF/1.0',
                     'follow_location' => true,
                 ],
@@ -939,7 +962,13 @@ class CertificateController extends Controller
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
             $mimeType = $finfo->buffer($content);
 
-            return 'data:' . $mimeType . ';base64,' . base64_encode($content);
+            $base64 = 'data:' . $mimeType . ';base64,' . base64_encode($content);
+
+            // ===== Save to cache =====
+            @file_put_contents($cacheFile, $base64);
+            Log::debug("Background image cached", ['cache' => basename($cacheFile)]);
+
+            return $base64;
         } catch (\Exception $e) {
             Log::warning("Failed to convert URL to Base64: {$e->getMessage()}");
             return $url;
