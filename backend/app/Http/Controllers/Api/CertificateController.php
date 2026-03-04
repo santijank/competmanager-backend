@@ -13,7 +13,9 @@ use App\Models\SchoolGroup;
 use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Laravel\Sanctum\PersonalAccessToken;
 use Barryvdh\DomPDF\Facade\Pdf;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -22,6 +24,33 @@ use chillerlan\QRCode\Output\QROutputInterface;
 
 class CertificateController extends Controller
 {
+    /**
+     * Authenticate จาก ?token= query string หรือ Bearer header
+     * ใช้สำหรับ routes ที่เปิดผ่าน window.open() (ไม่มี Authorization header)
+     */
+    private function authenticateFromToken(Request $request): bool
+    {
+        // ถ้า login แล้ว (จาก auth:sanctum middleware) ไม่ต้องทำอะไร
+        if (Auth::check()) {
+            return true;
+        }
+
+        // ลอง token จาก query string ก่อน, จากนั้น Bearer header
+        $plainToken = $request->query('token') ?? $request->bearerToken();
+        if (!$plainToken) {
+            return false;
+        }
+
+        $accessToken = PersonalAccessToken::findToken($plainToken);
+        if (!$accessToken) {
+            return false;
+        }
+
+        // Set authenticated user
+        Auth::setUser($accessToken->tokenable);
+        return true;
+    }
+
     /**
      * รายการเกียรติบัตรที่สร้างแล้ว
      */
@@ -342,9 +371,14 @@ class CertificateController extends Controller
 
     /**
      * ดาวน์โหลด PDF เกียรติบัตรรายฉบับ (generate on-the-fly)
+     * รองรับ ?token= สำหรับ window.open()
      */
-    public function download(int $id)
+    public function download(Request $request, int $id)
     {
+        if (!$this->authenticateFromToken($request)) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
         try {
             $certificate = Certificate::with('competition')->findOrFail($id);
             $pdf = $this->renderPdf(collect([$certificate]));
@@ -364,6 +398,10 @@ class CertificateController extends Controller
      */
     public function batchDownload(Request $request)
     {
+        if (!$this->authenticateFromToken($request)) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
         try {
             $ids = $request->input('ids', []);
             // รองรับทั้ง array (จาก XHR) และ comma-separated string (จาก window.open)
@@ -397,9 +435,14 @@ class CertificateController extends Controller
 
     /**
      * Preview เกียรติบัตร (stream PDF)
+     * รองรับ ?token= สำหรับ window.open()
      */
     public function preview(Request $request)
     {
+        if (!$this->authenticateFromToken($request)) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
         try {
             if ($request->filled('score_id')) {
                 // Preview จาก score ที่ยังไม่สร้าง certificate

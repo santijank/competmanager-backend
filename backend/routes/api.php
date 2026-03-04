@@ -71,6 +71,15 @@ Route::get('results/public', [\App\Http\Controllers\Api\ScoreController::class, 
 // Public certificate verification (no auth required)
 Route::get('certificates/verify/{code}', [CertificateController::class, 'verify']);
 
+// Certificate PDF routes — auth ผ่าน ?token= (สำหรับ window.open) หรือ Bearer header
+// อยู่นอก auth:sanctum เพราะ window.open ไม่สามารถส่ง Authorization header ได้
+// controller จัดการ auth เองผ่าน authenticateFromToken()
+Route::prefix('certificates')->group(function () {
+    Route::get('/preview', [CertificateController::class, 'preview']);
+    Route::get('/batch-download', [CertificateController::class, 'batchDownload']);
+    Route::get('/{id}/download', [CertificateController::class, 'download']);
+});
+
 // Public results PDF (no auth required)
 Route::get('results/pdf', [\App\Http\Controllers\Api\ResultPdfController::class, 'generatePdf']);
 Route::get('results/pdf/preview', [\App\Http\Controllers\Api\ResultPdfController::class, 'previewPdf']);
@@ -184,13 +193,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/users/search', [MessageController::class, 'searchUsers']);
     });
 
-    // Certificates - ระบบเกียรติบัตร
+    // Certificates - ระบบเกียรติบัตร (preview/download อยู่นอก auth:sanctum ด้านบน)
     Route::prefix('certificates')->group(function () {
         Route::get('/', [CertificateController::class, 'index']);
         Route::get('/eligible', [CertificateController::class, 'eligible']);
         Route::post('/generate', [CertificateController::class, 'generate']);
-        Route::get('/preview', [CertificateController::class, 'preview']);
-        Route::get('/batch-download', [CertificateController::class, 'batchDownload']);
         Route::get('/number-settings', [CertificateController::class, 'numberSettings']);
         Route::post('/number-settings', [CertificateController::class, 'updateNumberSettings']);
         Route::post('/number-settings/reset', [CertificateController::class, 'resetNumberSettings']);
@@ -201,7 +208,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/generate-committee', [CertificateController::class, 'generateCommittee']);
         Route::get('/eligible-staff', [CertificateController::class, 'eligibleStaff']);
         Route::post('/generate-staff', [CertificateController::class, 'generateStaff']);
-        Route::get('/{id}/download', [CertificateController::class, 'download']);
         Route::delete('/{id}', [CertificateController::class, 'destroy']);
     });
 
