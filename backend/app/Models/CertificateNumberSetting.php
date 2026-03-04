@@ -54,7 +54,12 @@ class CertificateNumberSetting extends Model
                     'level' => $level,
                     'type' => $type,
                     'school_group_id' => $schoolGroupId,
-                    'prefix' => $type === 'teacher' ? 'สพป.นฐ.๑-คร.' : 'สพป.นฐ.๑-นร.',
+                    'prefix' => match($type) {
+                        'teacher' => 'สพป.นฐ.๑-คร.',
+                        'staff' => 'สพป.นฐ.๑-กก.',
+                        'committee' => 'สพป.นฐ.๑-ตส.',
+                        default => 'สพป.นฐ.๑-นร.',
+                    },
                     'year' => self::toBuddhistYear(),
                     'last_number' => 0,
                 ]);
