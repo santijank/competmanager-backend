@@ -886,6 +886,9 @@ class CertificateController extends Controller
      */
     private function renderPdf($certificates)
     {
+        // เพิ่ม memory limit สำหรับ DomPDF (เหมือน IdCardController/ScoreExportController)
+        ini_set('memory_limit', '512M');
+
         // Fallback: local files
         $localBgPaths = [
             'district' => public_path('images/cert/district_bg.png'),
@@ -951,9 +954,13 @@ class CertificateController extends Controller
     }
 
     /**
-     * Download รูปจาก URL เก็บเป็นไฟล์บน disk (ไม่ใช้ base64)
+     * Download รูปจาก URL → resize + JPEG compress → เก็บเป็นไฟล์บน disk
      * DomPDF อ่านจาก file path โดยตรง → ประหยัด memory มาก
      * Cache 24 ชม. ไม่ต้อง download ซ้ำ
+     *
+     * Optimization: ย่อภาพเป็น A4 landscape 150 DPI (1754×1240)
+     * + บีบเป็น JPEG quality 85 → จาก ~5MB PNG เหลือ ~300KB JPEG
+     * → DomPDF ใช้ memory ลดจาก ~70MB เหลือ ~9MB
      */
     private function downloadBackground(string $url): ?string
     {
@@ -963,8 +970,8 @@ class CertificateController extends Controller
                 @mkdir($cacheDir, 0755, true);
             }
 
-            // ใช้ md5(url) เป็นชื่อไฟล์
-            $cacheFile = $cacheDir . '/' . md5($url) . '.img';
+            // ใช้ .jpg สำหรับ DomPDF (รู้จัก format)
+            $cacheFile = $cacheDir . '/' . md5($url) . '_optimized.jpg';
 
             // ถ้า cache มีอยู่แล้ว และอายุไม่เกิน 24 ชม. → ใช้เลย
             if (file_exists($cacheFile) && filesize($cacheFile) > 1000 && (time() - filemtime($cacheFile)) < 86400) {
@@ -992,11 +999,46 @@ class CertificateController extends Controller
                 return null;
             }
 
-            // เก็บเป็นไฟล์ (ไม่ต้อง base64 encode → ประหยัด memory ~33%)
-            @file_put_contents($cacheFile, $content);
-            Log::info("Background cached as file", ['size' => strlen($content), 'file' => basename($cacheFile)]);
+            // Optimize: resize เป็น A4 landscape 150 DPI + JPEG compress
+            // ช่วยลด memory ที่ DomPDF ต้องใช้จาก ~70MB เหลือ ~9MB
+            $img = @imagecreatefromstring($content);
+            unset($content); // ปล่อย raw content ทันที
 
-            return $cacheFile;
+            if ($img) {
+                $srcW = imagesx($img);
+                $srcH = imagesy($img);
+
+                // A4 landscape at 150 DPI = 1754 × 1240 px
+                $targetW = 1754;
+                $targetH = 1240;
+
+                // Resize เฉพาะถ้าภาพใหญ่กว่า target
+                if ($srcW > $targetW || $srcH > $targetH) {
+                    $resized = imagecreatetruecolor($targetW, $targetH);
+                    // เก็บ transparency → แปลงเป็น white background
+                    imagefill($resized, 0, 0, imagecolorallocate($resized, 255, 255, 255));
+                    imagecopyresampled($resized, $img, 0, 0, 0, 0, $targetW, $targetH, $srcW, $srcH);
+                    imagedestroy($img);
+                    imagejpeg($resized, $cacheFile, 85);
+                    imagedestroy($resized);
+                    Log::info("Background optimized: {$srcW}x{$srcH} → {$targetW}x{$targetH} JPEG", [
+                        'file' => basename($cacheFile),
+                        'size' => filesize($cacheFile),
+                    ]);
+                } else {
+                    imagejpeg($img, $cacheFile, 90);
+                    imagedestroy($img);
+                    Log::info("Background saved as JPEG (no resize needed)", [
+                        'size' => filesize($cacheFile),
+                    ]);
+                }
+            } else {
+                // GD ไม่สามารถอ่านได้ → เก็บ raw (fallback)
+                @file_put_contents($cacheFile, $content ?? '');
+                Log::warning("GD cannot process image, saved raw");
+            }
+
+            return file_exists($cacheFile) && filesize($cacheFile) > 1000 ? $cacheFile : null;
         } catch (\Exception $e) {
             Log::warning("downloadBackground error: {$e->getMessage()}");
             return null;
