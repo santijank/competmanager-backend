@@ -62,12 +62,12 @@
         /* ============================================ */
         .document-number {
             position: absolute;
-            top: 8mm;
+            top: 5mm;
             right: 16mm;
             z-index: 2;
             font-size: 15pt;
             font-weight: bold;
-            color: #fff;
+            color: #ff69b4;
         }
 
         /* ============================================ */
@@ -77,7 +77,7 @@
         /* ============================================ */
         .student-overlay {
             position: absolute;
-            top: 73mm;
+            top: 68mm;
             left: 50mm;
             right: 50mm;
             height: 50mm;
