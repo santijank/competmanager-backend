@@ -252,7 +252,7 @@ export default function CertificateList() {
   const handlePreviewScore = (scoreId) => {
     const token = localStorage.getItem('auth_token');
     const baseUrl = api.defaults.baseURL || '';
-    window.open(`${baseUrl}/certificates/preview?score_id=${scoreId}&token=${token}`, '_blank');
+    window.open(`${baseUrl}/certificates/preview?score_id=${scoreId}&token=${encodeURIComponent(token)}`, '_blank');
   };
 
   // === Generated Tab Actions ===
@@ -323,7 +323,7 @@ export default function CertificateList() {
   const handlePreviewCert = (certId) => {
     const token = localStorage.getItem('auth_token');
     const baseUrl = api.defaults.baseURL || '';
-    window.open(`${baseUrl}/certificates/preview?certificate_id=${certId}&token=${token}`, '_blank');
+    window.open(`${baseUrl}/certificates/preview?certificate_id=${certId}&token=${encodeURIComponent(token)}`, '_blank');
   };
 
   // === Committee Tab Actions ===

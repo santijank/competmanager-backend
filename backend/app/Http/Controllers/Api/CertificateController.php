@@ -30,25 +30,38 @@ class CertificateController extends Controller
      */
     private function authenticateFromToken(Request $request): bool
     {
-        // ถ้า login แล้ว (จาก auth:sanctum middleware) ไม่ต้องทำอะไร
-        if (Auth::check()) {
+        try {
+            // ถ้า login แล้ว (จาก auth:sanctum middleware) ไม่ต้องทำอะไร
+            if (Auth::check()) {
+                return true;
+            }
+
+            // ลอง token จาก query string ก่อน, จากนั้น Bearer header
+            $plainToken = $request->query('token') ?? $request->bearerToken();
+            if (!$plainToken) {
+                Log::warning('authenticateFromToken: no token found');
+                return false;
+            }
+
+            $accessToken = PersonalAccessToken::findToken($plainToken);
+            if (!$accessToken) {
+                Log::warning('authenticateFromToken: token not found in DB', ['token_prefix' => substr($plainToken, 0, 10)]);
+                return false;
+            }
+
+            $user = $accessToken->tokenable;
+            if (!$user) {
+                Log::warning('authenticateFromToken: token has no user');
+                return false;
+            }
+
+            // Set authenticated user
+            Auth::setUser($user);
             return true;
-        }
-
-        // ลอง token จาก query string ก่อน, จากนั้น Bearer header
-        $plainToken = $request->query('token') ?? $request->bearerToken();
-        if (!$plainToken) {
+        } catch (\Exception $e) {
+            Log::error('authenticateFromToken error: ' . $e->getMessage());
             return false;
         }
-
-        $accessToken = PersonalAccessToken::findToken($plainToken);
-        if (!$accessToken) {
-            return false;
-        }
-
-        // Set authenticated user
-        Auth::setUser($accessToken->tokenable);
-        return true;
     }
 
     /**
@@ -375,20 +388,23 @@ class CertificateController extends Controller
      */
     public function download(Request $request, int $id)
     {
-        if (!$this->authenticateFromToken($request)) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-
         try {
+            if (!$this->authenticateFromToken($request)) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
             $certificate = Certificate::with('competition')->findOrFail($id);
             $pdf = $this->renderPdf(collect([$certificate]));
 
             return $pdf->stream("certificate_{$certificate->certificate_code}.pdf");
         } catch (\Exception $e) {
-            Log::error('Certificate download error: ' . $e->getMessage());
+            Log::error('Certificate download error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'id' => $id,
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถดาวน์โหลดได้'
+                'message' => 'ไม่สามารถดาวน์โหลดได้: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -398,11 +414,10 @@ class CertificateController extends Controller
      */
     public function batchDownload(Request $request)
     {
-        if (!$this->authenticateFromToken($request)) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-
         try {
+            if (!$this->authenticateFromToken($request)) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
             $ids = $request->input('ids', []);
             // รองรับทั้ง array (จาก XHR) และ comma-separated string (จาก window.open)
             if (is_string($ids)) {
@@ -439,11 +454,10 @@ class CertificateController extends Controller
      */
     public function preview(Request $request)
     {
-        if (!$this->authenticateFromToken($request)) {
-            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
-        }
-
         try {
+            if (!$this->authenticateFromToken($request)) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
             if ($request->filled('score_id')) {
                 // Preview จาก score ที่ยังไม่สร้าง certificate
                 $score = Score::with([
@@ -492,10 +506,12 @@ class CertificateController extends Controller
             $pdf = $this->renderPdf(collect([$certificate]));
             return $pdf->stream('preview_certificate.pdf');
         } catch (\Exception $e) {
-            Log::error('Certificate preview error: ' . $e->getMessage());
+            Log::error('Certificate preview error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'ไม่สามารถแสดงตัวอย่างได้'
+                'message' => 'ไม่สามารถแสดงตัวอย่างได้: ' . $e->getMessage()
             ], 500);
         }
     }

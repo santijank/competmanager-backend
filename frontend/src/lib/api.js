@@ -170,14 +170,14 @@ export const certificateService = {
   download: (id) => {
     const token = localStorage.getItem('auth_token');
     const baseUrl = api.defaults.baseURL || '';
-    window.open(`${baseUrl}/certificates/${id}/download?token=${token}`, '_blank');
+    window.open(`${baseUrl}/certificates/${id}/download?token=${encodeURIComponent(token)}`, '_blank');
   },
 
   batchDownload: (ids) => {
     const token = localStorage.getItem('auth_token');
     const baseUrl = api.defaults.baseURL || '';
     const idsStr = ids.join(',');
-    window.open(`${baseUrl}/certificates/batch-download?ids=${idsStr}&token=${token}`, '_blank');
+    window.open(`${baseUrl}/certificates/batch-download?ids=${idsStr}&token=${encodeURIComponent(token)}`, '_blank');
   },
 
   previewUrl: (params) => {
