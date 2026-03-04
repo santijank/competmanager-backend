@@ -271,12 +271,7 @@
                 @endif
             </div>
 
-            {{-- วันแข่ง (สำหรับระดับกลุ่ม) --}}
-            @if(($cert->level ?? 'district') === 'group' && !empty($cert->competition_date_text))
-                <div class="group-info">
-                    <div class="competition-date-text">วันที่ {{ $cert->competition_date_text }}</div>
-                </div>
-            @endif
+            {{-- group-info removed: ไม่แสดงชื่อกลุ่มและวันแข่งบนเกียรติบัตร --}}
 
             {{-- QR Code — กลางล่าง --}}
             @if(!empty($cert->qr_data_uri))
