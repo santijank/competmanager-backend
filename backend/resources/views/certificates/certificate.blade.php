@@ -221,6 +221,15 @@
             'bronze' => 'medal-bronze',
             'participant' => 'medal-participant',
         ];
+
+        // แปลงเลขอารบิกเป็นเลขไทย
+        function toThaiDigits($str) {
+            return str_replace(
+                ['0','1','2','3','4','5','6','7','8','9'],
+                ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'],
+                $str ?? ''
+            );
+        }
     @endphp
 
     @foreach($certificates as $cert)
@@ -254,7 +263,7 @@
                     <div class="medal-text" style="color: #1a5276;">
                         เป็นคณะกรรมการตัดสิน
                     </div>
-                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                    <div class="competition-text">กิจกรรม {{ toThaiDigits($cert->competition_name) }}</div>
                 @elseif($isStaff)
                     <div class="school-name">{{ $cert->school_name }}</div>
                     <div class="medal-text" style="color: #1a5276;">
@@ -268,7 +277,7 @@
                             {{ $rankingText }}
                         @endif
                     </div>
-                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                    <div class="competition-text">กิจกรรม {{ toThaiDigits($cert->competition_name) }}</div>
                 @else
                     <div class="school-name">โรงเรียน{{ $cert->school_name }}</div>
                     <div class="medal-text {{ $medalClass }}">
@@ -277,7 +286,7 @@
                             {{ $rankingText }}
                         @endif
                     </div>
-                    <div class="competition-text">กิจกรรม {{ $cert->competition_name }}</div>
+                    <div class="competition-text">กิจกรรม {{ toThaiDigits($cert->competition_name) }}</div>
                 @endif
             </div>
 
