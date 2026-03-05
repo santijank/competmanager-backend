@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Search, Award, Download, Eye, Loader,
   CheckSquare, Square, FileDown, Users, GraduationCap,
+  ChevronLeft, ChevronRight, DownloadCloud,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api, { certificateService } from '@/lib/api';
@@ -26,13 +27,17 @@ export default function SchoolCertificates() {
   const [search, setSearch] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [activeTab, setActiveTab] = useState('group');
   const [selectedIds, setSelectedIds] = useState([]);
   const [summary, setSummary] = useState({});
+  const [meta, setMeta] = useState({});
+  const [page, setPage] = useState(1);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   const loadCertificates = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { my_school: 1 };
+      const params = { my_school: 1, level: activeTab, page };
       if (filterMedal) params.medal = filterMedal;
       if (filterType) params.recipient_type = filterType;
       if (search) params.search = search;
@@ -40,16 +45,23 @@ export default function SchoolCertificates() {
       const res = await certificateService.getAll(params);
       setCertificates(res.data?.data || []);
       setSummary(res.data?.summary || {});
+      setMeta(res.data?.meta || {});
     } catch {
       toast.error('ไม่สามารถโหลดเกียรติบัตรได้');
     } finally {
       setLoading(false);
     }
-  }, [filterMedal, filterType, search]);
+  }, [activeTab, filterMedal, filterType, search, page]);
 
   useEffect(() => {
     loadCertificates();
   }, [loadCertificates]);
+
+  // Reset page + selection when tab or filters change
+  useEffect(() => {
+    setPage(1);
+    setSelectedIds([]);
+  }, [activeTab, filterMedal, filterType, search]);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev =>
@@ -58,7 +70,7 @@ export default function SchoolCertificates() {
   };
 
   const selectAll = () => {
-    if (selectedIds.length === certificates.length) {
+    if (selectedIds.length === certificates.length && certificates.length > 0) {
       setSelectedIds([]);
     } else {
       setSelectedIds(certificates.map(c => c.id));
@@ -71,25 +83,46 @@ export default function SchoolCertificates() {
     window.open(`${baseUrl}/certificates/preview?certificate_id=${certId}&token=${token}`, '_blank');
   };
 
-  const handleDownload = async (id) => {
-    try {
-      await certificateService.download(id);
-    } catch {
-      toast.error('ไม่สามารถดาวน์โหลดได้');
-    }
+  const handleDownload = (id) => {
+    certificateService.download(id);
   };
 
-  const handleBatchDownload = async () => {
+  const handleBatchDownload = () => {
     if (selectedIds.length === 0) {
       toast.warning('กรุณาเลือกเกียรติบัตร');
       return;
     }
+    certificateService.batchDownload(selectedIds);
+  };
+
+  const handleDownloadAll = async () => {
+    if (!summary.total || summary.total === 0) {
+      toast.warning('ไม่มีเกียรติบัตรให้ดาวน์โหลด');
+      return;
+    }
+    setDownloadingAll(true);
     try {
-      await certificateService.batchDownload(selectedIds);
+      const params = { my_school: 1, level: activeTab, per_page: 9999 };
+      if (filterMedal) params.medal = filterMedal;
+      if (filterType) params.recipient_type = filterType;
+      if (search) params.search = search;
+
+      toast.info('กำลังเตรียมดาวน์โหลด...');
+      const res = await certificateService.getAll(params);
+      const allCerts = res.data?.data || [];
+      if (allCerts.length === 0) {
+        toast.warning('ไม่พบเกียรติบัตร');
+        return;
+      }
+      certificateService.batchDownload(allCerts.map(c => c.id));
     } catch {
       toast.error('ไม่สามารถดาวน์โหลดได้');
+    } finally {
+      setDownloadingAll(false);
     }
   };
+
+  const levelLabel = activeTab === 'group' ? 'ระดับกลุ่ม' : 'ระดับเขต';
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -99,6 +132,32 @@ export default function SchoolCertificates() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">เกียรติบัตรของโรงเรียน</h1>
           <p className="text-sm text-gray-500">ดาวน์โหลดเกียรติบัตรนักเรียนและครูผู้ฝึกสอน</p>
+        </div>
+      </div>
+
+      {/* Level Tabs */}
+      <div className="bg-white rounded-lg border border-gray-200 mb-6 overflow-hidden">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('group')}
+            className={`flex-1 py-3 px-4 text-center font-semibold text-sm transition-colors ${
+              activeTab === 'group'
+                ? 'text-white bg-green-600'
+                : 'text-gray-500 hover:text-green-700 hover:bg-green-50'
+            }`}
+          >
+            ระดับกลุ่มโรงเรียน
+          </button>
+          <button
+            onClick={() => setActiveTab('district')}
+            className={`flex-1 py-3 px-4 text-center font-semibold text-sm transition-colors ${
+              activeTab === 'district'
+                ? 'text-white bg-blue-600'
+                : 'text-gray-500 hover:text-blue-700 hover:bg-blue-50'
+            }`}
+          >
+            ระดับเขตพื้นที่การศึกษา
+          </button>
         </div>
       </div>
 
@@ -131,7 +190,7 @@ export default function SchoolCertificates() {
         )}
       </div>
 
-      {/* Filters */}
+      {/* Filters + Download All */}
       <div className="bg-white rounded-lg border p-4 mb-4">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px]">
@@ -164,20 +223,33 @@ export default function SchoolCertificates() {
             <option value="bronze">เหรียญทองแดง</option>
             <option value="participant">เข้าร่วม</option>
           </select>
+          <button
+            onClick={handleDownloadAll}
+            disabled={!summary.total || downloadingAll}
+            className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {downloadingAll ? (
+              <Loader className="w-4 h-4 animate-spin" />
+            ) : (
+              <DownloadCloud className="w-4 h-4" />
+            )}
+            ดาวน์โหลดทั้งหมด ({summary.total || 0})
+          </button>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 mb-4">
-        <button
-          onClick={handleBatchDownload}
-          disabled={selectedIds.length === 0}
-          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <FileDown className="w-4 h-4" />
-          ดาวน์โหลดที่เลือก ({selectedIds.length})
-        </button>
-      </div>
+      {/* Batch Actions */}
+      {selectedIds.length > 0 && (
+        <div className="flex justify-end gap-2 mb-4">
+          <button
+            onClick={handleBatchDownload}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+          >
+            <FileDown className="w-4 h-4" />
+            ดาวน์โหลดที่เลือก ({selectedIds.length})
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-lg border overflow-hidden">
@@ -189,7 +261,7 @@ export default function SchoolCertificates() {
         ) : certificates.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
             <Award className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="font-medium">ยังไม่มีเกียรติบัตร</p>
+            <p className="font-medium">ยังไม่มีเกียรติบัตร{levelLabel}</p>
             <p className="text-sm mt-1">เกียรติบัตรจะแสดงเมื่อผู้ดูแลระบบสร้างเกียรติบัตรแล้ว</p>
           </div>
         ) : (
@@ -279,6 +351,56 @@ export default function SchoolCertificates() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {meta.last_page > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-gray-500">
+            หน้า {meta.current_page} จาก {meta.last_page} (ทั้งหมด {meta.total} รายการ)
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="p-2 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {Array.from({ length: Math.min(meta.last_page, 5) }, (_, i) => {
+              let pageNum;
+              if (meta.last_page <= 5) {
+                pageNum = i + 1;
+              } else if (page <= 3) {
+                pageNum = i + 1;
+              } else if (page >= meta.last_page - 2) {
+                pageNum = meta.last_page - 4 + i;
+              } else {
+                pageNum = page - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`w-8 h-8 rounded text-sm font-medium ${
+                    page === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'hover:bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setPage(p => Math.min(meta.last_page, p + 1))}
+              disabled={page >= meta.last_page}
+              className="p-2 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

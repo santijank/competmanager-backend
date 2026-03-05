@@ -115,15 +115,31 @@ class CertificateController extends Controller
                 });
             }
 
-            $certificates = $query->orderBy('created_at', 'desc')->paginate(50);
+            $perPage = min((int)($request->per_page ?? 50), 9999);
+            $certificates = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-            // สรุปจำนวน
+            // สรุปจำนวน (ใช้ filter เดียวกับ query หลัก)
             $summaryQuery = Certificate::query();
             if ($request->filled('competition_id')) {
                 $summaryQuery->where('competition_id', $request->competition_id);
             }
             if ($request->filled('category_id')) {
                 $summaryQuery->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
+            }
+            if ($request->filled('level')) {
+                $summaryQuery->where('level', $request->level);
+            }
+            if ($request->filled('my_school')) {
+                $user = auth()->user();
+                if ($user && $user->school_id) {
+                    $schoolName = $user->school?->name;
+                    if ($schoolName) {
+                        $summaryQuery->where('school_name', $schoolName);
+                    }
+                }
+            }
+            if ($request->filled('recipient_type')) {
+                $summaryQuery->where('recipient_type', $request->recipient_type);
             }
 
             $summary = [
