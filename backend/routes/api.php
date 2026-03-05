@@ -71,6 +71,10 @@ Route::get('results/public', [\App\Http\Controllers\Api\ScoreController::class, 
 // Public certificate verification (no auth required)
 Route::get('certificates/verify/{code}', [CertificateController::class, 'verify']);
 
+// Public certificate listing & download (no auth required)
+Route::get('certificates/public', [CertificateController::class, 'publicIndex']);
+Route::get('certificates/public/batch-download', [CertificateController::class, 'publicBatchDownload']);
+
 // Certificate PDF routes — auth ผ่าน ?token= (สำหรับ window.open) หรือ Bearer header
 // อยู่นอก auth:sanctum เพราะ window.open ไม่สามารถส่ง Authorization header ได้
 // controller จัดการ auth เองผ่าน authenticateFromToken()

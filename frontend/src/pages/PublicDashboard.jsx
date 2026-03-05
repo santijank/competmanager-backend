@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { School, Trophy, Award, Megaphone, ExternalLink, Link as LinkIcon, MapPin, Calendar, Clock, ChevronDown, ChevronRight, Layers, Download, FileText, Building2, Users, Medal, LogIn, LogOut, User, LayoutDashboard, List, BookOpen, GraduationCap, Globe } from "lucide-react";
+import { School, Trophy, Award, Megaphone, ExternalLink, Link as LinkIcon, MapPin, Calendar, Clock, ChevronDown, ChevronRight, ChevronLeft, Layers, Download, DownloadCloud, FileDown, FileText, Building2, Users, Medal, LogIn, LogOut, User, LayoutDashboard, List, BookOpen, GraduationCap, Globe, Search, Loader, Eye, CheckSquare, Square } from "lucide-react";
 import api from "../services/api";
 import useAuthStore from "../stores/authStore";
+import { exportScheduleToExcel } from "../utils/exportScheduleExcel";
 
 // Animated Counter - ตัวเลขนับขึ้นเมื่อ scroll เข้ามา
 function AnimatedCounter({ value, duration = 2.2 }) {
@@ -230,7 +231,7 @@ const CategoryAccordion = ({ categoryName, schedules, isExpanded, onToggle }) =>
 };
 
 // Schedule Section Component - จัดกลุ่มตามหมวดหมู่
-const ScheduleSection = ({ schedules, groupId, level = 'group' }) => {
+const ScheduleSection = ({ schedules, groupId, level = 'group', groupName = '' }) => {
   const [expandedCategories, setExpandedCategories] = useState({});
 
   // กรอง schedules ตาม level
@@ -279,6 +280,14 @@ const ScheduleSection = ({ schedules, groupId, level = 'group' }) => {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => exportScheduleToExcel(filteredSchedules, groupName || (level === 'district' ? 'ระดับเขตพื้นที่' : 'ตารางสถานที่'))}
+            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Excel
+          </button>
+          <span className="text-gray-300">|</span>
           <button
             onClick={expandAll}
             className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
@@ -502,6 +511,320 @@ const ResultsSection = ({ results, groupId, groupName = null, level = 'group' })
           />
         ))}
       </div>
+    </div>
+  );
+};
+
+// ===== Certificate Section - ดาวน์โหลดเกียรติบัตร (Public, no auth) =====
+const medalLabels = { gold: 'เหรียญทอง', silver: 'เหรียญเงิน', bronze: 'เหรียญทองแดง', participant: 'เข้าร่วม' };
+const medalBadgeColors = {
+  gold: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  silver: 'bg-gray-100 text-gray-700 border-gray-300',
+  bronze: 'bg-orange-100 text-orange-800 border-orange-300',
+  participant: 'bg-blue-100 text-blue-800 border-blue-300',
+};
+
+const CertificateSection = ({ level = 'district', groupId = null }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [summary, setSummary] = useState({});
+  const [schools, setSchools] = useState([]);
+  const [meta, setMeta] = useState({});
+  const [page, setPage] = useState(1);
+  const [filterSchool, setFilterSchool] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterMedal, setFilterMedal] = useState('');
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [totalCount, setTotalCount] = useState(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  const baseUrl = api.defaults?.baseURL || import.meta.env.VITE_API_URL || '';
+
+  // Fetch initial count (for header badge) on mount
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const params = { level, per_page: 1 };
+        if (groupId) params.school_group_id = groupId;
+        const res = await api.get('/certificates/public', { params });
+        setTotalCount(res.data?.summary?.total || 0);
+      } catch { setTotalCount(0); }
+    };
+    fetchCount();
+  }, [level, groupId]);
+
+  // Fetch certificates when expanded or filters change
+  useEffect(() => {
+    if (!isExpanded) return;
+    const fetchCerts = async () => {
+      setLoading(true);
+      try {
+        const params = { level, page };
+        if (groupId) params.school_group_id = groupId;
+        if (filterSchool) params.school_name = filterSchool;
+        if (filterType) params.recipient_type = filterType;
+        if (filterMedal) params.medal = filterMedal;
+        if (search) params.search = search;
+        const res = await api.get('/certificates/public', { params });
+        if (res.data?.success) {
+          setCertificates(res.data.data || []);
+          setSummary(res.data.summary || {});
+          setSchools(res.data.schools || []);
+          setMeta(res.data.meta || {});
+        }
+      } catch { /* ignore */ }
+      finally { setLoading(false); }
+    };
+    fetchCerts();
+  }, [isExpanded, level, groupId, filterSchool, filterType, filterMedal, search, page]);
+
+  // Reset page + selection on filter change
+  useEffect(() => {
+    setPage(1);
+    setSelectedIds([]);
+  }, [filterSchool, filterType, filterMedal, search]);
+
+  if (totalCount === 0) return null;
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const selectAll = () => {
+    setSelectedIds(prev => prev.length === certificates.length ? [] : certificates.map(c => c.id));
+  };
+
+  const handleDownload = (certId) => {
+    window.open(`${baseUrl}/certificates/${certId}/download`, '_blank');
+  };
+  const handlePreview = (certId) => {
+    window.open(`${baseUrl}/certificates/preview?certificate_id=${certId}`, '_blank');
+  };
+  const handleBatchDownload = (ids) => {
+    window.open(`${baseUrl}/certificates/public/batch-download?ids=${ids.join(',')}`, '_blank');
+  };
+  const handleDownloadAll = async () => {
+    const total = summary.total || 0;
+    if (total === 0) return;
+    setDownloadingAll(true);
+    try {
+      const params = { level, per_page: 200 };
+      if (groupId) params.school_group_id = groupId;
+      if (filterSchool) params.school_name = filterSchool;
+      if (filterType) params.recipient_type = filterType;
+      if (filterMedal) params.medal = filterMedal;
+      if (search) params.search = search;
+      const res = await api.get('/certificates/public', { params });
+      const allIds = (res.data?.data || []).map(c => c.id);
+      if (allIds.length > 0) handleBatchDownload(allIds);
+    } catch { /* ignore */ }
+    finally { setDownloadingAll(false); }
+  };
+
+  return (
+    <div>
+      {/* Header - Clickable to expand/collapse */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between py-3 group"
+      >
+        <div className="flex items-center gap-2">
+          <Award className="w-6 h-6 text-yellow-600" />
+          <h4 className="text-xl font-bold">เกียรติบัตร</h4>
+          {totalCount > 0 && (
+            <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-sm font-medium">
+              {totalCount} ฉบับ
+            </span>
+          )}
+        </div>
+        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 space-y-4">
+          {/* Filters */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <div className="flex flex-wrap gap-3 items-center">
+              <select
+                value={filterSchool}
+                onChange={(e) => setFilterSchool(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 max-w-[250px]"
+              >
+                <option value="">ทุกโรงเรียน</option>
+                {schools.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">ทุกประเภท</option>
+                <option value="student">นักเรียน</option>
+                <option value="teacher">ครูผู้ฝึกสอน</option>
+              </select>
+              <select
+                value={filterMedal}
+                onChange={(e) => setFilterMedal(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">ทุกเหรียญ</option>
+                <option value="gold">เหรียญทอง</option>
+                <option value="silver">เหรียญเงิน</option>
+                <option value="bronze">เหรียญทองแดง</option>
+                <option value="participant">เข้าร่วม</option>
+              </select>
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="ค้นหาชื่อ, กิจกรรม..."
+                  className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Summary + Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2 text-sm">
+              {summary.total > 0 && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">ทั้งหมด {summary.total}</span>}
+              {summary.gold > 0 && <span className="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">ทอง {summary.gold}</span>}
+              {summary.silver > 0 && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">เงิน {summary.silver}</span>}
+              {summary.bronze > 0 && <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">ทองแดง {summary.bronze}</span>}
+              {summary.participant > 0 && <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">เข้าร่วม {summary.participant}</span>}
+            </div>
+            <div className="flex gap-2">
+              {selectedIds.length > 0 && (
+                <button
+                  onClick={() => handleBatchDownload(selectedIds)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                >
+                  <FileDown className="w-4 h-4" />
+                  ดาวน์โหลดที่เลือก ({selectedIds.length})
+                </button>
+              )}
+              <button
+                onClick={handleDownloadAll}
+                disabled={!summary.total || downloadingAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {downloadingAll ? <Loader className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
+                ดาวน์โหลดทั้งหมด ({summary.total || 0})
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-xl border overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader className="w-6 h-6 animate-spin text-blue-500" />
+                <span className="ml-2 text-gray-500">กำลังโหลด...</span>
+              </div>
+            ) : certificates.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Award className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                <p>ไม่พบเกียรติบัตร</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-2.5 text-center w-10">
+                        <button onClick={selectAll}>
+                          {selectedIds.length === certificates.length && certificates.length > 0
+                            ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                            : <Square className="w-4 h-4 text-gray-400" />}
+                        </button>
+                      </th>
+                      <th className="px-3 py-2.5 text-center font-medium text-gray-600">ประเภท</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-600">ชื่อ-สกุล</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-600">โรงเรียน</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-gray-600">กิจกรรม</th>
+                      <th className="px-3 py-2.5 text-center font-medium text-gray-600">เหรียญ</th>
+                      <th className="px-3 py-2.5 text-center font-medium text-gray-600 w-20">ดาวน์โหลด</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {certificates.map((cert) => (
+                      <tr key={cert.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-center">
+                          <button onClick={() => toggleSelect(cert.id)}>
+                            {selectedIds.includes(cert.id)
+                              ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                              : <Square className="w-4 h-4 text-gray-400" />}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {(cert.recipient_type || 'student') === 'teacher' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                              <Users className="w-3 h-3" /> ครู
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                              <GraduationCap className="w-3 h-3" /> นร.
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-gray-900 font-medium">{cert.recipient_name || cert.student_name}</td>
+                        <td className="px-3 py-2 text-gray-600 text-xs">{cert.school_name}</td>
+                        <td className="px-3 py-2">
+                          <div className="text-gray-900 truncate max-w-[180px]">{cert.competition_name}</div>
+                          {cert.category_name && <div className="text-xs text-gray-500">{cert.category_name}</div>}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${medalBadgeColors[cert.medal] || 'bg-gray-100'}`}>
+                            {medalLabels[cert.medal] || cert.medal}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button onClick={() => handlePreview(cert.id)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600" title="ดูตัวอย่าง">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDownload(cert.id)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-green-600" title="ดาวน์โหลด">
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {meta.last_page > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">หน้า {meta.current_page} จาก {meta.last_page} ({meta.total} รายการ)</p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="p-2 rounded hover:bg-gray-100 disabled:opacity-40">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {Array.from({ length: Math.min(meta.last_page, 5) }, (_, i) => {
+                  let pn;
+                  if (meta.last_page <= 5) pn = i + 1;
+                  else if (page <= 3) pn = i + 1;
+                  else if (page >= meta.last_page - 2) pn = meta.last_page - 4 + i;
+                  else pn = page - 2 + i;
+                  return (
+                    <button key={pn} onClick={() => setPage(pn)} className={`w-8 h-8 rounded text-sm font-medium ${page === pn ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>{pn}</button>
+                  );
+                })}
+                <button onClick={() => setPage(p => Math.min(meta.last_page, p + 1))} disabled={page >= meta.last_page} className="p-2 rounded hover:bg-gray-100 disabled:opacity-40">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -776,6 +1099,101 @@ const AnnouncementCard = ({ announcement }) => {
   );
 };
 
+// Announcements Grouped by Category - ประกาศจัดกลุ่มตามหมวดหมู่
+const AnnouncementGroupedList = ({ announcements }) => {
+  const [expandedCats, setExpandedCats] = useState(new Set());
+
+  // Group by category
+  const grouped = {};
+  announcements.forEach((a) => {
+    const key = a.category_name || 'ทั่วไป';
+    if (!grouped[key]) grouped[key] = { items: [], categoryId: a.category_id || null };
+    grouped[key].items.push(a);
+  });
+  const catNames = Object.keys(grouped);
+
+  // ถ้ามีแค่หมวดเดียว ไม่ต้องจัดกลุ่ม แสดงเรียบๆ
+  if (catNames.length <= 1) {
+    return (
+      <div className="relative space-y-2">
+        {announcements.map((a) => (
+          <AnnouncementCard key={a.id} announcement={a} />
+        ))}
+      </div>
+    );
+  }
+
+  const toggleCat = (name) => {
+    setExpandedCats(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  return (
+    <div className="relative space-y-3">
+      {/* Expand/Collapse All */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setExpandedCats(new Set(catNames))}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+          ขยายทั้งหมด
+        </button>
+        <button
+          onClick={() => setExpandedCats(new Set())}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white/10 text-white/80 rounded-lg hover:bg-white/20 transition-colors"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+          ย่อทั้งหมด
+        </button>
+      </div>
+
+      {catNames.map((catName) => {
+        const { items, categoryId } = grouped[catName];
+        const isOpen = expandedCats.has(catName);
+        const catColor = getPubCatColor(categoryId);
+
+        return (
+          <div key={catName} className="rounded-xl overflow-hidden bg-white">
+            <button
+              onClick={() => toggleCat(catName)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-all"
+              style={{ borderLeft: `4px solid ${catColor ? catColor.border : '#d1d5db'}` }}
+            >
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4" style={{ color: catColor ? catColor.text : '#6b7280' }} />
+                <span className="font-bold" style={{ color: catColor ? catColor.text : '#374151' }}>{catName}</span>
+                <span
+                  className="px-2 py-0.5 rounded-full text-[11px] font-bold"
+                  style={catColor ? { backgroundColor: catColor.bg, color: catColor.text } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                >
+                  {items.length}
+                </span>
+              </div>
+              {isOpen
+                ? <ChevronDown className="w-4 h-4" style={{ color: catColor ? catColor.text : '#9ca3af' }} />
+                : <ChevronRight className="w-4 h-4" style={{ color: catColor ? catColor.text : '#9ca3af' }} />
+              }
+            </button>
+
+            {isOpen && (
+              <div className="px-4 pb-3 space-y-2 bg-gray-50">
+                {items.map((a) => (
+                  <AnnouncementCard key={a.id} announcement={a} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // Real-Time Dashboard Section - กราฟสถิติกลุ่มโรงเรียน + เหรียญรางวัล
 const BAR_COLORS = [
   { bar: 'from-cyan-400 to-cyan-600', glow: 'rgba(0,191,255,0.25)', accent: '#22d3ee' },
@@ -790,6 +1208,8 @@ const BAR_COLORS = [
 
 const RealtimeSection = ({ groups = [], overview = {}, results = [], categories = [] }) => {
   const [selectedSchool, setSelectedSchool] = useState(null);
+  const [selectedDistrictSchool, setSelectedDistrictSchool] = useState(null);
+  const [showGroupTop15, setShowGroupTop15] = useState(false);
 
   if (!groups || groups.length === 0) return null;
 
@@ -846,6 +1266,37 @@ const RealtimeSection = ({ groups = [], overview = {}, results = [], categories 
   const maxGold = Math.max(...top15.map(s => s.goldCount), 1);
   // แสดงโรงเรียนอันดับ 1 เป็นค่าเริ่มต้น
   const displaySchool = selectedSchool || top15[0] || null;
+
+  // --- Top 30 schools (district level) ---
+  const districtSchoolScores = {};
+  (results || []).forEach(cat => {
+    (cat.competitions || []).forEach(comp => {
+      if (comp.competition_level !== 'district') return;
+      (comp.results || []).forEach(r => {
+        const name = r.school_name;
+        if (!name) return;
+        if (!districtSchoolScores[name]) {
+          districtSchoolScores[name] = { name, totalScore: 0, goldCount: 0, silverCount: 0, bronzeCount: 0, participantCount: 0, competitionCount: 0 };
+        }
+        districtSchoolScores[name].totalScore += parseFloat(r.score) || 0;
+        districtSchoolScores[name].competitionCount++;
+        if (r.medal === 'gold') districtSchoolScores[name].goldCount++;
+        else if (r.medal === 'silver') districtSchoolScores[name].silverCount++;
+        else if (r.medal === 'bronze') districtSchoolScores[name].bronzeCount++;
+        else districtSchoolScores[name].participantCount++;
+      });
+    });
+  });
+  const top30District = Object.values(districtSchoolScores)
+    .sort((a, b) => {
+      if (b.goldCount !== a.goldCount) return b.goldCount - a.goldCount;
+      if (b.silverCount !== a.silverCount) return b.silverCount - a.silverCount;
+      if (b.bronzeCount !== a.bronzeCount) return b.bronzeCount - a.bronzeCount;
+      return b.totalScore - a.totalScore;
+    })
+    .slice(0, 30);
+  const maxGoldDistrict = Math.max(...top30District.map(s => s.goldCount), 1);
+  const displayDistrictSchool = selectedDistrictSchool || top30District[0] || null;
 
   const cardStyle = {
     background: 'linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
@@ -965,8 +1416,21 @@ const RealtimeSection = ({ groups = [], overview = {}, results = [], categories 
       {/* หมวดหมู่การแข่งขัน */}
       <CategorySection categories={categories} />
 
-      {/* Row 2: Top 15 Schools */}
+      {/* Row 2: Top 15 Schools (collapsible) */}
       {top15.length > 0 && (
+        <div className="relative">
+          <button
+            onClick={() => setShowGroupTop15(!showGroupTop15)}
+            className="w-full flex items-center justify-between rounded-2xl p-4 mb-2 cursor-pointer transition-all duration-200 hover:bg-white/[0.04]"
+            style={cardStyle}
+          >
+            <h5 className="text-sm font-semibold text-blue-200/50">🏆 Top 15 โรงเรียนคะแนนสูงสุด (ระดับกลุ่ม)</h5>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-blue-200/30">{showGroupTop15 ? 'ย่อ' : 'คลิกเพื่อเปิด'}</span>
+              <ChevronDown className={`w-4 h-4 text-blue-200/40 transition-transform duration-200 ${showGroupTop15 ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+          {showGroupTop15 && (
         <div className="relative grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Top 15 list */}
           <div className="lg:col-span-3 relative rounded-2xl p-6 overflow-hidden" style={cardStyle}>
@@ -1060,6 +1524,110 @@ const RealtimeSection = ({ groups = [], overview = {}, results = [], categories 
                 <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
                   <School className="w-12 h-12 text-blue-200/20 mb-3" />
                   <p className="text-blue-200/40 text-sm">ยังไม่มีข้อมูลโรงเรียน</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+          )}
+        </div>
+      )}
+
+      {/* Row 3: Top 30 Schools (District Level) */}
+      {top30District.length > 0 && (
+        <div className="relative grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+          {/* Left: Top 30 list */}
+          <div className="lg:col-span-3 relative rounded-2xl p-6 overflow-hidden" style={cardStyle}>
+            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-cyan-500/[0.02] to-transparent" />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-sm font-semibold text-blue-200/50">🏅 Top 30 โรงเรียนคะแนนสูงสุด (ระดับเขตพื้นที่)</h5>
+                <span className="text-xs text-blue-200/30">คลิกเพื่อดูรายละเอียด</span>
+              </div>
+              <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1">
+                {top30District.map((s, idx) => {
+                  const pct = Math.round((s.goldCount / maxGoldDistrict) * 100);
+                  const isSelected = displayDistrictSchool?.name === s.name;
+                  const colorSet = BAR_COLORS[idx % BAR_COLORS.length];
+                  return (
+                    <div
+                      key={s.name}
+                      onClick={() => setSelectedDistrictSchool(s)}
+                      className={`flex items-center gap-2 cursor-pointer rounded-lg px-2 py-1.5 transition-all duration-200 ${isSelected ? 'bg-white/10 ring-1 ring-cyan-400/40' : 'hover:bg-white/[0.04]'}`}
+                    >
+                      <span className={`text-xs font-bold w-6 text-center flex-shrink-0 ${idx < 3 ? 'text-amber-400' : 'text-blue-200/40'}`}>
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs text-blue-100/70 w-32 md:w-44 truncate flex-shrink-0">{s.name}</span>
+                      <div className="flex-1 bg-white/[0.04] rounded-lg h-5 overflow-hidden relative">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          whileInView={{ width: `${Math.max(pct, 6)}%` }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 1.2, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                          className={`h-full rounded-lg bg-gradient-to-r ${colorSet.bar} relative`}
+                          style={{ boxShadow: `0 0 12px ${colorSet.glow}` }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+                        </motion.div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0 w-24 justify-end">
+                        <span className="text-yellow-400 text-xs tabular-nums">{s.goldCount}🥇</span>
+                        <span className="text-gray-400 text-xs tabular-nums">{s.silverCount}🥈</span>
+                        <span className="text-orange-400 text-xs tabular-nums">{s.bronzeCount}🥉</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Selected district school detail */}
+          <div className="lg:col-span-2 relative rounded-2xl p-6 overflow-hidden" style={cardStyle}>
+            <div className="absolute top-0 right-0 w-1/2 h-1/3 bg-gradient-to-bl from-cyan-500/[0.03] to-transparent" />
+            <div className="relative flex flex-col h-full">
+              {displayDistrictSchool ? (
+                <>
+                  <h5 className="text-sm font-semibold text-blue-200/50 mb-2">รายละเอียดโรงเรียน (ระดับเขต)</h5>
+                  <div className="text-lg font-bold text-white mb-4 leading-tight">{displayDistrictSchool.name}</div>
+
+                  {/* Medal breakdown */}
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {[
+                      { emoji: '🥇', label: 'ทอง', count: displayDistrictSchool.goldCount, color: 'from-yellow-400 to-yellow-600', glow: 'rgba(250,204,21,0.3)' },
+                      { emoji: '🥈', label: 'เงิน', count: displayDistrictSchool.silverCount, color: 'from-gray-300 to-gray-500', glow: 'rgba(156,163,175,0.3)' },
+                      { emoji: '🥉', label: 'ทองแดง', count: displayDistrictSchool.bronzeCount, color: 'from-orange-400 to-orange-600', glow: 'rgba(251,146,60,0.3)' },
+                      { emoji: '🎖️', label: 'เข้าร่วม', count: displayDistrictSchool.participantCount, color: 'from-blue-400 to-blue-600', glow: 'rgba(96,165,250,0.3)' },
+                    ].map(m => (
+                      <div key={m.label} className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <span className="text-2xl">{m.emoji}</span>
+                        <div className="text-2xl font-extrabold text-white mt-1">{m.count}</div>
+                        <div className="text-blue-200/40 text-xs">{m.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="space-y-3 mt-auto">
+                    <div className="flex items-center justify-between rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="text-blue-200/50 text-sm">คะแนนรวม</span>
+                      <span className="text-white font-bold text-lg tabular-nums">{displayDistrictSchool.totalScore.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="text-blue-200/50 text-sm">จำนวนรายการแข่ง</span>
+                      <span className="text-white font-bold text-lg tabular-nums">{displayDistrictSchool.competitionCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="text-blue-200/50 text-sm">เหรียญทั้งหมด</span>
+                      <span className="text-white font-bold text-lg tabular-nums">{displayDistrictSchool.goldCount + displayDistrictSchool.silverCount + displayDistrictSchool.bronzeCount + displayDistrictSchool.participantCount}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+                  <School className="w-12 h-12 text-blue-200/20 mb-3" />
+                  <p className="text-blue-200/40 text-sm">ยังไม่มีข้อมูลโรงเรียนระดับเขต</p>
                 </div>
               )}
             </div>
@@ -1426,28 +1994,6 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
       {/* Overview Stats - ภาพรวมการแข่งขัน บนสุด */}
       <OverviewStatsSection overview={overview} />
 
-      {/* District Announcements */}
-      {districtAnnouncements && districtAnnouncements.length > 0 && (
-        <div className="relative px-8 py-6 overflow-hidden" style={{ background: 'linear-gradient(135deg, #312e81 0%, #3730a3 50%, #4338ca 100%)' }}>
-          <div className="absolute inset-0 opacity-[0.06]" style={{
-            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
-            backgroundSize: '30px 30px',
-          }} />
-          <div className="relative flex items-center gap-2 mb-3">
-            <Megaphone className="w-5 h-5 text-amber-300" />
-            <h4 className="text-lg font-bold text-white">ประกาศระดับเขต</h4>
-          </div>
-          <div className="relative space-y-2">
-            {districtAnnouncements.map((announcement) => (
-              <AnnouncementCard
-                key={announcement.id}
-                announcement={announcement}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="bg-gradient-to-r from-purple-700 to-indigo-700 text-white p-8">
         <div className="flex items-center gap-4">
           <div className="bg-white/20 p-4 rounded-2xl">
@@ -1461,6 +2007,19 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
       </div>
 
       <div className="p-8 space-y-8">
+        {/* District Results - ผลการแข่งขันระดับเขต */}
+        <ResultsSection results={results} level="district" />
+
+        {/* District Certificates - เกียรติบัตรระดับเขต */}
+        <CertificateSection level="district" />
+
+        {/* School Ranking - อันดับโรงเรียนระดับเขต */}
+        <SchoolRankingSection
+          results={results}
+          title="อันดับโรงเรียน (ระดับเขต)"
+          level="district"
+        />
+
         {/* Real-Time Dashboard */}
         <RealtimeSection groups={groups} overview={overview} results={results} categories={categories} />
 
@@ -1496,24 +2055,31 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
         </div>
 
         {/* District Schedules - ตารางสถานที่แข่งขันระดับเขต */}
-        <ScheduleSection schedules={schedules} level="district" />
+        <ScheduleSection schedules={schedules} level="district" groupName="ระดับเขตพื้นที่" />
 
-        {/* District Results - ผลการแข่งขันระดับเขต */}
-        <ResultsSection results={results} level="district" />
-
-        {/* School Ranking - อันดับโรงเรียนระดับเขต */}
-        <SchoolRankingSection
-          results={results}
-          title="อันดับโรงเรียน (ระดับเขต)"
-          level="district"
-        />
+        {/* District Announcements - ประกาศระดับเขต (ล่างสุด) */}
+        {districtAnnouncements && districtAnnouncements.length > 0 && (
+          <div className="relative rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #312e81 0%, #3730a3 50%, #4338ca 100%)' }}>
+            <div className="absolute inset-0 opacity-[0.06]" style={{
+              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
+              backgroundSize: '30px 30px',
+            }} />
+            <div className="relative p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Megaphone className="w-5 h-5 text-amber-300" />
+                <h4 className="text-lg font-bold text-white">ประกาศระดับเขต</h4>
+              </div>
+              <AnnouncementGroupedList announcements={districtAnnouncements} />
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
   );
 };
 
-const GroupDashboard = ({ group, allAnnouncements = [], schedules = [], results = [] }) => {
+const GroupDashboard = ({ group, allAnnouncements = [], schedules = [], results = [], isExpanded = false, onToggle }) => {
   // Filter ประกาศของกลุ่มนี้
   const groupAnnouncements = allAnnouncements.filter(a => {
     return a.scope === 'group' && a.school_group_id === group.id;
@@ -1521,18 +2087,25 @@ const GroupDashboard = ({ group, allAnnouncements = [], schedules = [], results 
 
   return (
   <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-    <div className="bg-gradient-to-r from-indigo-700 to-blue-700 text-white p-8">
+    <div
+      className="bg-gradient-to-r from-indigo-700 to-blue-700 text-white p-8 cursor-pointer select-none"
+      onClick={onToggle}
+    >
       <div className="flex items-center gap-4">
         <div className="bg-white/20 p-4 rounded-2xl">
           <School className="w-10 h-10" />
         </div>
-        <div>
+        <div className="flex-1">
           <h3 className="text-3xl font-extrabold">{group.name}</h3>
           <p className="text-blue-100 mt-1">{group.stats?.schools || 0} โรงเรียน</p>
+        </div>
+        <div className="bg-white/20 p-2 rounded-xl">
+          {isExpanded ? <ChevronDown className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
         </div>
       </div>
     </div>
 
+    {isExpanded && (
     <div className="p-8 space-y-8">
       {/* Stats */}
       <div>
@@ -1566,10 +2139,13 @@ const GroupDashboard = ({ group, allAnnouncements = [], schedules = [], results 
       <CompetitionListSection level="group" groupId={group.id} groupName={group.name} />
 
       {/* Schedules - ตารางสถานที่แข่งขัน */}
-      <ScheduleSection schedules={schedules} groupId={group.id} level="group" />
+      <ScheduleSection schedules={schedules} groupId={group.id} level="group" groupName={group.name} />
 
       {/* Results - ผลการแข่งขัน */}
       <ResultsSection results={results} groupId={group.id} groupName={group.name} level="group" />
+
+      {/* Certificates - เกียรติบัตรระดับกลุ่ม */}
+      <CertificateSection level="group" groupId={group.id} />
 
       {/* School Ranking - อันดับโรงเรียนในกลุ่ม */}
       <SchoolRankingSection
@@ -1579,24 +2155,18 @@ const GroupDashboard = ({ group, allAnnouncements = [], schedules = [], results 
         groupId={group.id}
       />
 
-      {/* Announcements */}
+      {/* Announcements - Grouped by Category */}
       {groupAnnouncements && groupAnnouncements.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Megaphone className="w-6 h-6 text-indigo-600" />
             <h4 className="text-xl font-bold">ประกาศล่าสุด</h4>
           </div>
-          <div className="space-y-3">
-            {groupAnnouncements.map((announcement) => (
-              <AnnouncementCard
-                key={announcement.id}
-                announcement={announcement}
-              />
-            ))}
-          </div>
+          <AnnouncementGroupedList announcements={groupAnnouncements} />
         </div>
       )}
     </div>
+    )}
   </div>
 )};
 
@@ -1832,6 +2402,24 @@ export default function PublicDashboard() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+
+  const toggleGroup = (groupId) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const expandAllGroups = () => {
+    if (groups) setExpandedGroups(new Set(groups.map(g => g.id)));
+  };
+
+  const collapseAllGroups = () => {
+    setExpandedGroups(new Set());
+  };
 
   useEffect(() => {
     fetchData();
@@ -1933,6 +2521,24 @@ export default function PublicDashboard() {
         </div>
         <div className="flex-1 border-t-2 border-gray-300"></div>
       </div>
+      {groups && groups.length > 0 && (
+        <div className="flex justify-end gap-2 mb-4">
+          <button
+            onClick={expandAllGroups}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors"
+          >
+            <ChevronDown className="w-4 h-4" />
+            ขยายทั้งหมด
+          </button>
+          <button
+            onClick={collapseAllGroups}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+            ย่อทั้งหมด
+          </button>
+        </div>
+      )}
 
       {/* Groups Section */}
       <div className="space-y-8">
@@ -1944,6 +2550,8 @@ export default function PublicDashboard() {
               allAnnouncements={allAnnouncements}
               schedules={schedules}
               results={results}
+              isExpanded={expandedGroups.has(group.id)}
+              onToggle={() => toggleGroup(group.id)}
             />
           ))
         ) : (

@@ -1331,4 +1331,144 @@ class CertificateController extends Controller
 
         return "{$code}-{$year}-{$random}";
     }
+
+    /**
+     * Public certificate listing (no auth required)
+     * ใช้สำหรับหน้า Public Dashboard ให้คนทั่วไปค้นหาและดาวน์โหลดเกียรติบัตร
+     */
+    public function publicIndex(Request $request): JsonResponse
+    {
+        try {
+            $query = Certificate::query()
+                ->select([
+                    'id', 'certificate_code', 'document_number',
+                    'recipient_type', 'recipient_name', 'student_name',
+                    'school_name', 'competition_name', 'category_name',
+                    'group_name', 'level', 'rank', 'medal', 'score',
+                    'competition_id',
+                ]);
+
+            if ($request->filled('level')) {
+                $query->where('level', $request->level);
+            }
+
+            if ($request->filled('school_group_id')) {
+                $query->whereHas('competition', fn($q) =>
+                    $q->where('school_group_id', $request->school_group_id)
+                );
+            }
+
+            if ($request->filled('school_name')) {
+                $query->where('school_name', $request->school_name);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('student_name', 'like', "%{$search}%")
+                      ->orWhere('recipient_name', 'like', "%{$search}%")
+                      ->orWhere('school_name', 'like', "%{$search}%")
+                      ->orWhere('competition_name', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->filled('recipient_type')) {
+                $query->where('recipient_type', $request->recipient_type);
+            }
+
+            if ($request->filled('medal')) {
+                $query->where('medal', $request->medal);
+            }
+
+            // Distinct school names for dropdown (ใช้ filter เดียวกันยกเว้น school_name/search)
+            $schoolsQuery = Certificate::query();
+            if ($request->filled('level')) {
+                $schoolsQuery->where('level', $request->level);
+            }
+            if ($request->filled('school_group_id')) {
+                $schoolsQuery->whereHas('competition', fn($q) =>
+                    $q->where('school_group_id', $request->school_group_id)
+                );
+            }
+            $schools = $schoolsQuery->distinct()->pluck('school_name')->sort()->values();
+
+            // Summary
+            $summaryBase = clone $query;
+            $summary = [
+                'total' => (clone $summaryBase)->count(),
+                'gold' => (clone $summaryBase)->where('medal', 'gold')->count(),
+                'silver' => (clone $summaryBase)->where('medal', 'silver')->count(),
+                'bronze' => (clone $summaryBase)->where('medal', 'bronze')->count(),
+                'participant' => (clone $summaryBase)->where('medal', 'participant')->count(),
+            ];
+
+            $perPage = min((int)($request->per_page ?? 50), 9999);
+            $certificates = $query
+                ->orderBy('school_name')
+                ->orderBy('competition_name')
+                ->orderBy('rank')
+                ->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'data' => $certificates->items(),
+                'summary' => $summary,
+                'schools' => $schools,
+                'meta' => [
+                    'current_page' => $certificates->currentPage(),
+                    'last_page' => $certificates->lastPage(),
+                    'per_page' => $certificates->perPage(),
+                    'total' => $certificates->total(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Public certificate index error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถโหลดข้อมูลเกียรติบัตรได้',
+            ], 500);
+        }
+    }
+
+    /**
+     * Public batch download (no auth required)
+     * จำกัด 200 ฉบับต่อครั้ง
+     */
+    public function publicBatchDownload(Request $request)
+    {
+        try {
+            ini_set('memory_limit', '512M');
+
+            $ids = $request->input('ids', '');
+            if (is_string($ids)) {
+                $ids = array_filter(array_map('intval', explode(',', $ids)));
+            }
+
+            if (empty($ids)) {
+                return response()->json(['success' => false, 'message' => 'กรุณาเลือกเกียรติบัตร'], 400);
+            }
+            if (count($ids) > 200) {
+                return response()->json(['success' => false, 'message' => 'ดาวน์โหลดได้สูงสุด 200 ฉบับต่อครั้ง'], 400);
+            }
+
+            $certificates = Certificate::with('competition')
+                ->whereIn('id', $ids)
+                ->orderBy('competition_name')
+                ->orderBy('rank')
+                ->get();
+
+            if ($certificates->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'ไม่พบเกียรติบัตร'], 404);
+            }
+
+            $pdf = $this->renderPdf($certificates);
+            return $pdf->stream('certificates_' . now()->format('Ymd_His') . '.pdf');
+        } catch (\Exception $e) {
+            Log::error('Public batch download error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถดาวน์โหลดได้',
+            ], 500);
+        }
+    }
 }
