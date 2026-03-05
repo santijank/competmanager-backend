@@ -142,6 +142,9 @@
         .medal-bronze { color: #cd7f32; }
         .medal-participant { color: #2a6496; }
 
+        /* ระดับกลุ่ม — เลขที่เอกสารสีขาว (พื้นหลังสีเขียว) */
+        .cert-group .document-number { color: #ffffff; }
+
         /* ระดับเขต — สีตัวอักษรเหลืองขาว (พื้นหลังเข้ม) */
         .cert-district .student-name { color: #fff8dc; }
         .cert-district .school-name { color: #fff8dc; }
@@ -243,7 +246,7 @@
             $rankingText = $cert->ranking_text ?? '';
         @endphp
 
-        <div class="certificate-page {{ ($cert->level ?? 'district') === 'district' ? 'cert-district' : '' }}">
+        <div class="certificate-page {{ ($cert->level ?? 'district') === 'district' ? 'cert-district' : 'cert-group' }}">
             {{-- ภาพพื้นหลัง (local file) --}}
             @if($certBackground)
                 <img src="{{ $certBackground }}" class="background-image" />
