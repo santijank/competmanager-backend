@@ -297,18 +297,11 @@ class CertificateController extends Controller
 
             $scoreIds = $request->score_ids;
             $created = 0;
-            $regenerated = 0;
+            $updated = 0;
             $errors = [];
 
             foreach ($scoreIds as $scoreId) {
                 try {
-                    // ถ้ามี certificate เก่า → ลบแล้วสร้างใหม่ (รองรับแก้ไขรายชื่อ)
-                    $oldCount = Certificate::where('score_id', $scoreId)->count();
-                    if ($oldCount > 0) {
-                        Certificate::where('score_id', $scoreId)->delete();
-                        $regenerated++;
-                    }
-
                     $score = Score::with([
                         'registration.school',
                         'registration.competition.category',
@@ -332,70 +325,106 @@ class CertificateController extends Controller
                     if ($level === 'group' && $schoolGroupId) {
                         $group = SchoolGroup::find($schoolGroupId);
                         $groupName = $group?->name;
-                        // ดึงวันแข่งจาก school_groups (ผู้ใช้กรอกเอง)
                         $competitionDateText = $group?->competition_date_text;
                     }
 
-                    // ===== สร้างเกียรติบัตรรายคน — นักเรียน =====
-                    $studentNames = $reg->getStudentNamesList();
-                    foreach ($studentNames as $studentName) {
-                        $certCode = $this->generateCode($comp);
-                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'student', $level === 'group' ? $schoolGroupId : null);
+                    // ข้อมูลที่ใช้ร่วมกัน (อัปเดตทุกใบ)
+                    $sharedData = [
+                        'school_name' => $school->name ?? '-',
+                        'competition_name' => $comp->name,
+                        'category_name' => $comp->category?->name,
+                        'teacher_names' => $reg->getTeacherNamesList(),
+                        'group_name' => $groupName,
+                        'competition_date_text' => $competitionDateText,
+                        'rank' => $score->rank,
+                        'medal' => $score->medal,
+                        'score' => $score->score,
+                    ];
 
-                        Certificate::create([
-                            'certificate_code' => $certCode,
-                            'document_number' => $docNumber,
-                            'recipient_type' => 'student',
-                            'recipient_name' => $studentName,
-                            'score_id' => $score->id,
-                            'competition_id' => $comp->id,
-                            'student_name' => $studentName,
-                            'school_name' => $school->name ?? '-',
-                            'competition_name' => $comp->name,
-                            'category_name' => $comp->category?->name,
-                            'teacher_names' => $reg->getTeacherNamesList(),
-                            'level' => $level,
-                            'group_name' => $groupName,
-                            'competition_date_text' => $competitionDateText,
-                            'rank' => $score->rank,
-                            'medal' => $score->medal,
-                            'score' => $score->score,
-                            'issue_date' => now(),
-                            'generated_by' => auth()->id(),
-                            'generated_at' => now(),
-                        ]);
-                        $created++;
+                    // ดึง certificates เก่าแยกตามประเภท
+                    $existingStudentCerts = Certificate::where('score_id', $scoreId)
+                        ->where('recipient_type', 'student')
+                        ->orderBy('id')->get();
+                    $existingTeacherCerts = Certificate::where('score_id', $scoreId)
+                        ->where('recipient_type', 'teacher')
+                        ->orderBy('id')->get();
+
+                    $hasExisting = $existingStudentCerts->count() > 0 || $existingTeacherCerts->count() > 0;
+
+                    // ===== นักเรียน: จับคู่ตามลำดับ → update / create / delete =====
+                    $studentNames = $reg->getStudentNamesList();
+                    foreach ($studentNames as $i => $studentName) {
+                        if (isset($existingStudentCerts[$i])) {
+                            // อัปเดตใบเดิม (คงเลขที่ + code เดิม)
+                            $existingStudentCerts[$i]->update(array_merge($sharedData, [
+                                'recipient_name' => $studentName,
+                                'student_name' => $studentName,
+                                'generated_by' => auth()->id(),
+                                'generated_at' => now(),
+                            ]));
+                            $updated++;
+                        } else {
+                            // สร้างใบใหม่ (คนเพิ่มมา)
+                            $certCode = $this->generateCode($comp);
+                            $docNumber = CertificateNumberSetting::getNextNumber($level, 'student', $level === 'group' ? $schoolGroupId : null);
+                            Certificate::create(array_merge($sharedData, [
+                                'certificate_code' => $certCode,
+                                'document_number' => $docNumber,
+                                'recipient_type' => 'student',
+                                'recipient_name' => $studentName,
+                                'score_id' => $score->id,
+                                'competition_id' => $comp->id,
+                                'student_name' => $studentName,
+                                'level' => $level,
+                                'issue_date' => now(),
+                                'generated_by' => auth()->id(),
+                                'generated_at' => now(),
+                            ]));
+                            $created++;
+                        }
+                    }
+                    // ลบใบเกินถ้าจำนวนคนลดลง
+                    for ($i = count($studentNames); $i < $existingStudentCerts->count(); $i++) {
+                        $existingStudentCerts[$i]->delete();
                     }
 
-                    // ===== สร้างเกียรติบัตรรายคน — ครูผู้ฝึกสอน =====
+                    // ===== ครูผู้ฝึกสอน: จับคู่ตามลำดับ → update / create / delete =====
                     $teacherNames = $reg->getTeacherNamesList();
-                    foreach ($teacherNames as $teacherName) {
-                        $certCode = $this->generateCode($comp);
-                        $docNumber = CertificateNumberSetting::getNextNumber($level, 'teacher', $level === 'group' ? $schoolGroupId : null);
+                    foreach ($teacherNames as $i => $teacherName) {
+                        if (isset($existingTeacherCerts[$i])) {
+                            $existingTeacherCerts[$i]->update(array_merge($sharedData, [
+                                'recipient_name' => $teacherName,
+                                'student_name' => $teacherName,
+                                'generated_by' => auth()->id(),
+                                'generated_at' => now(),
+                            ]));
+                            $updated++;
+                        } else {
+                            $certCode = $this->generateCode($comp);
+                            $docNumber = CertificateNumberSetting::getNextNumber($level, 'teacher', $level === 'group' ? $schoolGroupId : null);
+                            Certificate::create(array_merge($sharedData, [
+                                'certificate_code' => $certCode,
+                                'document_number' => $docNumber,
+                                'recipient_type' => 'teacher',
+                                'recipient_name' => $teacherName,
+                                'score_id' => $score->id,
+                                'competition_id' => $comp->id,
+                                'student_name' => $teacherName,
+                                'level' => $level,
+                                'issue_date' => now(),
+                                'generated_by' => auth()->id(),
+                                'generated_at' => now(),
+                            ]));
+                            $created++;
+                        }
+                    }
+                    for ($i = count($teacherNames); $i < $existingTeacherCerts->count(); $i++) {
+                        $existingTeacherCerts[$i]->delete();
+                    }
 
-                        Certificate::create([
-                            'certificate_code' => $certCode,
-                            'document_number' => $docNumber,
-                            'recipient_type' => 'teacher',
-                            'recipient_name' => $teacherName,
-                            'score_id' => $score->id,
-                            'competition_id' => $comp->id,
-                            'student_name' => $teacherName,
-                            'school_name' => $school->name ?? '-',
-                            'competition_name' => $comp->name,
-                            'category_name' => $comp->category?->name,
-                            'teacher_names' => $reg->getTeacherNamesList(),
-                            'level' => $level,
-                            'group_name' => $groupName,
-                            'competition_date_text' => $competitionDateText,
-                            'rank' => $score->rank,
-                            'medal' => $score->medal,
-                            'score' => $score->score,
-                            'issue_date' => now(),
-                            'generated_by' => auth()->id(),
-                            'generated_at' => now(),
-                        ]);
-                        $created++;
+                    // นับเป็น created ถ้าไม่มีของเก่า
+                    if (!$hasExisting) {
+                        // created นับไปแล้วข้างบน
                     }
 
                 } catch (\Exception $e) {
@@ -404,13 +433,21 @@ class CertificateController extends Controller
                 }
             }
 
+            $message = '';
+            if ($created > 0 && $updated > 0) {
+                $message = "สร้างใหม่ {$created} ฉบับ, อัปเดต {$updated} ฉบับ";
+            } elseif ($updated > 0) {
+                $message = "อัปเดตเกียรติบัตร {$updated} ฉบับ (เลขที่เดิม)";
+            } else {
+                $message = "สร้างเกียรติบัตรสำเร็จ {$created} ฉบับ";
+            }
+
             return response()->json([
-                'success' => $created > 0,
-                'message' => "สร้างเกียรติบัตรสำเร็จ {$created} ฉบับ" .
-                    ($regenerated > 0 ? " (ออกใหม่ {$regenerated} รายการ)" : ''),
+                'success' => $created > 0 || $updated > 0,
+                'message' => $message,
                 'data' => [
                     'created' => $created,
-                    'regenerated' => $regenerated,
+                    'updated' => $updated,
                     'errors' => $errors,
                 ]
             ]);
