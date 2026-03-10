@@ -297,15 +297,16 @@ class CertificateController extends Controller
 
             $scoreIds = $request->score_ids;
             $created = 0;
-            $skipped = 0;
+            $regenerated = 0;
             $errors = [];
 
             foreach ($scoreIds as $scoreId) {
                 try {
-                    // ข้ามถ้ามี certificate แล้ว (score_id เดียวกัน)
-                    if (Certificate::where('score_id', $scoreId)->exists()) {
-                        $skipped++;
-                        continue;
+                    // ถ้ามี certificate เก่า → ลบแล้วสร้างใหม่ (รองรับแก้ไขรายชื่อ)
+                    $oldCount = Certificate::where('score_id', $scoreId)->count();
+                    if ($oldCount > 0) {
+                        Certificate::where('score_id', $scoreId)->delete();
+                        $regenerated++;
                     }
 
                     $score = Score::with([
@@ -404,12 +405,12 @@ class CertificateController extends Controller
             }
 
             return response()->json([
-                'success' => $created > 0 || $skipped > 0,
+                'success' => $created > 0,
                 'message' => "สร้างเกียรติบัตรสำเร็จ {$created} ฉบับ" .
-                    ($skipped > 0 ? " (ข้าม {$skipped} รายการที่มีแล้ว)" : ''),
+                    ($regenerated > 0 ? " (ออกใหม่ {$regenerated} รายการ)" : ''),
                 'data' => [
                     'created' => $created,
-                    'skipped' => $skipped,
+                    'regenerated' => $regenerated,
                     'errors' => $errors,
                 ]
             ]);
@@ -660,7 +661,7 @@ class CertificateController extends Controller
 
             $memberIds = $request->member_ids;
             $created = 0;
-            $skipped = 0;
+            $regenerated = 0;
             $errors = [];
 
             foreach ($memberIds as $memberId) {
@@ -676,15 +677,18 @@ class CertificateController extends Controller
                     // ตัดเลขลำดับนำหน้าออก เช่น "1. นางทับทิม" → "นางทับทิม"
                     $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
 
-                    // ข้ามถ้ามีเกียรติบัตรแล้ว (เช็คจาก competition_id + recipient_name + recipient_type)
-                    $exists = Certificate::where('competition_id', $comp->id)
+                    // ถ้ามีเกียรติบัตรเก่า → ลบแล้วสร้างใหม่
+                    $oldCount = Certificate::where('competition_id', $comp->id)
                         ->where('recipient_name', $cleanName)
                         ->where('recipient_type', 'committee')
-                        ->exists();
+                        ->count();
 
-                    if ($exists) {
-                        $skipped++;
-                        continue;
+                    if ($oldCount > 0) {
+                        Certificate::where('competition_id', $comp->id)
+                            ->where('recipient_name', $cleanName)
+                            ->where('recipient_type', 'committee')
+                            ->delete();
+                        $regenerated++;
                     }
 
                     $level = $comp->competition_level ?? 'district';
@@ -720,12 +724,12 @@ class CertificateController extends Controller
             }
 
             return response()->json([
-                'success' => $created > 0 || $skipped > 0,
+                'success' => $created > 0,
                 'message' => "สร้างเกียรติบัตรคณะกรรมการสำเร็จ {$created} ฉบับ" .
-                    ($skipped > 0 ? " (ข้าม {$skipped} รายการที่มีแล้ว)" : ''),
+                    ($regenerated > 0 ? " (ออกใหม่ {$regenerated} รายการ)" : ''),
                 'data' => [
                     'created' => $created,
-                    'skipped' => $skipped,
+                    'regenerated' => $regenerated,
                     'errors' => $errors,
                 ]
             ]);
@@ -811,7 +815,7 @@ class CertificateController extends Controller
 
             $memberIds = $request->member_ids;
             $created = 0;
-            $skipped = 0;
+            $regenerated = 0;
             $errors = [];
 
             foreach ($memberIds as $memberId) {
@@ -819,14 +823,16 @@ class CertificateController extends Controller
                     $member = CommitteeMember::findOrFail($memberId);
                     $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
 
-                    // ข้ามถ้ามีเกียรติบัตรแล้ว (เช็คจาก recipient_name + recipient_type)
-                    $exists = Certificate::where('recipient_name', $cleanName)
+                    // ถ้ามีเกียรติบัตรเก่า → ลบแล้วสร้างใหม่
+                    $oldCount = Certificate::where('recipient_name', $cleanName)
                         ->where('recipient_type', 'staff')
-                        ->exists();
+                        ->count();
 
-                    if ($exists) {
-                        $skipped++;
-                        continue;
+                    if ($oldCount > 0) {
+                        Certificate::where('recipient_name', $cleanName)
+                            ->where('recipient_type', 'staff')
+                            ->delete();
+                        $regenerated++;
                     }
 
                     $level = $member->level ?? 'district';
@@ -862,12 +868,12 @@ class CertificateController extends Controller
             }
 
             return response()->json([
-                'success' => $created > 0 || $skipped > 0,
+                'success' => $created > 0,
                 'message' => "สร้างเกียรติบัตรคณะกรรมการดำเนินการสำเร็จ {$created} ฉบับ" .
-                    ($skipped > 0 ? " (ข้าม {$skipped} รายการที่มีแล้ว)" : ''),
+                    ($regenerated > 0 ? " (ออกใหม่ {$regenerated} รายการ)" : ''),
                 'data' => [
                     'created' => $created,
-                    'skipped' => $skipped,
+                    'regenerated' => $regenerated,
                     'errors' => $errors,
                 ]
             ]);

@@ -212,11 +212,11 @@ export default function CertificateList() {
   };
 
   const selectAllEligible = () => {
-    const notGenerated = filteredEligible.filter(e => !e.has_certificate).map(e => e.score_id);
-    if (selectedScoreIds.length === notGenerated.length) {
+    const allIds = filteredEligible.map(e => e.score_id);
+    if (selectedScoreIds.length === allIds.length) {
       setSelectedScoreIds([]);
     } else {
-      setSelectedScoreIds(notGenerated);
+      setSelectedScoreIds(allIds);
     }
   };
 
@@ -239,16 +239,18 @@ export default function CertificateList() {
   };
 
   const handleGenerateAll = async () => {
-    const notGenerated = filteredEligible.filter(e => !e.has_certificate).map(e => e.score_id);
-    if (notGenerated.length === 0) {
-      toast.info('สร้างเกียรติบัตรครบแล้ว');
+    const allIds = filteredEligible.map(e => e.score_id);
+    if (allIds.length === 0) {
+      toast.info('ไม่มีรายการที่จะสร้าง');
       return;
     }
+    const alreadyGenerated = filteredEligible.filter(e => e.has_certificate).length;
     const levelLabel = filterLevel === 'district' ? 'ระดับเขตพื้นที่' : 'ระดับกลุ่มโรงเรียน';
-    if (!confirm(`สร้างเกียรติบัตร ${levelLabel} ทั้งหมด ${notGenerated.length} รายการ?`)) return;
+    const regenNote = alreadyGenerated > 0 ? `\n(มี ${alreadyGenerated} รายการที่จะออกใหม่)` : '';
+    if (!confirm(`สร้างเกียรติบัตร ${levelLabel} ทั้งหมด ${allIds.length} รายการ?${regenNote}`)) return;
     setGenerating(true);
     try {
-      const res = await certificateService.generate({ score_ids: notGenerated });
+      const res = await certificateService.generate({ score_ids: allIds });
       toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
       setSelectedScoreIds([]);
       loadEligible();
@@ -407,11 +409,11 @@ export default function CertificateList() {
   };
 
   const selectAllMembers = () => {
-    const notGenerated = filteredCommittee.filter(e => !e.has_certificate).map(e => e.member_id);
-    if (selectedMemberIds.length === notGenerated.length) {
+    const allIds = filteredCommittee.map(e => e.member_id);
+    if (selectedMemberIds.length === allIds.length) {
       setSelectedMemberIds([]);
     } else {
-      setSelectedMemberIds(notGenerated);
+      setSelectedMemberIds(allIds);
     }
   };
 
@@ -434,16 +436,18 @@ export default function CertificateList() {
   };
 
   const handleGenerateAllCommittee = async () => {
-    const notGenerated = filteredCommittee.filter(e => !e.has_certificate).map(e => e.member_id);
-    if (notGenerated.length === 0) {
-      toast.info('สร้างเกียรติบัตรครบแล้ว');
+    const allIds = filteredCommittee.map(e => e.member_id);
+    if (allIds.length === 0) {
+      toast.info('ไม่มีรายการที่จะสร้าง');
       return;
     }
+    const alreadyGenerated = filteredCommittee.filter(e => e.has_certificate).length;
     const levelLabel = filterLevel === 'district' ? 'ระดับเขตพื้นที่' : 'ระดับกลุ่มโรงเรียน';
-    if (!confirm(`สร้างเกียรติบัตรคณะกรรมการ ${levelLabel} ทั้งหมด ${notGenerated.length} รายการ?`)) return;
+    const regenNote = alreadyGenerated > 0 ? `\n(มี ${alreadyGenerated} รายการที่จะออกใหม่)` : '';
+    if (!confirm(`สร้างเกียรติบัตรคณะกรรมการ ${levelLabel} ทั้งหมด ${allIds.length} รายการ?${regenNote}`)) return;
     setGeneratingCommittee(true);
     try {
-      const res = await certificateService.generateCommittee({ member_ids: notGenerated });
+      const res = await certificateService.generateCommittee({ member_ids: allIds });
       toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
       setSelectedMemberIds([]);
       loadCommittee();
@@ -474,11 +478,11 @@ export default function CertificateList() {
   };
 
   const selectAllStaff = () => {
-    const notGenerated = filteredStaff.filter(e => !e.has_certificate).map(e => e.member_id);
-    if (selectedStaffIds.length === notGenerated.length) {
+    const allIds = filteredStaff.map(e => e.member_id);
+    if (selectedStaffIds.length === allIds.length) {
       setSelectedStaffIds([]);
     } else {
-      setSelectedStaffIds(notGenerated);
+      setSelectedStaffIds(allIds);
     }
   };
 
@@ -501,16 +505,18 @@ export default function CertificateList() {
   };
 
   const handleGenerateAllStaff = async () => {
-    const notGenerated = filteredStaff.filter(e => !e.has_certificate).map(e => e.member_id);
-    if (notGenerated.length === 0) {
-      toast.info('สร้างเกียรติบัตรครบแล้ว');
+    const allIds = filteredStaff.map(e => e.member_id);
+    if (allIds.length === 0) {
+      toast.info('ไม่มีรายการที่จะสร้าง');
       return;
     }
+    const alreadyGenerated = filteredStaff.filter(e => e.has_certificate).length;
     const levelLabel = filterLevel === 'district' ? 'ระดับเขตพื้นที่' : 'ระดับกลุ่มโรงเรียน';
-    if (!confirm(`สร้างเกียรติบัตรคณะกรรมการดำเนินการ ${levelLabel} ทั้งหมด ${notGenerated.length} รายการ?`)) return;
+    const regenNote = alreadyGenerated > 0 ? `\n(มี ${alreadyGenerated} รายการที่จะออกใหม่)` : '';
+    if (!confirm(`สร้างเกียรติบัตรคณะกรรมการดำเนินการ ${levelLabel} ทั้งหมด ${allIds.length} รายการ?${regenNote}`)) return;
     setGeneratingStaff(true);
     try {
-      const res = await certificateService.generateStaff({ member_ids: notGenerated });
+      const res = await certificateService.generateStaff({ member_ids: allIds });
       toast.success(res.data?.message || 'สร้างเกียรติบัตรสำเร็จ');
       setSelectedStaffIds([]);
       loadStaff();
@@ -759,7 +765,7 @@ export default function CertificateList() {
                     <tr>
                       <th className="px-3 py-3 text-center w-10">
                         <button onClick={selectAllEligible}>
-                          {selectedScoreIds.length === filteredEligible.filter(e => !e.has_certificate).length && filteredEligible.filter(e => !e.has_certificate).length > 0
+                          {selectedScoreIds.length === filteredEligible.length && filteredEligible.length > 0
                             ? <CheckSquare className="w-4 h-4 text-blue-600" />
                             : <Square className="w-4 h-4 text-gray-400" />
                           }
@@ -779,16 +785,12 @@ export default function CertificateList() {
                     {filteredEligible.map((item) => (
                       <tr key={item.score_id} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
                         <td className="px-3 py-2 text-center">
-                          {item.has_certificate ? (
-                            <span className="text-green-500 text-xs font-medium">&#10003;</span>
-                          ) : (
-                            <button onClick={() => toggleSelectScore(item.score_id)}>
-                              {selectedScoreIds.includes(item.score_id)
-                                ? <CheckSquare className="w-4 h-4 text-blue-600" />
-                                : <Square className="w-4 h-4 text-gray-400" />
-                              }
-                            </button>
-                          )}
+                          <button onClick={() => toggleSelectScore(item.score_id)}>
+                            {selectedScoreIds.includes(item.score_id)
+                              ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                              : <Square className="w-4 h-4 text-gray-400" />
+                            }
+                          </button>
                         </td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 truncate max-w-[200px]">{item.competition_name}</div>
@@ -812,8 +814,8 @@ export default function CertificateList() {
                         <td className="px-3 py-2 text-center text-gray-700">{item.rank ?? '-'}</td>
                         <td className="px-3 py-2 text-center">
                           {item.has_certificate ? (
-                            <span className="text-xs text-green-600 font-medium">
-                              สร้างแล้ว {item.certificate_count > 0 ? `(${item.certificate_count} ฉบับ)` : ''}
+                            <span className={`text-xs font-medium ${selectedScoreIds.includes(item.score_id) ? 'text-orange-600' : 'text-green-600'}`}>
+                              {selectedScoreIds.includes(item.score_id) ? 'ออกใหม่' : 'สร้างแล้ว'} {item.certificate_count > 0 ? `(${item.certificate_count})` : ''}
                             </span>
                           ) : (
                             <span className="text-xs text-gray-400">
@@ -895,7 +897,7 @@ export default function CertificateList() {
                     <tr>
                       <th className="px-3 py-3 text-center w-10">
                         <button onClick={selectAllMembers}>
-                          {selectedMemberIds.length === filteredCommittee.filter(e => !e.has_certificate).length && filteredCommittee.filter(e => !e.has_certificate).length > 0
+                          {selectedMemberIds.length === filteredCommittee.length && filteredCommittee.length > 0
                             ? <CheckSquare className="w-4 h-4 text-purple-600" />
                             : <Square className="w-4 h-4 text-gray-400" />
                           }
@@ -913,16 +915,12 @@ export default function CertificateList() {
                     {filteredCommittee.map((item) => (
                       <tr key={`${item.member_id}-${item.competition_id}`} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
                         <td className="px-3 py-2 text-center">
-                          {item.has_certificate ? (
-                            <span className="text-green-500 text-xs font-medium">&#10003;</span>
-                          ) : (
-                            <button onClick={() => toggleSelectMember(item.member_id)}>
-                              {selectedMemberIds.includes(item.member_id)
-                                ? <CheckSquare className="w-4 h-4 text-purple-600" />
-                                : <Square className="w-4 h-4 text-gray-400" />
-                              }
-                            </button>
-                          )}
+                          <button onClick={() => toggleSelectMember(item.member_id)}>
+                            {selectedMemberIds.includes(item.member_id)
+                              ? <CheckSquare className="w-4 h-4 text-purple-600" />
+                              : <Square className="w-4 h-4 text-gray-400" />
+                            }
+                          </button>
                         </td>
                         <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
                         <td className="px-3 py-2 text-gray-700 text-xs">{item.position || '-'}</td>
@@ -933,7 +931,9 @@ export default function CertificateList() {
                         <td className="px-3 py-2 text-center text-xs text-gray-500">{item.category_name}</td>
                         <td className="px-3 py-2 text-center">
                           {item.has_certificate ? (
-                            <span className="text-xs text-green-600 font-medium">สร้างแล้ว</span>
+                            <span className={`text-xs font-medium ${selectedMemberIds.includes(item.member_id) ? 'text-orange-600' : 'text-green-600'}`}>
+                              {selectedMemberIds.includes(item.member_id) ? 'ออกใหม่' : 'สร้างแล้ว'}
+                            </span>
                           ) : (
                             <span className="text-xs text-gray-400">รอสร้าง</span>
                           )}
@@ -1001,7 +1001,7 @@ export default function CertificateList() {
                     <tr>
                       <th className="px-3 py-3 text-center w-10">
                         <button onClick={selectAllStaff}>
-                          {selectedStaffIds.length === filteredStaff.filter(e => !e.has_certificate).length && filteredStaff.filter(e => !e.has_certificate).length > 0
+                          {selectedStaffIds.length === filteredStaff.length && filteredStaff.length > 0
                             ? <CheckSquare className="w-4 h-4 text-teal-600" />
                             : <Square className="w-4 h-4 text-gray-400" />
                           }
@@ -1018,16 +1018,12 @@ export default function CertificateList() {
                     {filteredStaff.map((item) => (
                       <tr key={item.member_id} className={`hover:bg-gray-50 ${item.has_certificate ? 'bg-green-50/50' : ''}`}>
                         <td className="px-3 py-2 text-center">
-                          {item.has_certificate ? (
-                            <span className="text-green-500 text-xs font-medium">&#10003;</span>
-                          ) : (
-                            <button onClick={() => toggleSelectStaff(item.member_id)}>
-                              {selectedStaffIds.includes(item.member_id)
-                                ? <CheckSquare className="w-4 h-4 text-teal-600" />
-                                : <Square className="w-4 h-4 text-gray-400" />
-                              }
-                            </button>
-                          )}
+                          <button onClick={() => toggleSelectStaff(item.member_id)}>
+                            {selectedStaffIds.includes(item.member_id)
+                              ? <CheckSquare className="w-4 h-4 text-teal-600" />
+                              : <Square className="w-4 h-4 text-gray-400" />
+                            }
+                          </button>
                         </td>
                         <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
                         <td className="px-3 py-2 text-gray-700 text-xs">{item.position || '-'}</td>
@@ -1035,7 +1031,9 @@ export default function CertificateList() {
                         <td className="px-3 py-2 text-center text-xs text-gray-500">{item.level === 'district' ? 'เขต' : 'กลุ่ม'}</td>
                         <td className="px-3 py-2 text-center">
                           {item.has_certificate ? (
-                            <span className="text-xs text-green-600 font-medium">สร้างแล้ว</span>
+                            <span className={`text-xs font-medium ${selectedStaffIds.includes(item.member_id) ? 'text-orange-600' : 'text-green-600'}`}>
+                              {selectedStaffIds.includes(item.member_id) ? 'ออกใหม่' : 'สร้างแล้ว'}
+                            </span>
                           ) : (
                             <span className="text-xs text-gray-400">รอสร้าง</span>
                           )}
