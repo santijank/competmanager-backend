@@ -34,6 +34,7 @@ const ActivityLogs = () => {
   const [perPage, setPerPage] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [expandedLogId, setExpandedLogId] = useState(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -378,45 +379,95 @@ const ActivityLogs = () => {
                 </tr>
               ) : (
                 logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(log.created_at), 'dd MMM yyyy HH:mm:ss', { locale: th })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{log.user_name || '-'}</div>
-                          <div className="text-xs text-gray-500">{log.user_email || '-'}</div>
+                  <React.Fragment key={log.id}>
+                    <tr className={`hover:bg-gray-50 ${log.details && Object.keys(log.details).length > 0 ? 'cursor-pointer' : ''}`}
+                        onClick={() => log.details && Object.keys(log.details).length > 0 && setExpandedLogId(expandedLogId === log.id ? null : log.id)}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {format(new Date(log.created_at), 'dd MMM yyyy HH:mm:ss', { locale: th })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{log.user_name || '-'}</div>
+                            <div className="text-xs text-gray-500">{log.user_email || '-'}</div>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
-                        {getRoleLabel(log.user_role)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getActionColor(log.action)}`}>
-                        {getActionIcon(log.action)}
-                        {getActionLabel(log.action)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm text-gray-900">{log.description || log.module || '-'}</div>
-                      {log.url && (
-                        <div className="text-xs text-gray-500 truncate max-w-xs" title={log.url}>
-                          {log.method} {log.url.replace(/^https?:\/\/[^\/]+/, '')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
+                          {getRoleLabel(log.user_role)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getActionColor(log.action)}`}>
+                          {getActionIcon(log.action)}
+                          {getActionLabel(log.action)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-gray-900">{log.description || log.module || '-'}</div>
+                        {log.url && (
+                          <div className="text-xs text-gray-500 truncate max-w-xs" title={log.url}>
+                            {log.method} {log.url.replace(/^https?:\/\/[^\/]+/, '')}
+                          </div>
+                        )}
+                        {log.details && Object.keys(log.details).length > 0 && (
+                          <div className="text-xs text-blue-500 mt-1">
+                            {expandedLogId === log.id ? '▼ ซ่อนรายละเอียด' : '▶ ดูรายละเอียด'}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-sm text-gray-900" title={log.user_agent || ''}>
+                          <Monitor className="w-4 h-4 text-gray-400" />
+                          {log.ip_address || '-'}
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 text-sm text-gray-900" title={log.user_agent || ''}>
-                        <Monitor className="w-4 h-4 text-gray-400" />
-                        {log.ip_address || '-'}
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+                    {expandedLogId === log.id && log.details && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-3 bg-gray-50">
+                          <div className="text-sm space-y-1">
+                            {log.details._deleted_resource && (
+                              <div className="font-medium text-red-600 mb-2">
+                                ข้อมูลที่ถูกลบ ({log.details._deleted_resource} ID: {log.details._resource_id})
+                              </div>
+                            )}
+                            {log.details._competition && (
+                              <div><span className="font-medium text-gray-700">กิจกรรม:</span> {log.details._competition.name} {log.details._competition.code && <span className="text-gray-500">({log.details._competition.code})</span>}</div>
+                            )}
+                            {log.details._school && (
+                              <div><span className="font-medium text-gray-700">โรงเรียน:</span> {log.details._school.name}</div>
+                            )}
+                            {log.details.team_name && (
+                              <div><span className="font-medium text-gray-700">ชื่อทีม:</span> {log.details.team_name}</div>
+                            )}
+                            {log.details.student_names && (
+                              <div><span className="font-medium text-gray-700">นักเรียน:</span> {Array.isArray(log.details.student_names) ? log.details.student_names.join(', ') : log.details.student_names}</div>
+                            )}
+                            {log.details.name && !log.details._competition && (
+                              <div><span className="font-medium text-gray-700">ชื่อ:</span> {log.details.name}</div>
+                            )}
+                            {log.details.code && !log.details._competition && (
+                              <div><span className="font-medium text-gray-700">รหัส:</span> {log.details.code}</div>
+                            )}
+                            {log.details.title && (
+                              <div><span className="font-medium text-gray-700">หัวข้อ:</span> {log.details.title}</div>
+                            )}
+                            {/* สำหรับ create/update: แสดงข้อมูลทั่วไป */}
+                            {!log.details._deleted_resource && (
+                              <div className="mt-2">
+                                <pre className="text-xs bg-white p-2 rounded border overflow-x-auto max-h-40">
+                                  {JSON.stringify(log.details, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))
               )}
             </tbody>

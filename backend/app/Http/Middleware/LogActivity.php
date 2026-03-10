@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class LogActivity
@@ -30,10 +31,32 @@ class LogActivity
     ];
 
     /**
+     * Mapping: URL segment → [Model class, fields to capture]
+     */
+    protected array $modelMapping = [
+        'registrations' => [\App\Models\Registration::class, ['id', 'competition_id', 'school_id', 'team_name', 'student_names', 'student_count'], ['competition:id,name,code', 'school:id,name']],
+        'competitions' => [\App\Models\Competition::class, ['id', 'name', 'code', 'level', 'competition_level', 'school_group_id', 'category_id'], []],
+        'users' => [\App\Models\User::class, ['id', 'name', 'email', 'role'], []],
+        'schools' => [\App\Models\School::class, ['id', 'name', 'school_group_id'], []],
+        'announcements' => [\App\Models\Announcement::class, ['id', 'title'], []],
+        'scores' => [\App\Models\Score::class, ['id', 'registration_id', 'competition_id', 'judge_id'], []],
+    ];
+
+    /**
+     * เก็บข้อมูล resource ก่อนลบ
+     */
+    protected ?array $deleteResourceDetails = null;
+
+    /**
      * Handle an incoming request.
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // สำหรับ DELETE: จับข้อมูล resource ก่อนที่จะถูกลบ
+        if ($request->method() === 'DELETE') {
+            $this->captureDeleteDetails($request);
+        }
+
         $response = $next($request);
 
         // บันทึก log หลังจาก response
@@ -203,7 +226,30 @@ class LogActivity
         $actionLabel = $actionLabels[$action] ?? $action;
         $moduleLabel = $moduleLabels[$module] ?? $module ?? 'ข้อมูล';
 
-        return "{$actionLabel}{$moduleLabel}";
+        $desc = "{$actionLabel}{$moduleLabel}";
+
+        // สำหรับ DELETE: เพิ่มชื่อ resource ที่ถูกลบ
+        if ($action === 'delete' && $this->deleteResourceDetails) {
+            $details = $this->deleteResourceDetails;
+            if ($module === 'registrations' && isset($details['_competition'])) {
+                $compName = $details['_competition']['name'] ?? '';
+                $schoolName = $details['_school']['name'] ?? '';
+                if ($compName) {
+                    $desc .= " - {$compName}";
+                }
+                if ($schoolName) {
+                    $desc .= " ({$schoolName})";
+                }
+            } elseif ($module === 'competitions' && isset($details['name'])) {
+                $desc .= " - {$details['name']}";
+            } elseif (isset($details['name'])) {
+                $desc .= " - {$details['name']}";
+            } elseif (isset($details['title'])) {
+                $desc .= " - {$details['title']}";
+            }
+        }
+
+        return $desc;
     }
 
     /**
@@ -226,6 +272,61 @@ class LogActivity
             return !empty($data) ? $data : null;
         }
 
+        // สำหรับ DELETE: ใช้ข้อมูลที่จับไว้ก่อนลบ
+        if ($method === 'DELETE' && $this->deleteResourceDetails) {
+            return $this->deleteResourceDetails;
+        }
+
         return null;
+    }
+
+    /**
+     * จับข้อมูล resource ก่อนที่จะถูกลบ (เรียกก่อน $next)
+     */
+    protected function captureDeleteDetails(Request $request): void
+    {
+        try {
+            $path = $request->path();
+
+            foreach ($this->modelMapping as $segment => [$modelClass, $fields, $relations]) {
+                // ตรวจสอบ URL pattern เช่น api/registrations/123
+                if (preg_match("#(?:api/)?{$segment}/(\d+)#", $path, $matches)) {
+                    $id = (int) $matches[1];
+
+                    $query = $modelClass::select($fields);
+                    if (!empty($relations)) {
+                        $query->with($relations);
+                    }
+                    $resource = $query->find($id);
+
+                    if ($resource) {
+                        $details = ['_deleted_resource' => $segment, '_resource_id' => $id];
+
+                        // เพิ่มข้อมูลหลักของ resource
+                        foreach ($fields as $field) {
+                            $value = $resource->$field;
+                            if ($value !== null) {
+                                $details[$field] = $value;
+                            }
+                        }
+
+                        // เพิ่มข้อมูล relations
+                        foreach ($relations as $relation) {
+                            $relationName = explode(':', $relation)[0];
+                            $related = $resource->$relationName;
+                            if ($related) {
+                                $details["_{$relationName}"] = $related->toArray();
+                            }
+                        }
+
+                        $this->deleteResourceDetails = $details;
+                    }
+
+                    break;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to capture delete details', ['error' => $e->getMessage()]);
+        }
     }
 }
