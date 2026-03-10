@@ -298,4 +298,73 @@ class SystemSettingController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Permission keys ทั้งหมดในระบบ
+     */
+    private array $permissionKeys = [
+        'perm_registration_create',
+        'perm_registration_edit',
+        'perm_registration_delete',
+        'perm_score_entry',
+        'perm_score_edit',
+        'perm_result_publish',
+        'perm_certificate_generate',
+        'perm_certificate_download',
+        'perm_competition_crud',
+        'perm_schedule_edit',
+        'perm_participant_change',
+    ];
+
+    /**
+     * ดึงค่า permission switches ทั้งหมด
+     */
+    public function getPermissions(Request $request): JsonResponse
+    {
+        $permissions = [];
+        foreach ($this->permissionKeys as $key) {
+            $permissions[$key] = SystemSetting::getValue($key, '1') === '1';
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $permissions,
+        ]);
+    }
+
+    /**
+     * อัปเดต permission switches (admin/district_admin เท่านั้น)
+     */
+    public function updatePermissions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'คุณไม่มีสิทธิ์แก้ไขการตั้งค่านี้'
+            ], 403);
+        }
+
+        $permissions = $request->input('permissions', []);
+        $updated = [];
+
+        foreach ($permissions as $key => $value) {
+            if (in_array($key, $this->permissionKeys)) {
+                SystemSetting::setValue($key, $value ? '1' : '0');
+                $updated[$key] = (bool) $value;
+            }
+        }
+
+        Log::info('Permission switches updated', [
+            'updated_by' => $user->id,
+            'permissions' => $updated,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'บันทึกการตั้งค่าสิทธิ์สำเร็จ',
+            'data' => $updated,
+        ]);
+    }
 }

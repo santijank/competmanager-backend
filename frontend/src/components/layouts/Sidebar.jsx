@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   X,
   Home,
@@ -26,6 +26,7 @@ import {
   CreditCard,
   FileWarning,
   AlertCircle,
+  Shield,
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
@@ -35,6 +36,7 @@ import useMessageStore from '@/stores/messageStore';
 export default function Sidebar({ isOpen, onClose }) {
   const { user, hasRole, logout } = useAuthStore();
   const { unreadCount, subscribe, unsubscribe } = useMessageStore();
+  const location = useLocation();
 
   useEffect(() => {
     subscribe();
@@ -310,13 +312,21 @@ export default function Sidebar({ isOpen, onClose }) {
       });
     }
 
-    // ===== เกียรติบัตร =====
-    items.push({
-      label: 'เกียรติบัตร',
-      icon: Award,
-      path: '/certificates',
-      roles: ['admin', 'committee', 'district_admin', 'category_admin', 'data_entry'],
-    });
+    // ===== เกียรติบัตร (แยกระดับกลุ่ม / ระดับเขต) =====
+    items.push(
+      {
+        label: 'เกียรติบัตรระดับกลุ่ม',
+        icon: Award,
+        path: '/certificates?level=group',
+        roles: ['admin', 'committee', 'district_admin', 'category_admin', 'data_entry'],
+      },
+      {
+        label: 'เกียรติบัตรระดับเขต',
+        icon: Award,
+        path: '/certificates?level=district',
+        roles: ['admin', 'committee', 'district_admin', 'category_admin', 'data_entry'],
+      },
+    );
 
     // ===== จัดการประกาศ =====
     if (hasRole(['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
@@ -393,22 +403,41 @@ export default function Sidebar({ isOpen, onClose }) {
       path: '/settings/committee',
       roles: ['admin', 'district_admin', 'group_admin', 'school_admin', 'category_admin', 'data_entry'],
     },
+    {
+      label: 'ตั้งค่าเกียรติบัตร',
+      icon: Award,
+      path: '/certificates/settings',
+      roles: ['admin', 'district_admin'],
+    },
+    {
+      label: 'สิทธิ์ระบบ',
+      icon: Shield,
+      path: '/settings/permissions',
+      roles: ['admin', 'district_admin'],
+    },
   ];
 
   const renderMenuItem = (item, index) => {
     if (item.roles && !hasRole(item.roles)) return null;
 
+    // Custom active check for paths with query params
+    const hasQuery = item.path.includes('?');
+    const isActiveCustom = hasQuery
+      ? location.pathname + location.search === item.path
+      : null;
+
     return (
       <NavLink
         key={index}
         to={item.path}
-        className={({ isActive }) =>
-          `flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-            isActive
+        className={({ isActive }) => {
+          const active = hasQuery ? isActiveCustom : isActive;
+          return `flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+            active
               ? 'bg-primary-600 text-white'
               : 'text-gray-700 hover:bg-gray-100'
-          }`
-        }
+          }`;
+        }}
       >
         <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
         <span className="truncate flex-1">{item.label}</span>

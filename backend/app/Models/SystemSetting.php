@@ -29,6 +29,18 @@ class SystemSetting extends Model
     }
 
     /**
+     * ตรวจสอบ permission switch (admin/district_admin exempt เสมอ)
+     * ค่าเริ่มต้น = เปิด ('1')
+     */
+    public static function isPermissionAllowed(string $key, $user = null): bool
+    {
+        if ($user && in_array($user->role, ['admin', 'district_admin'])) {
+            return true;
+        }
+        return static::getValue($key, '1') === '1';
+    }
+
+    /**
      * ตรวจสอบว่าอยู่ในช่วงเวลาเปิดแก้ไขรายชื่อหรือไม่
      */
     public static function isEditNameAllowed(): bool

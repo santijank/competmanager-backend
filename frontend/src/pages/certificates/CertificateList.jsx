@@ -64,6 +64,9 @@ export default function CertificateList() {
   const [filterLevel, setFilterLevel] = useState(urlLevel || 'district');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterCompetition, setFilterCompetition] = useState('');
+  const [competitions, setCompetitions] = useState([]);
   const [search, setSearch] = useState('');
 
   // Sync filterLevel เมื่อ URL query param เปลี่ยน (เช่น กดเมนู sidebar)
@@ -74,6 +77,8 @@ export default function CertificateList() {
       setSelectedCertIds([]);
       setSelectedMemberIds([]);
       setSelectedStaffIds([]);
+      setFilterType('');
+      setFilterCompetition('');
     }
   }, [urlLevel]);
 
@@ -121,17 +126,20 @@ export default function CertificateList() {
       if (filterLevel) params.level = filterLevel;
       if (filterCategory) params.category_id = filterCategory;
       if (filterMedal) params.medal = filterMedal;
+      if (filterType) params.recipient_type = filterType;
+      if (filterCompetition) params.competition_id = filterCompetition;
       if (search) params.search = search;
       const res = await certificateService.getAll(params);
       setCertificates(res.data?.data || []);
       setCertSummary(res.data?.summary || {});
       setCertMeta(res.data?.meta || {});
+      setCompetitions(res.data?.competitions || []);
     } catch {
       toast.error('ไม่สามารถโหลดเกียรติบัตรได้');
     } finally {
       setCertLoading(false);
     }
-  }, [filterLevel, filterCategory, filterMedal, search]);
+  }, [filterLevel, filterCategory, filterMedal, filterType, filterCompetition, search]);
 
   // Load committee members
   const loadCommittee = useCallback(async () => {
@@ -156,17 +164,19 @@ export default function CertificateList() {
   }, [filterLevel, filterCategory]);
 
   // Load staff members (คณะกรรมการดำเนินการ) — ไม่ผูกกิจกรรม, filter ตาม member.level
+  // โหลดทั้งหมดจาก API แล้ว filter ระดับบน frontend (เหมือน eligible/committee tabs)
   const loadStaff = useCallback(async () => {
     setStaffLoading(true);
     try {
       const params = {};
-      if (filterLevel) params.level = filterLevel;
+      // ไม่ส่ง level ไป API → โหลดทั้งหมด → filter บน frontend
       const res = await certificateService.getEligibleStaff(params);
       const allData = res.data?.data || [];
-      setStaffMembers(allData);
-      setStaffSummary(res.data?.summary || {
-        total: allData.length,
-        already_generated: allData.filter(e => e.has_certificate).length,
+      const filtered = filterLevel ? allData.filter(e => e.level === filterLevel) : allData;
+      setStaffMembers(filtered);
+      setStaffSummary({
+        total: filtered.length,
+        already_generated: filtered.filter(e => e.has_certificate).length,
       });
     } catch {
       toast.error('ไม่สามารถโหลดรายการคณะกรรมการดำเนินการได้');
@@ -302,6 +312,8 @@ export default function CertificateList() {
     }
   };
 
+  const hasActiveFilters = filterType || filterCategory || filterMedal || filterCompetition || search;
+
   const handleDeleteAll = async () => {
     const total = certSummary.total || certificates.length;
     if (!confirm(`⚠️ ต้องการลบเกียรติบัตรทั้งหมด ${total} ฉบับ?\n\nเลขรันจะถูกรีเซ็ตกลับเป็น 0 ด้วย\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!`)) return;
@@ -315,6 +327,55 @@ export default function CertificateList() {
       loadCertificates();
     } catch (err) {
       toast.error(err.response?.data?.message || 'ไม่สามารถลบเกียรติบัตรทั้งหมดได้');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const typeLabels = { student: 'นักเรียน', teacher: 'ครูผู้ฝึกสอน', committee: 'กก.ตัดสิน', staff: 'กก.ดำเนินการ' };
+
+  const handleDeleteFiltered = async () => {
+    const params = {};
+    if (filterLevel) params.level = filterLevel;
+    if (filterCategory) params.category_id = filterCategory;
+    if (filterMedal) params.medal = filterMedal;
+    if (filterType) params.recipient_type = filterType;
+    if (filterCompetition) params.competition_id = filterCompetition;
+    if (search) params.search = search;
+
+    try {
+      const countRes = await certificateService.countFiltered(params);
+      const count = countRes.data?.count || 0;
+      if (count === 0) {
+        toast.info('ไม่พบเกียรติบัตรที่ตรงกับตัวกรอง');
+        return;
+      }
+
+      const filterDescs = [];
+      if (filterType) filterDescs.push(`ประเภท: ${typeLabels[filterType] || filterType}`);
+      if (filterMedal) filterDescs.push(`เหรียญ: ${medalLabels[filterMedal]}`);
+      if (filterCategory) {
+        const cat = categories.find(c => String(c.id) === String(filterCategory));
+        filterDescs.push(`หมวดหมู่: ${cat?.name || filterCategory}`);
+      }
+      if (filterCompetition) {
+        const comp = competitions.find(c => String(c.competition_id) === String(filterCompetition));
+        filterDescs.push(`กิจกรรม: ${comp?.competition_name || filterCompetition}`);
+      }
+      if (search) filterDescs.push(`ค้นหา: "${search}"`);
+
+      const filterText = filterDescs.length > 0 ? `\nตัวกรอง: ${filterDescs.join(', ')}` : '';
+
+      if (!confirm(`⚠️ ต้องการลบเกียรติบัตร ${count} ฉบับ?${filterText}\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้!`)) return;
+      if (!confirm(`⚠️ ยืนยันอีกครั้ง: ลบเกียรติบัตร ${count} ฉบับ?`)) return;
+
+      setDeleting(true);
+      const res = await certificateService.destroyFiltered(params);
+      toast.success(res.data?.message || `ลบเกียรติบัตร ${count} ฉบับ สำเร็จ`);
+      setSelectedCertIds([]);
+      loadCertificates();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ไม่สามารถลบเกียรติบัตรได้');
     } finally {
       setDeleting(false);
     }
@@ -613,7 +674,45 @@ export default function CertificateList() {
             <option value="bronze">เหรียญทองแดง</option>
             <option value="participant">เข้าร่วม</option>
           </select>
+          {activeTab === 'generated' && competitions.length > 0 && (
+            <select
+              value={filterCompetition}
+              onChange={(e) => { setFilterCompetition(e.target.value); setSelectedCertIds([]); }}
+              className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 max-w-[300px]"
+            >
+              <option value="">ทุกกิจกรรม</option>
+              {competitions.map(c => (
+                <option key={c.competition_id} value={c.competition_id}>{c.competition_name}</option>
+              ))}
+            </select>
+          )}
         </div>
+
+        {/* Type badge filter row */}
+        {activeTab === 'generated' && (
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t items-center">
+            <span className="text-xs text-gray-500 mr-1">ประเภท:</span>
+            {[
+              { value: '', label: 'ทั้งหมด', bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-700', count: certSummary.student + certSummary.teacher + certSummary.committee + certSummary.staff },
+              { value: 'student', label: 'นักเรียน', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-600', count: certSummary.student },
+              { value: 'teacher', label: 'ครูผู้ฝึกสอน', bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-600', count: certSummary.teacher },
+              { value: 'committee', label: 'กก.ตัดสิน', bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-600', count: certSummary.committee },
+              { value: 'staff', label: 'กก.ดำเนินการ', bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-300', activeBg: 'bg-teal-600', count: certSummary.staff },
+            ].map(type => (
+              <button
+                key={type.value}
+                onClick={() => { setFilterType(type.value); setSelectedCertIds([]); setFilterCompetition(''); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                  filterType === type.value
+                    ? `${type.activeBg} text-white border-transparent`
+                    : `${type.bg} ${type.text} ${type.border} hover:opacity-80`
+                }`}
+              >
+                {type.label} {type.count != null && !isNaN(type.count) ? type.count : ''}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* =================== ELIGIBLE TAB =================== */}
@@ -967,12 +1066,12 @@ export default function CertificateList() {
                 ดาวน์โหลดที่เลือก ({selectedCertIds.length})
               </button>
               <button
-                onClick={handleDeleteAll}
+                onClick={hasActiveFilters ? handleDeleteFiltered : handleDeleteAll}
                 disabled={deleting || certificates.length === 0}
                 className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deleting ? <Loader className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                ลบทั้งหมด
+                {hasActiveFilters ? 'ลบตามตัวกรอง' : 'ลบทั้งหมด'}
               </button>
             </div>
           </div>

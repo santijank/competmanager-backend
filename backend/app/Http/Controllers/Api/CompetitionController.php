@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\SystemSetting;
 
 class CompetitionController extends Controller
 {
@@ -358,6 +359,13 @@ class CompetitionController extends Controller
                 ], 401);
             }
 
+            if (!SystemSetting::isPermissionAllowed('perm_competition_crud', $user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ระบบปิดการสร้าง/แก้ไขกิจกรรมชั่วคราว'
+                ], 403);
+            }
+
             $userRole = strtolower($user->role);
 
             // ✅ ตรวจสอบสิทธิ์การสร้าง
@@ -453,6 +461,13 @@ class CompetitionController extends Controller
                     'success' => false,
                     'message' => 'กรุณาเข้าสู่ระบบ'
                 ], 401);
+            }
+
+            if (!SystemSetting::isPermissionAllowed('perm_competition_crud', $user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ระบบปิดการสร้าง/แก้ไขกิจกรรมชั่วคราว'
+                ], 403);
             }
 
             $competition = Competition::findOrFail($id);

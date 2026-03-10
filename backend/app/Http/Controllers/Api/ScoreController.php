@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\SystemSetting;
 
 class ScoreController extends Controller
 {
@@ -398,6 +399,10 @@ class ScoreController extends Controller
         try {
             $user = auth()->user();
 
+            if (!SystemSetting::isPermissionAllowed('perm_score_entry', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการบันทึกคะแนนชั่วคราว'], 403);
+            }
+
             $validated = $request->validate([
                 'registration_id' => 'required|exists:registrations,id',
                 'score' => 'required|numeric|min:0|max:100',
@@ -482,6 +487,10 @@ class ScoreController extends Controller
     {
         try {
             $user = auth()->user();
+
+            if (!SystemSetting::isPermissionAllowed('perm_score_entry', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการบันทึกคะแนนชั่วคราว'], 403);
+            }
 
             $validated = $request->validate([
                 'scores' => 'required|array',
@@ -594,6 +603,10 @@ class ScoreController extends Controller
     {
         try {
             $user = auth()->user();
+
+            if (!SystemSetting::isPermissionAllowed('perm_score_entry', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการบันทึกคะแนนชั่วคราว'], 403);
+            }
 
             $validated = $request->validate([
                 'competition_id' => 'required|exists:competitions,id',
@@ -1005,6 +1018,10 @@ class ScoreController extends Controller
     {
         try {
             $user = auth()->user();
+
+            if (!SystemSetting::isPermissionAllowed('perm_result_publish', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการเผยแพร่ผลการแข่งขันชั่วคราว'], 403);
+            }
 
             if (!in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin'])) {
                 return response()->json(['error' => 'Unauthorized'], 403);

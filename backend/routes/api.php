@@ -160,6 +160,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('system-settings/participant-change', [SystemSettingController::class, 'updateParticipantChange']);
     Route::get('system-settings/certificate', [SystemSettingController::class, 'getCertificateSettings']);
     Route::post('system-settings/certificate', [SystemSettingController::class, 'updateCertificateSettings']);
+    Route::get('system-settings/permissions', [SystemSettingController::class, 'getPermissions']);
+    Route::put('system-settings/permissions', [SystemSettingController::class, 'updatePermissions']);
 
     // Results
     Route::apiResource('results', ResultController::class);
@@ -208,6 +210,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/group-settings/{groupId}', [CertificateController::class, 'groupCertificateSettings']);
         Route::post('/group-date', [CertificateController::class, 'updateGroupDate']);
         Route::delete('/all', [CertificateController::class, 'destroyAll']);
+        Route::delete('/filtered', [CertificateController::class, 'destroyFiltered']);
         Route::get('/eligible-committee', [CertificateController::class, 'eligibleCommittee']);
         Route::post('/generate-committee', [CertificateController::class, 'generateCommittee']);
         Route::get('/eligible-staff', [CertificateController::class, 'eligibleStaff']);

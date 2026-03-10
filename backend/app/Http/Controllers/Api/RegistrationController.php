@@ -157,6 +157,14 @@ class RegistrationController extends Controller
     {
         $user = $request->user();
 
+        // ตรวจสอบ permission switch ระดับระบบ
+        if (!SystemSetting::isPermissionAllowed('perm_registration_create', $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ระบบปิดการลงทะเบียนชั่วคราว'
+            ], 403);
+        }
+
         // ✅ ตรวจสอบสิทธิ์การลงทะเบียน
         if (!$this->canRegister($user)) {
             return response()->json([
@@ -509,6 +517,15 @@ class RegistrationController extends Controller
     {
         try {
             $user = $request->user();
+
+            // ตรวจสอบ permission switch ระดับระบบ
+            if (!SystemSetting::isPermissionAllowed('perm_registration_edit', $user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ระบบปิดการแก้ไขการลงทะเบียนชั่วคราว'
+                ], 403);
+            }
+
             $registration = Registration::with(['school'])->findOrFail($id);
 
             // ✅ ตรวจสอบสิทธิ์การแก้ไข
@@ -632,16 +649,15 @@ class RegistrationController extends Controller
     public function changeParticipant(Request $request, int $id): JsonResponse
     {
         try {
-            // ตรวจสอบว่าเปิดเมนูเปลี่ยนตัวหรือไม่
-            $enabled = SystemSetting::getValue('enable_participant_change', 'false');
-            if ($enabled !== 'true') {
+            $user = $request->user();
+
+            // ตรวจสอบ permission switch ระดับระบบ
+            if (!SystemSetting::isPermissionAllowed('perm_participant_change', $user)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'ขณะนี้ปิดการเปลี่ยนตัวผู้เข้าแข่งขัน'
                 ], 403);
             }
-
-            $user = $request->user();
             $registration = Registration::with(['competition', 'school'])->findOrFail($id);
 
             // ตรวจสอบว่าเป็นระดับเขตและอนุมัติแล้ว
@@ -1453,6 +1469,15 @@ class RegistrationController extends Controller
     {
         try {
             $user = $request->user();
+
+            // ตรวจสอบ permission switch ระดับระบบ
+            if (!SystemSetting::isPermissionAllowed('perm_registration_delete', $user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ระบบปิดการลบการลงทะเบียนชั่วคราว'
+                ], 403);
+            }
+
             $registration = Registration::with(['school'])->findOrFail($id);
 
             // ✅ ตรวจสอบสิทธิ์การลบ

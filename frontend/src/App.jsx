@@ -79,6 +79,7 @@ import CategoryList from '@/pages/settings/CategoryList';
 import SchoolGroupList from '@/pages/settings/SchoolGroupList';
 import SchoolList from '@/pages/settings/SchoolList';
 import CommitteeManagement from '@/pages/settings/CommitteeManagement';
+import PermissionSwitches from '@/pages/settings/PermissionSwitches';
 import SchoolManagement from '@/pages/admin/SchoolManagement';
 import ActivityLogs from '@/pages/admin/ActivityLogs';
 import CompetitionExclusionManager from '@/pages/admin/CompetitionExclusionManager';
@@ -236,6 +237,7 @@ function App() {
             <Route path="/settings/school-groups" element={<SchoolGroupList />} />
             <Route path="/settings/schools" element={<SchoolList />} />
             <Route path="/settings/committee" element={<CommitteeManagement />} />
+            <Route path="/settings/permissions" element={<PermissionSwitches />} />
           </Route>
         </Route>
 

@@ -138,6 +138,9 @@ class CertificateController extends Controller
                     }
                 }
             }
+            // clone ก่อน apply recipient_type เพื่อ counts ทุกประเภทเสมอ
+            $typeSummaryQuery = clone $summaryQuery;
+
             if ($request->filled('recipient_type')) {
                 $summaryQuery->where('recipient_type', $request->recipient_type);
             }
@@ -148,12 +151,28 @@ class CertificateController extends Controller
                 'silver' => (clone $summaryQuery)->where('medal', 'silver')->count(),
                 'bronze' => (clone $summaryQuery)->where('medal', 'bronze')->count(),
                 'participant' => (clone $summaryQuery)->where('medal', 'participant')->count(),
+                // type counts (ไม่ถูก filter ตาม recipient_type)
+                'student' => (clone $typeSummaryQuery)->where('recipient_type', 'student')->count(),
+                'teacher' => (clone $typeSummaryQuery)->where('recipient_type', 'teacher')->count(),
+                'committee' => (clone $typeSummaryQuery)->where('recipient_type', 'committee')->count(),
+                'staff' => (clone $typeSummaryQuery)->where('recipient_type', 'staff')->count(),
             ];
+
+            // รายชื่อกิจกรรมสำหรับ dropdown filter
+            $competitions = Certificate::query()
+                ->when($request->filled('level'), fn($q) => $q->where('level', $request->level))
+                ->when($request->filled('recipient_type'), fn($q) => $q->where('recipient_type', $request->recipient_type))
+                ->when($request->filled('category_id'), fn($q) => $q->whereHas('competition', fn($sq) => $sq->where('category_id', $request->category_id)))
+                ->select('competition_id', 'competition_name')
+                ->distinct()
+                ->orderBy('competition_name')
+                ->get();
 
             return response()->json([
                 'success' => true,
                 'data' => $certificates->items(),
                 'summary' => $summary,
+                'competitions' => $competitions,
                 'meta' => [
                     'current_page' => $certificates->currentPage(),
                     'last_page' => $certificates->lastPage(),
@@ -266,6 +285,11 @@ class CertificateController extends Controller
     public function generate(Request $request): JsonResponse
     {
         try {
+            $user = $request->user();
+            if (!SystemSetting::isPermissionAllowed('perm_certificate_generate', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการสร้างเกียรติบัตรชั่วคราว'], 403);
+            }
+
             $request->validate([
                 'score_ids' => 'required|array|min:1',
                 'score_ids.*' => 'integer|exists:scores,id',
@@ -409,6 +433,11 @@ class CertificateController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
             }
 
+            $user = Auth::user();
+            if (!SystemSetting::isPermissionAllowed('perm_certificate_download', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการดาวน์โหลดเกียรติบัตรชั่วคราว'], 403);
+            }
+
             $certificate = Certificate::with('competition')->findOrFail($id);
             $pdf = $this->renderPdf(collect([$certificate]));
 
@@ -434,6 +463,12 @@ class CertificateController extends Controller
             if (!$this->authenticateFromToken($request)) {
                 return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
             }
+
+            $user = Auth::user();
+            if (!SystemSetting::isPermissionAllowed('perm_certificate_download', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการดาวน์โหลดเกียรติบัตรชั่วคราว'], 403);
+            }
+
             $ids = $request->input('ids', []);
             // รองรับทั้ง array (จาก XHR) และ comma-separated string (จาก window.open)
             if (is_string($ids)) {
@@ -613,6 +648,11 @@ class CertificateController extends Controller
     public function generateCommittee(Request $request): JsonResponse
     {
         try {
+            $user = $request->user();
+            if (!SystemSetting::isPermissionAllowed('perm_certificate_generate', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการสร้างเกียรติบัตรชั่วคราว'], 403);
+            }
+
             $request->validate([
                 'member_ids' => 'required|array|min:1',
                 'member_ids.*' => 'integer|exists:committee_members,id',
@@ -759,6 +799,11 @@ class CertificateController extends Controller
     public function generateStaff(Request $request): JsonResponse
     {
         try {
+            $user = $request->user();
+            if (!SystemSetting::isPermissionAllowed('perm_certificate_generate', $user)) {
+                return response()->json(['success' => false, 'message' => 'ระบบปิดการสร้างเกียรติบัตรชั่วคราว'], 403);
+            }
+
             $request->validate([
                 'member_ids' => 'required|array|min:1',
                 'member_ids.*' => 'integer|exists:committee_members,id',
@@ -892,6 +937,80 @@ class CertificateController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'ไม่สามารถลบเกียรติบัตรทั้งหมดได้: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ลบเกียรติบัตรตามตัวกรอง (ไม่รีเซ็ตเลขรัน)
+     */
+    public function destroyFiltered(Request $request): JsonResponse
+    {
+        try {
+            $query = Certificate::query();
+
+            if ($request->filled('competition_id')) {
+                $query->where('competition_id', $request->competition_id);
+            }
+            if ($request->filled('category_id')) {
+                $query->whereHas('competition', fn($q) => $q->where('category_id', $request->category_id));
+            }
+            if ($request->filled('level')) {
+                $query->where('level', $request->level);
+            }
+            if ($request->filled('medal')) {
+                $query->where('medal', $request->medal);
+            }
+            if ($request->filled('recipient_type')) {
+                $query->where('recipient_type', $request->recipient_type);
+            }
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('student_name', 'like', "%{$search}%")
+                      ->orWhere('recipient_name', 'like', "%{$search}%")
+                      ->orWhere('school_name', 'like', "%{$search}%")
+                      ->orWhere('competition_name', 'like', "%{$search}%")
+                      ->orWhere('certificate_code', 'like', "%{$search}%")
+                      ->orWhere('document_number', 'like', "%{$search}%");
+                });
+            }
+
+            $count = $query->count();
+
+            if ($count === 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'ไม่พบเกียรติบัตรที่ตรงกับตัวกรอง',
+                    'deleted' => 0,
+                ]);
+            }
+
+            // count_only mode — preview จำนวนก่อน confirm
+            if ($request->boolean('count_only')) {
+                return response()->json([
+                    'success' => true,
+                    'count' => $count,
+                    'message' => "พบเกียรติบัตร {$count} ฉบับ ที่ตรงกับตัวกรอง",
+                ]);
+            }
+
+            $query->delete();
+
+            Log::info("Certificates destroyFiltered: {$count} records by user #" . auth()->id(), [
+                'filters' => $request->only(['competition_id', 'category_id', 'level', 'medal', 'recipient_type', 'search']),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "ลบเกียรติบัตร {$count} ฉบับ สำเร็จ",
+                'deleted' => $count,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Certificate destroyFiltered error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'ไม่สามารถลบเกียรติบัตรได้: ' . $e->getMessage()
             ], 500);
         }
     }

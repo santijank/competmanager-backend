@@ -165,6 +165,8 @@ export const certificateService = {
   generate: (data) => api.post('/certificates/generate', data),
   destroy: (id) => api.delete(`/certificates/${id}`),
   destroyAll: () => api.delete('/certificates/all'),
+  destroyFiltered: (params = {}) => api.delete('/certificates/filtered', { params }),
+  countFiltered: (params = {}) => api.delete('/certificates/filtered', { params: { ...params, count_only: true } }),
 
   // ใช้ window.open() แทน XHR blob เพื่อหลีกเลี่ยงปัญหา CORS + timeout
   download: (id) => {
