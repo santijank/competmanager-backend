@@ -198,6 +198,7 @@ class CertificateController extends Controller
             $query = Score::with([
                 'registration.school',
                 'registration.competition.category',
+                'registration.competition.schoolGroup',
             ])
             ->where('is_finalized', true)
             ->where('medal', '!=', 'absent');
@@ -241,6 +242,7 @@ class CertificateController extends Controller
                     'competition_level' => $comp?->competition_level ?? '-',
                     'category_name' => $comp?->category?->name ?? '-',
                     'category_id' => $comp?->category_id,
+                    'group_name' => $comp?->schoolGroup?->name ?? null,
                     'school_name' => $school?->name ?? '-',
                     'student_names' => $studentNames,
                     'teacher_names' => $teacherNames,
