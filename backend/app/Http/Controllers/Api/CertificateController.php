@@ -163,7 +163,7 @@ class CertificateController extends Controller
                 ->when($request->filled('level'), fn($q) => $q->where('level', $request->level))
                 ->when($request->filled('recipient_type'), fn($q) => $q->where('recipient_type', $request->recipient_type))
                 ->when($request->filled('category_id'), fn($q) => $q->whereHas('competition', fn($sq) => $sq->where('category_id', $request->category_id)))
-                ->select('competition_id', 'competition_name')
+                ->select('competition_id', 'competition_name', 'group_name')
                 ->distinct()
                 ->orderBy('competition_name')
                 ->get();
