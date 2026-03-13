@@ -419,27 +419,19 @@ class IdCardController extends Controller
      */
     public function photoStats(Request $request): JsonResponse
     {
-        try {
-            $user = $request->user();
-            if (!in_array($user->role, ['admin', 'district_admin'])) {
-                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
-            }
-
-            $total = RegistrationPhoto::count();
-            $withBase64 = RegistrationPhoto::whereNotNull('photo_data')->where('photo_data', '!=', '')->count();
-            $withUrl = RegistrationPhoto::whereNotNull('photo_path')->where('photo_path', '!=', '')->count();
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'total' => $total,
-                    'base64_in_db' => $withBase64,
-                    'firebase_url' => $withUrl,
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
         }
+
+        $total = \DB::table('registration_photos')->count();
+        $withBase64 = \DB::table('registration_photos')->whereNotNull('photo_data')->count();
+        $withUrl = \DB::table('registration_photos')->whereNotNull('photo_path')->count();
+
+        return response()->json([
+            'success' => true,
+            'data' => compact('total', 'withBase64', 'withUrl'),
+        ]);
     }
 
     /**
