@@ -509,6 +509,55 @@ class IdCardController extends Controller
     }
 
     /**
+     * ลบ photo_data (base64) ออกจาก DB สำหรับรูปที่ย้ายไป Firebase แล้ว
+     */
+    public function clearPhotoData(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
+        }
+
+        try {
+            // นับก่อนลบ
+            $migratedCount = \DB::table('registration_photos')
+                ->whereNotNull('photo_path')
+                ->where('photo_path', '!=', '')
+                ->whereNotNull('photo_data')
+                ->whereIn('person_type', ['student', 'teacher'])
+                ->count();
+
+            // ลบ photo_data เฉพาะที่มี photo_path แล้ว (ย้ายไป Firebase แล้ว)
+            $cleared = \DB::table('registration_photos')
+                ->whereNotNull('photo_path')
+                ->where('photo_path', '!=', '')
+                ->whereNotNull('photo_data')
+                ->whereIn('person_type', ['student', 'teacher'])
+                ->update(['photo_data' => null]);
+
+            // สถิติหลังลบ
+            $remaining = \DB::table('registration_photos')
+                ->whereNotNull('photo_data')
+                ->whereIn('person_type', ['student', 'teacher'])
+                ->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'cleared' => $cleared,
+                    'remaining_base64' => $remaining,
+                ],
+                'message' => "ลบ photo_data จาก DB สำเร็จ {$cleared} รูป (เหลือ base64 อีก {$remaining} รูป)",
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * ตรวจสิทธิ์การเข้าถึง
      */
     private function canAccess($user, $registration): bool

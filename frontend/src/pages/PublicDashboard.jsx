@@ -662,6 +662,8 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
                 <option value="">ทุกประเภท</option>
                 <option value="student">นักเรียน</option>
                 <option value="teacher">ครูผู้ฝึกสอน</option>
+                <option value="committee">คณะกรรมการตัดสิน</option>
+                <option value="staff">คณะกรรมการดำเนินการ</option>
               </select>
               <select
                 value={filterMedal}
@@ -760,15 +762,13 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
                           </button>
                         </td>
                         <td className="px-3 py-2 text-center">
-                          {(cert.recipient_type || 'student') === 'teacher' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                              <Users className="w-3 h-3" /> ครู
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                              <GraduationCap className="w-3 h-3" /> นร.
-                            </span>
-                          )}
+                          {(() => {
+                            const t = cert.recipient_type || 'student';
+                            if (t === 'teacher') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"><Users className="w-3 h-3" /> ครู</span>;
+                            if (t === 'committee') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"><Users className="w-3 h-3" /> กก.ตัดสิน</span>;
+                            if (t === 'staff') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700"><Users className="w-3 h-3" /> กก.ดำเนินการ</span>;
+                            return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700"><GraduationCap className="w-3 h-3" /> นร.</span>;
+                          })()}
                         </td>
                         <td className="px-3 py-2 text-gray-900 font-medium">{cert.recipient_name || cert.student_name}</td>
                         <td className="px-3 py-2 text-gray-600 text-xs">{cert.school_name}</td>

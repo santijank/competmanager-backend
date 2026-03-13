@@ -277,6 +277,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('photo-stats', [IdCardController::class, 'photoStats']);
         Route::get('photos-to-migrate', [IdCardController::class, 'photosToMigrate']);
         Route::post('migrate-photo', [IdCardController::class, 'migratePhoto']);
+        Route::post('clear-photo-data', [IdCardController::class, 'clearPhotoData']);
         Route::get('school/pdf', [IdCardController::class, 'generateAllPdf']);
         Route::get('registrations/{registrationId}/pdf', [IdCardController::class, 'generatePdf']);
         Route::get('registrations/{registrationId}/photos', [IdCardController::class, 'getPhotos']);

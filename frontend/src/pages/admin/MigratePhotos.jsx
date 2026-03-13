@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { Upload, Loader2, CheckCircle, XCircle, Database, Cloud } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, XCircle, Database, Cloud, Trash2 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import api from '@/lib/api';
@@ -105,6 +105,24 @@ const MigratePhotos = () => {
     addLog('กำลังหยุด...', 'warn');
   };
 
+  const [clearing, setClearing] = useState(false);
+
+  const clearPhotoData = async () => {
+    if (!confirm('ยืนยันลบ Base64 ออกจาก DB?\n(เฉพาะรูปที่ย้ายไป Firebase แล้วเท่านั้น)')) return;
+    setClearing(true);
+    try {
+      const res = await api.post('/id-cards/clear-photo-data');
+      toast.success(res.data.message);
+      addLog(res.data.message, 'success');
+      loadStats();
+    } catch (e) {
+      toast.error('ลบไม่สำเร็จ: ' + (e.response?.data?.message || e.message));
+      addLog('ลบไม่สำเร็จ: ' + (e.response?.data?.message || e.message), 'error');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   if (!isAdmin) {
     return <div className="p-8 text-center text-red-500">เฉพาะ Admin เท่านั้น</div>;
   }
@@ -202,6 +220,18 @@ const MigratePhotos = () => {
             >
               <XCircle className="w-4 h-4" />
               หยุด
+            </button>
+          )}
+
+          {/* ปุ่มลบ Base64 */}
+          {!migrating && stats && stats.firebase_url > 0 && (
+            <button
+              onClick={clearPhotoData}
+              disabled={clearing}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center gap-2 disabled:opacity-50"
+            >
+              {clearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              ลบ Base64 ออกจาก DB (เฉพาะที่ย้ายแล้ว)
             </button>
           )}
         </div>
