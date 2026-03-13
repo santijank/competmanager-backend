@@ -425,29 +425,18 @@ class IdCardController extends Controller
         }
 
         try {
-            // ตรวจว่าตารางมีอยู่ก่อน
-            $tableExists = \DB::select("SHOW TABLES LIKE 'registration_photos'");
-            if (empty($tableExists)) {
-                return response()->json([
-                    'success' => true,
-                    'data' => ['total' => 0, 'base64_in_db' => 0, 'firebase_url' => 0, 'note' => 'table not exists'],
-                ]);
-            }
-
-            $stats = \DB::selectOne("
-                SELECT
-                    COUNT(*) as total,
-                    SUM(CASE WHEN photo_path IS NOT NULL AND photo_path != '' THEN 1 ELSE 0 END) as firebase_url,
-                    SUM(CASE WHEN photo_data IS NOT NULL THEN 1 ELSE 0 END) as base64_in_db
-                FROM registration_photos
-            ");
+            $total = \DB::table('registration_photos')->count();
+            $withUrl = \DB::table('registration_photos')
+                ->whereNotNull('photo_path')
+                ->where('photo_path', '!=', '')
+                ->count();
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total' => (int)$stats->total,
-                    'base64_in_db' => (int)($stats->base64_in_db ?? 0),
-                    'firebase_url' => (int)($stats->firebase_url ?? 0),
+                    'total' => $total,
+                    'firebase_url' => $withUrl,
+                    'base64_in_db' => $total - $withUrl,
                 ],
             ]);
         } catch (\Exception $e) {
