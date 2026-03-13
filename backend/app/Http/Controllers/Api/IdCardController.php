@@ -415,6 +415,67 @@ class IdCardController extends Controller
     }
 
     /**
+     * ดึง photos ที่ยังเป็น base64 ทีละ batch เพื่อ migrate ไป Firebase
+     */
+    public function photosToMigrate(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
+        }
+
+        $limit = min((int)($request->query('limit', 10)), 20);
+
+        $photos = \DB::table('registration_photos')
+            ->whereNotNull('photo_data')
+            ->where('photo_data', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('photo_path')->orWhere('photo_path', '');
+            })
+            ->select('id', 'registration_id', 'person_type', 'person_index', 'photo_data', 'mime_type')
+            ->limit($limit)
+            ->get();
+
+        $result = $photos->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'registration_id' => $p->registration_id,
+                'person_type' => $p->person_type,
+                'person_index' => $p->person_index,
+                'data_uri' => 'data:' . ($p->mime_type ?: 'image/jpeg') . ';base64,' . $p->photo_data,
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $result]);
+    }
+
+    /**
+     * อัพเดท photo หลัง migrate — เก็บ URL + ล้าง base64
+     */
+    public function migratePhoto(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!in_array($user->role, ['admin', 'district_admin'])) {
+            return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
+        }
+
+        $request->validate([
+            'id' => 'required|integer',
+            'photo_url' => 'required|url',
+        ]);
+
+        $updated = \DB::table('registration_photos')
+            ->where('id', $request->id)
+            ->update([
+                'photo_path' => $request->photo_url,
+                'photo_data' => null,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json(['success' => $updated > 0]);
+    }
+
+    /**
      * สถิติรูปภาพ — admin only
      */
     public function photoStats(Request $request): JsonResponse

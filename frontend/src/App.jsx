@@ -86,6 +86,7 @@ import CompetitionExclusionManager from '@/pages/admin/CompetitionExclusionManag
 import GroupExclusionView from '@/pages/admin/GroupExclusionView';
 import SkipGroupLevelManager from '@/pages/admin/SkipGroupLevelManager';
 import MissedDistrictCheck from '@/pages/admin/MissedDistrictCheck';
+import MigratePhotos from '@/pages/admin/MigratePhotos';
 import MessagesPage from '@/pages/messages/MessagesPage';
 
 // School Pages
@@ -188,6 +189,7 @@ function App() {
             <Route path="/competitions/group-view" element={<GroupExclusionView />} />
             <Route path="/competitions/skip-group" element={<SkipGroupLevelManager />} />
             <Route path="/registrations/check-missed" element={<MissedDistrictCheck />} />
+            <Route path="/admin/migrate-photos" element={<MigratePhotos />} />
 
             {/* Registration Routes - New System */}
             {/* Teacher Routes */}
