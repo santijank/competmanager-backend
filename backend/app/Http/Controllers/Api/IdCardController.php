@@ -424,13 +424,21 @@ class IdCardController extends Controller
             return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
         }
 
-        $total = \DB::table('registration_photos')->count();
-        $withBase64 = \DB::table('registration_photos')->whereNotNull('photo_data')->count();
-        $withUrl = \DB::table('registration_photos')->whereNotNull('photo_path')->count();
+        $stats = \DB::selectOne("
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN photo_path IS NOT NULL AND photo_path != '' THEN 1 ELSE 0 END) as firebase_url,
+                SUM(CASE WHEN photo_data IS NOT NULL THEN 1 ELSE 0 END) as base64_in_db
+            FROM registration_photos
+        ");
 
         return response()->json([
             'success' => true,
-            'data' => compact('total', 'withBase64', 'withUrl'),
+            'data' => [
+                'total' => (int)$stats->total,
+                'base64_in_db' => (int)$stats->base64_in_db,
+                'firebase_url' => (int)$stats->firebase_url,
+            ],
         ]);
     }
 
