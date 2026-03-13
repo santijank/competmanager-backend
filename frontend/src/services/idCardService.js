@@ -1,5 +1,29 @@
 import api from './api';
 import documentService from './documentService';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../lib/firebase';
+
+/**
+ * Normalize รูปภาพ: แก้ EXIF orientation + resize ให้เหมาะกับบัตร
+ * createImageBitmap จัดการ EXIF orientation อัตโนมัติใน browser สมัยใหม่
+ */
+async function normalizePhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  const MAX_W = 800, MAX_H = 1000;
+  let w = bitmap.width, h = bitmap.height;
+  if (w > MAX_W || h > MAX_H) {
+    const scale = Math.min(MAX_W / w, MAX_H / h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+}
 
 const idCardService = {
   /**
@@ -11,17 +35,26 @@ const idCardService = {
   },
 
   /**
-   * อัพโหลดรูปถ่าย
+   * อัพโหลดรูปถ่าย — upload ไป Firebase Storage แล้วส่ง URL ให้ backend
    */
   async uploadPhoto(registrationId, personType, personIndex, file) {
-    const formData = new FormData();
-    formData.append('person_type', personType);
-    formData.append('person_index', personIndex);
-    formData.append('photo', file);
+    // 1. Normalize (EXIF fix + resize)
+    const blob = await normalizePhoto(file);
+
+    // 2. Upload ไป Firebase Storage
+    const path = `id-cards/${registrationId}/${personType}_${personIndex}.jpg`;
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, blob);
+    const photoUrl = await getDownloadURL(snapshot.ref);
+
+    // 3. ส่ง URL ให้ backend เก็บใน DB
     const response = await api.post(
       `/id-cards/registrations/${registrationId}/photos`,
-      formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      {
+        person_type: personType,
+        person_index: personIndex,
+        photo_url: photoUrl,
+      }
     );
     return response.data;
   },

@@ -31,11 +31,16 @@ class IdCardController extends Controller
         $photoMap = [];
         foreach ($photos as $photo) {
             $key = $photo->person_type . '_' . $photo->person_index;
+            // Firebase URL (ใหม่) หรือ data URI (เก่า)
+            $photoUrl = $photo->photo_path
+                ? $photo->photo_path
+                : ($photo->photo_data ? 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data : null);
+            if (!$photoUrl) continue;
             $photoMap[$key] = [
                 'id' => $photo->id,
                 'person_type' => $photo->person_type,
                 'person_index' => $photo->person_index,
-                'photo_url' => 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data,
+                'photo_url' => $photoUrl,
             ];
         }
 
@@ -43,7 +48,7 @@ class IdCardController extends Controller
     }
 
     /**
-     * อัพโหลดรูปถ่าย — เก็บเป็น Base64 ใน DB
+     * อัพโหลดรูปถ่าย — รับ Firebase Storage URL จาก frontend
      */
     public function uploadPhoto(Request $request, $registrationId): JsonResponse
     {
@@ -57,26 +62,32 @@ class IdCardController extends Controller
         $validator = Validator::make($request->all(), [
             'person_type' => 'required|in:student,teacher',
             'person_index' => 'required|integer|min:0',
-            'photo' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-        ], [
-            'photo.max' => 'รูปภาพต้องมีขนาดไม่เกิน 2 MB',
-            'photo.image' => 'ไฟล์ต้องเป็นรูปภาพเท่านั้น',
-            'photo.mimes' => 'รองรับเฉพาะไฟล์ jpeg, png, jpg',
+            'photo_url' => 'required|url',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['success' => false, 'message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
         }
 
+        // Validate Firebase Storage URL
+        $allowedDomains = ['firebasestorage.googleapis.com', 'storage.googleapis.com'];
+        $host = parse_url($request->photo_url, PHP_URL_HOST);
+        $isAllowed = false;
+        foreach ($allowedDomains as $domain) {
+            if ($host === $domain || str_ends_with($host, '.' . $domain)) {
+                $isAllowed = true;
+                break;
+            }
+        }
+        // Also allow *.firebasestorage.app
+        if (!$isAllowed && str_ends_with($host, '.firebasestorage.app')) {
+            $isAllowed = true;
+        }
+        if (!$isAllowed) {
+            return response()->json(['success' => false, 'message' => 'URL ไม่ถูกต้อง'], 422);
+        }
+
         try {
-            $file = $request->file('photo');
-            $mimeType = $file->getMimeType();
-            $filePath = $file->getRealPath();
-
-            // แก้ EXIF orientation — รูปจากมือถืออาจกลับหัว/หมุน
-            $imageData = $this->fixImageOrientation($filePath, $mimeType);
-            $base64 = base64_encode($imageData);
-
             $photo = RegistrationPhoto::updateOrCreate(
                 [
                     'registration_id' => $registrationId,
@@ -84,9 +95,9 @@ class IdCardController extends Controller
                     'person_index' => $request->person_index,
                 ],
                 [
-                    'photo_data' => $base64,
-                    'mime_type' => $mimeType,
-                    'photo_path' => null,
+                    'photo_path' => $request->photo_url,
+                    'photo_data' => null,
+                    'mime_type' => 'image/jpeg',
                 ]
             );
 
@@ -94,7 +105,7 @@ class IdCardController extends Controller
                 'success' => true,
                 'data' => [
                     'id' => $photo->id,
-                    'photo_url' => 'data:' . $mimeType . ';base64,' . $base64,
+                    'photo_url' => $request->photo_url,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -269,11 +280,21 @@ class IdCardController extends Controller
         $level = $competition->level ?? '';
         $categoryName = $competition->category->name ?? '';
 
-        // ดึงรูปภาพ Base64 จาก DB
+        // ดึงรูปภาพ — Firebase URL (ใหม่) หรือ Base64 (เก่า)
         $photoMap = [];
         foreach ($registration->photos as $photo) {
-            if ($photo->photo_data) {
-                $key = $photo->person_type . '_' . $photo->person_index;
+            $key = $photo->person_type . '_' . $photo->person_index;
+            if ($photo->photo_path) {
+                // Firebase URL → fetch แล้วแปลงเป็น data URI สำหรับ DomPDF
+                try {
+                    $imageData = @file_get_contents($photo->photo_path);
+                    if ($imageData) {
+                        $photoMap[$key] = 'data:image/jpeg;base64,' . base64_encode($imageData);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to fetch photo from URL', ['url' => $photo->photo_path, 'error' => $e->getMessage()]);
+                }
+            } elseif ($photo->photo_data) {
                 $photoMap[$key] = 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data;
             }
         }
