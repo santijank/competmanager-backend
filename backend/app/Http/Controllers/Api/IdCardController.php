@@ -419,33 +419,27 @@ class IdCardController extends Controller
      */
     public function photoStats(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (!in_array($user->role, ['admin', 'district_admin'])) {
-            return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
+        try {
+            $user = $request->user();
+            if (!in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์'], 403);
+            }
+
+            $total = RegistrationPhoto::count();
+            $withBase64 = RegistrationPhoto::whereNotNull('photo_data')->where('photo_data', '!=', '')->count();
+            $withUrl = RegistrationPhoto::whereNotNull('photo_path')->where('photo_path', '!=', '')->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total' => $total,
+                    'base64_in_db' => $withBase64,
+                    'firebase_url' => $withUrl,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-
-        $total = RegistrationPhoto::count();
-        $withBase64 = RegistrationPhoto::whereNotNull('photo_data')->where('photo_data', '!=', '')->count();
-        $withUrl = RegistrationPhoto::whereNotNull('photo_path')->where('photo_path', '!=', '')->count();
-
-        $sizeMB = 0;
-        if ($withBase64 > 0) {
-            $sizeBytes = RegistrationPhoto::whereNotNull('photo_data')
-                ->where('photo_data', '!=', '')
-                ->selectRaw('SUM(LENGTH(photo_data)) as total_size')
-                ->value('total_size');
-            $sizeMB = round($sizeBytes / 1024 / 1024, 2);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'total' => $total,
-                'base64_in_db' => $withBase64,
-                'firebase_url' => $withUrl,
-                'base64_size_mb' => $sizeMB,
-            ],
-        ]);
     }
 
     /**
