@@ -796,15 +796,16 @@ class CertificateController extends Controller
 
             $members = $query->orderBy('name')->get();
 
-            // เช็คว่ามีเกียรติบัตรแล้วหรือยัง (แยกตาม level + ชื่อ)
+            // เช็คว่ามีเกียรติบัตรแล้วหรือยัง (แยกตาม level + ชื่อ + ตำแหน่ง)
             $existingCerts = Certificate::where('recipient_type', 'staff')
-                ->selectRaw("CONCAT(level, '-', recipient_name) as cert_key")
+                ->selectRaw("CONCAT(level, '-', recipient_name, '-', COALESCE(competition_name, '')) as cert_key")
                 ->pluck('cert_key')
                 ->toArray();
 
             $data = $members->map(function ($member) use ($existingCerts) {
                 $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
-                $certKey = ($member->level ?? 'district') . '-' . $cleanName;
+                $responsibility = $member->responsibility ?? 'คณะกรรมการดำเนินการ';
+                $certKey = ($member->level ?? 'district') . '-' . $cleanName . '-' . $responsibility;
                 $hasCert = in_array($certKey, $existingCerts);
 
                 return [
@@ -812,6 +813,7 @@ class CertificateController extends Controller
                     'name' => $cleanName,
                     'position' => $member->position,
                     'organization' => $member->organization,
+                    'responsibility' => $responsibility,
                     'member_type' => $member->member_type,
                     'level' => $member->level,
                     'has_certificate' => $hasCert,
@@ -864,11 +866,13 @@ class CertificateController extends Controller
                     $member = CommitteeMember::findOrFail($memberId);
                     $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
                     $level = $member->level ?? 'district';
+                    $responsibility = $member->responsibility ?? 'คณะกรรมการดำเนินการ';
 
-                    // ถ้ามีเกียรติบัตรเก่า (ระดับเดียวกัน) → ลบแล้วสร้างใหม่
+                    // ถ้ามีเกียรติบัตรเก่า (ชื่อ+ระดับ+ตำแหน่งเดียวกัน) → ลบแล้วสร้างใหม่
                     $oldQuery = Certificate::where('recipient_name', $cleanName)
                         ->where('recipient_type', 'staff')
-                        ->where('level', $level);
+                        ->where('level', $level)
+                        ->where('competition_name', $responsibility);
 
                     if ($oldQuery->count() > 0) {
                         $oldQuery->delete();
@@ -887,7 +891,7 @@ class CertificateController extends Controller
                         'competition_id' => null,
                         'student_name' => $cleanName,
                         'school_name' => $member->organization ?? '-',
-                        'competition_name' => 'คณะกรรมการดำเนินการ',
+                        'competition_name' => $responsibility,
                         'category_name' => '-',
                         'teacher_names' => null,
                         'level' => $level,
