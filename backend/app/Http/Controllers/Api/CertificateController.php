@@ -796,14 +796,16 @@ class CertificateController extends Controller
 
             $members = $query->orderBy('name')->get();
 
-            // เช็คว่ามีเกียรติบัตรแล้วหรือยัง (1 ใบ/คน, ไม่มี competition_id)
-            $existingNames = Certificate::where('recipient_type', 'staff')
-                ->pluck('recipient_name')
+            // เช็คว่ามีเกียรติบัตรแล้วหรือยัง (แยกตาม level + ชื่อ)
+            $existingCerts = Certificate::where('recipient_type', 'staff')
+                ->selectRaw("CONCAT(level, '-', recipient_name) as cert_key")
+                ->pluck('cert_key')
                 ->toArray();
 
-            $data = $members->map(function ($member) use ($existingNames) {
+            $data = $members->map(function ($member) use ($existingCerts) {
                 $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
-                $hasCert = in_array($cleanName, $existingNames);
+                $certKey = ($member->level ?? 'district') . '-' . $cleanName;
+                $hasCert = in_array($certKey, $existingCerts);
 
                 return [
                     'member_id' => $member->id,
@@ -861,20 +863,17 @@ class CertificateController extends Controller
                 try {
                     $member = CommitteeMember::findOrFail($memberId);
                     $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
+                    $level = $member->level ?? 'district';
 
-                    // ถ้ามีเกียรติบัตรเก่า → ลบแล้วสร้างใหม่
-                    $oldCount = Certificate::where('recipient_name', $cleanName)
+                    // ถ้ามีเกียรติบัตรเก่า (ระดับเดียวกัน) → ลบแล้วสร้างใหม่
+                    $oldQuery = Certificate::where('recipient_name', $cleanName)
                         ->where('recipient_type', 'staff')
-                        ->count();
+                        ->where('level', $level);
 
-                    if ($oldCount > 0) {
-                        Certificate::where('recipient_name', $cleanName)
-                            ->where('recipient_type', 'staff')
-                            ->delete();
+                    if ($oldQuery->count() > 0) {
+                        $oldQuery->delete();
                         $regenerated++;
                     }
-
-                    $level = $member->level ?? 'district';
                     $certCode = 'STAFF-' . strtoupper(substr(md5($member->id . now()), 0, 8));
                     $schoolGroupId = ($level === 'group') ? ($member->school_group_id ?? null) : null;
                     $docNumber = CertificateNumberSetting::getNextNumber($level, 'staff', $schoolGroupId);
