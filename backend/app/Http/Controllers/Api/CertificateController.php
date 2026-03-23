@@ -1070,7 +1070,7 @@ class CertificateController extends Controller
     private function renderPdf($certificates)
     {
         // เพิ่ม memory limit สำหรับ DomPDF (เหมือน IdCardController/ScoreExportController)
-        ini_set('memory_limit', '512M');
+        ini_set('memory_limit', '256M');
 
         // Fallback: local files
         $localBgPaths = [
@@ -1604,7 +1604,7 @@ class CertificateController extends Controller
     public function publicBatchDownload(Request $request)
     {
         try {
-            ini_set('memory_limit', '512M');
+            ini_set('memory_limit', '256M');
 
             $ids = $request->input('ids', '');
             if (is_string($ids)) {

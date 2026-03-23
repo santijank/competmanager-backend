@@ -383,7 +383,7 @@ class ScoreExportController extends Controller
     public function mySchoolExportPdf(Request $request)
     {
         // เพิ่ม memory/time limit สำหรับ batch PDF
-        ini_set('memory_limit', '512M');
+        ini_set('memory_limit', '256M');
         set_time_limit(300);
 
         try {

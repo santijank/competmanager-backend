@@ -643,7 +643,7 @@ class DocumentController extends Controller
     {
         try {
             // เพิ่ม memory limit และ timeout สำหรับ PDF ขนาดใหญ่
-            ini_set('memory_limit', '1024M');
+            ini_set('memory_limit', '256M');
             set_time_limit(300);
 
             $categoryId = $request->input('category_id');
@@ -907,7 +907,7 @@ class DocumentController extends Controller
     {
         try {
             // เพิ่ม memory limit สำหรับ PDF ขนาดใหญ่ (1137 กิจกรรม)
-            ini_set('memory_limit', '512M');
+            ini_set('memory_limit', '256M');
             set_time_limit(120);
 
             Log::info("DocumentController: Generating category overview PDF - START");

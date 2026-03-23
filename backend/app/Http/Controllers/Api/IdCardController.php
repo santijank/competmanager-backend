@@ -149,7 +149,7 @@ class IdCardController extends Controller
      */
     public function generatePdf(Request $request, $registrationId)
     {
-        ini_set('memory_limit', '512M');
+        ini_set('memory_limit', '256M');
         set_time_limit(300);
 
         $registration = Registration::with(['competition.category', 'school', 'photos'])->findOrFail($registrationId);
@@ -184,7 +184,7 @@ class IdCardController extends Controller
      */
     public function generateAllPdf(Request $request)
     {
-        ini_set('memory_limit', '1G');
+        ini_set('memory_limit', '256M');
         set_time_limit(600);
 
         $user = $request->user();
