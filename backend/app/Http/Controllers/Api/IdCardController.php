@@ -280,19 +280,14 @@ class IdCardController extends Controller
         $level = $competition->level ?? '';
         $categoryName = $competition->category->name ?? '';
 
-        // ดึงรูปภาพ — Firebase URL (ใหม่) หรือ Base64 (เก่า)
+        // ดึงรูปภาพ — Firebase URL (ใหม่) หรือ Base64 (เก่า) + cache locally
         $photoMap = [];
         foreach ($registration->photos as $photo) {
             $key = $photo->person_type . '_' . $photo->person_index;
             if ($photo->photo_path) {
-                // Firebase URL → fetch แล้วแปลงเป็น data URI สำหรับ DomPDF
-                try {
-                    $imageData = @file_get_contents($photo->photo_path);
-                    if ($imageData) {
-                        $photoMap[$key] = 'data:image/jpeg;base64,' . base64_encode($imageData);
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('Failed to fetch photo from URL', ['url' => $photo->photo_path, 'error' => $e->getMessage()]);
+                $cachedPath = $this->cachePhoto($photo->photo_path);
+                if ($cachedPath) {
+                    $photoMap[$key] = 'data:image/jpeg;base64,' . base64_encode(file_get_contents($cachedPath));
                 }
             } elseif ($photo->photo_data) {
                 $photoMap[$key] = 'data:' . $photo->mime_type . ';base64,' . $photo->photo_data;
@@ -576,5 +571,66 @@ class IdCardController extends Controller
         }
 
         return $user->school_id === $registration->school_id;
+    }
+
+    /**
+     * Cache รูปจาก Firebase → local file (24 ชม.)
+     * ลด network egress ไม่ต้องดึงซ้ำทุกครั้งที่สร้าง PDF
+     */
+    private function cachePhoto(string $url): ?string
+    {
+        try {
+            $cacheDir = storage_path('app/photo_cache');
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+
+            $cacheFile = $cacheDir . '/' . md5($url) . '.jpg';
+
+            // ถ้า cache มีอยู่แล้ว และอายุไม่เกิน 24 ชม. → ใช้เลย
+            if (file_exists($cacheFile) && filesize($cacheFile) > 500 && (time() - filemtime($cacheFile)) < 86400) {
+                return $cacheFile;
+            }
+
+            $context = stream_context_create([
+                'http' => ['timeout' => 10, 'user_agent' => 'CompetManager-PDF/1.0'],
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+            ]);
+
+            $content = @file_get_contents($url, false, $context);
+            if ($content === false || strlen($content) < 500) {
+                return null;
+            }
+
+            // Resize รูปให้เล็กลง (บัตรประจำตัวใช้รูปเล็ก 300x400px พอ)
+            $img = @imagecreatefromstring($content);
+            unset($content);
+
+            if ($img) {
+                $srcW = imagesx($img);
+                $srcH = imagesy($img);
+                $targetW = 300;
+                $targetH = 400;
+
+                if ($srcW > $targetW || $srcH > $targetH) {
+                    $resized = imagecreatetruecolor($targetW, $targetH);
+                    imagefill($resized, 0, 0, imagecolorallocate($resized, 255, 255, 255));
+                    imagecopyresampled($resized, $img, 0, 0, 0, 0, $targetW, $targetH, $srcW, $srcH);
+                    imagedestroy($img);
+                    imagejpeg($resized, $cacheFile, 80);
+                    imagedestroy($resized);
+                } else {
+                    imagejpeg($img, $cacheFile, 80);
+                    imagedestroy($img);
+                }
+            } else {
+                @file_put_contents($cacheFile, $content ?? '');
+            }
+
+            return file_exists($cacheFile) && filesize($cacheFile) > 500 ? $cacheFile : null;
+        } catch (\Exception $e) {
+            Log::warning("cachePhoto error: {$e->getMessage()}");
+            return null;
+        }
     }
 }
