@@ -47,7 +47,8 @@ class StatisticsController extends Controller
                         ->select('c.name', DB::raw('count(*) as competition_count'))
                         ->groupBy('c.id', 'c.name')
                         ->get()
-                ]
+                ],
+                'participants' => $this->getParticipantStats()
             ];
 
             return response()->json([
@@ -158,5 +159,69 @@ class StatisticsController extends Controller
                 'message' => 'ไม่สามารถโหลดสถิติโรงเรียนได้'
             ], 500);
         }
+    }
+
+    /**
+     * 👥 สถิตินักเรียน/ครูแยกตามระดับการแข่งขัน
+     */
+    private function getParticipantStats(): array
+    {
+        // ระดับเขต - เฉพาะ approved
+        $district = DB::table('registrations as r')
+            ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+            ->where('c.competition_level', 'district')
+            ->where('r.status', 'approved')
+            ->select(
+                DB::raw('COALESCE(SUM(r.student_count), 0) as students'),
+                DB::raw('COALESCE(SUM(r.teacher_count), 0) as teachers'),
+                DB::raw('COUNT(DISTINCT r.school_id) as schools'),
+                DB::raw('COUNT(*) as registrations')
+            )
+            ->first();
+
+        // ระดับกลุ่ม - เฉพาะ approved
+        $group = DB::table('registrations as r')
+            ->join('competitions as c', 'r.competition_id', '=', 'c.id')
+            ->where('c.competition_level', 'group')
+            ->where('r.status', 'approved')
+            ->select(
+                DB::raw('COALESCE(SUM(r.student_count), 0) as students'),
+                DB::raw('COALESCE(SUM(r.teacher_count), 0) as teachers'),
+                DB::raw('COUNT(DISTINCT r.school_id) as schools'),
+                DB::raw('COUNT(*) as registrations')
+            )
+            ->first();
+
+        // รวมทั้งหมด
+        $total = DB::table('registrations as r')
+            ->where('r.status', 'approved')
+            ->select(
+                DB::raw('COALESCE(SUM(r.student_count), 0) as students'),
+                DB::raw('COALESCE(SUM(r.teacher_count), 0) as teachers'),
+                DB::raw('COUNT(DISTINCT r.school_id) as schools'),
+                DB::raw('COUNT(*) as registrations')
+            )
+            ->first();
+
+        return [
+            'district' => [
+                'students' => (int)$district->students,
+                'teachers' => (int)$district->teachers,
+                'schools' => (int)$district->schools,
+                'registrations' => (int)$district->registrations,
+            ],
+            'group' => [
+                'students' => (int)$group->students,
+                'teachers' => (int)$group->teachers,
+                'schools' => (int)$group->schools,
+                'registrations' => (int)$group->registrations,
+            ],
+            'total' => [
+                'students' => (int)$total->students,
+                'teachers' => (int)$total->teachers,
+                'schools' => (int)$total->schools,
+                'registrations' => (int)$total->registrations,
+            ],
+        ];
     }
 }
