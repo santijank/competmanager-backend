@@ -136,8 +136,31 @@ class DashboardController extends Controller
         $schoolAdmins = DB::table('users')->where('role', 'school_admin')->count();
         $groupAdmins = DB::table('users')->where('role', 'group_admin')->count();
 
-        // นับนักเรียน (จาก student_count ใน registrations)
-        $totalStudents = DB::table('registrations')->sum('student_count') ?? 0;
+        // นับนักเรียน/ครูแยกระดับ (เฉพาะ approved)
+        $totalStudents = DB::table('registrations')->where('status', 'approved')->sum('student_count') ?? 0;
+        $totalTeachers = DB::table('registrations')->where('status', 'approved')->sum('teacher_count') ?? 0;
+
+        $districtStudents = DB::table('registrations')
+            ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+            ->where('registrations.status', 'approved')
+            ->where('competitions.competition_level', 'district')
+            ->sum('registrations.student_count') ?? 0;
+        $districtTeachers = DB::table('registrations')
+            ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+            ->where('registrations.status', 'approved')
+            ->where('competitions.competition_level', 'district')
+            ->sum('registrations.teacher_count') ?? 0;
+
+        $groupStudents = DB::table('registrations')
+            ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+            ->where('registrations.status', 'approved')
+            ->where('competitions.competition_level', 'group')
+            ->sum('registrations.student_count') ?? 0;
+        $groupTeachers = DB::table('registrations')
+            ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+            ->where('registrations.status', 'approved')
+            ->where('competitions.competition_level', 'group')
+            ->sum('registrations.teacher_count') ?? 0;
 
         return response()->json([
             'competitions' => [
@@ -160,7 +183,14 @@ class DashboardController extends Controller
                 'school_admins' => $schoolAdmins,
                 'group_admins' => $groupAdmins,
             ],
-            'students' => $totalStudents,
+            'participants' => [
+                'total_students' => $totalStudents,
+                'total_teachers' => $totalTeachers,
+                'district_students' => $districtStudents,
+                'district_teachers' => $districtTeachers,
+                'group_students' => $groupStudents,
+                'group_teachers' => $groupTeachers,
+            ],
         ]);
     }
 

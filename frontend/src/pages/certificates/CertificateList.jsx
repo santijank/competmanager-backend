@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Search, Award, Download, Eye, Trash2, Loader,
-  CheckSquare, Square, Filter, FileDown, ChevronDown, Users,
+  CheckSquare, Square, Filter, FileDown, ChevronDown, Users, Settings, X, Save, RotateCcw,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api, { certificateService, categoryService } from '@/lib/api';
@@ -42,6 +42,7 @@ export default function CertificateList() {
   const [certSummary, setCertSummary] = useState({});
   const [certMeta, setCertMeta] = useState({});
   const [certLoading, setCertLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedCertIds, setSelectedCertIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
@@ -68,6 +69,12 @@ export default function CertificateList() {
   const [filterCompetition, setFilterCompetition] = useState('');
   const [competitions, setCompetitions] = useState([]);
   const [search, setSearch] = useState('');
+
+  // Number settings state
+  const [showNumberSettings, setShowNumberSettings] = useState(false);
+  const [numberSettings, setNumberSettings] = useState([]);
+  const [numberSettingsLoading, setNumberSettingsLoading] = useState(false);
+  const [editingNumbers, setEditingNumbers] = useState({});
 
   // Sync filterLevel เมื่อ URL query param เปลี่ยน (เช่น กดเมนู sidebar)
   useEffect(() => {
@@ -129,6 +136,7 @@ export default function CertificateList() {
       if (filterType) params.recipient_type = filterType;
       if (filterCompetition) params.competition_id = filterCompetition;
       if (search) params.search = search;
+      params.page = currentPage;
       const res = await certificateService.getAll(params);
       setCertificates(res.data?.data || []);
       setCertSummary(res.data?.summary || {});
@@ -139,7 +147,7 @@ export default function CertificateList() {
     } finally {
       setCertLoading(false);
     }
-  }, [filterLevel, filterCategory, filterMedal, filterType, filterCompetition, search]);
+  }, [filterLevel, filterCategory, filterMedal, filterType, filterCompetition, search, currentPage]);
 
   // Load committee members
   const loadCommittee = useCallback(async () => {
@@ -185,6 +193,11 @@ export default function CertificateList() {
     }
   }, [filterLevel]);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterLevel, filterCategory, filterMedal, filterType, filterCompetition, search]);
+
   useEffect(() => {
     if (activeTab === 'eligible') loadEligible();
     else if (activeTab === 'committee') loadCommittee();
@@ -209,6 +222,48 @@ export default function CertificateList() {
     setSelectedScoreIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
+
+  // ===== Number Settings =====
+  const loadNumberSettings = async () => {
+    setNumberSettingsLoading(true);
+    try {
+      const res = await certificateService.getNumberSettings();
+      const all = res.data?.data || [];
+      // Filter by current level
+      const filtered = all.filter(s => s.level === filterLevel);
+      setNumberSettings(filtered);
+      // Initialize editing values
+      const init = {};
+      filtered.forEach(s => { init[s.id] = s.last_number; });
+      setEditingNumbers(init);
+    } catch {
+      toast.error('ไม่สามารถโหลดการตั้งค่าเลขที่ได้');
+    } finally {
+      setNumberSettingsLoading(false);
+    }
+  };
+
+  const handleSaveNumber = async (setting) => {
+    const newVal = parseInt(editingNumbers[setting.id], 10);
+    if (isNaN(newVal) || newVal < 0) {
+      toast.warning('กรุณากรอกตัวเลขที่ถูกต้อง');
+      return;
+    }
+    try {
+      await certificateService.updateNumberSetting({ id: setting.id, last_number: newVal });
+      toast.success(`ตั้งค่าเลขที่ ${typeLabels[setting.type] || setting.type} เป็น ${newVal} แล้ว`);
+      loadNumberSettings();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'ไม่สามารถบันทึกได้');
+    }
+  };
+
+  const typeLabels = {
+    student: 'นักเรียน',
+    teacher: 'ครูผู้ฝึกสอน',
+    committee: 'กก.ตัดสิน',
+    staff: 'กก.ดำเนินการ',
   };
 
   const selectAllEligible = () => {
@@ -334,8 +389,6 @@ export default function CertificateList() {
     }
   };
 
-  const typeLabels = { student: 'นักเรียน', teacher: 'ครูผู้ฝึกสอน', committee: 'กก.ตัดสิน', staff: 'กก.ดำเนินการ' };
-
   const handleDeleteFiltered = async () => {
     const params = {};
     if (filterLevel) params.level = filterLevel;
@@ -417,6 +470,11 @@ export default function CertificateList() {
     }
   };
 
+  const selectNotGeneratedMembers = () => {
+    const ids = filteredCommittee.filter(e => !e.has_certificate).map(e => e.member_id);
+    setSelectedMemberIds(ids);
+  };
+
   const handleGenerateCommittee = async () => {
     if (selectedMemberIds.length === 0) {
       toast.warning('กรุณาเลือกรายการ');
@@ -484,6 +542,11 @@ export default function CertificateList() {
     } else {
       setSelectedStaffIds(allIds);
     }
+  };
+
+  const selectNotGeneratedStaff = () => {
+    const ids = filteredStaff.filter(e => !e.has_certificate).map(e => e.member_id);
+    setSelectedStaffIds(ids);
   };
 
   const handleGenerateStaff = async () => {
@@ -688,7 +751,9 @@ export default function CertificateList() {
             >
               <option value="">ทุกกิจกรรม</option>
               {competitions.map(c => (
-                <option key={c.competition_id} value={c.competition_id}>{c.competition_name}</option>
+                <option key={`${c.competition_id}-${c.group_name || ''}`} value={c.competition_id}>
+                  {c.competition_name}{c.group_name ? ` (${c.group_name})` : ''}
+                </option>
               ))}
             </select>
           )}
@@ -744,8 +809,88 @@ export default function CertificateList() {
                 <Award className="w-4 h-4" />
                 สร้างทั้งหมด
               </button>
+              {(user?.role === 'admin' || user?.role === 'district_admin') && (
+                <button
+                  onClick={() => { setShowNumberSettings(true); loadNumberSettings(); }}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 border border-gray-300"
+                  title="ตั้งค่าเลขที่เอกสาร"
+                >
+                  <Settings className="w-4 h-4" />
+                  เลขที่
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Number Settings Modal */}
+          {showNumberSettings && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+                <div className="flex items-center justify-between px-5 py-4 border-b">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-blue-600" />
+                    ตั้งค่าเลขที่เอกสาร ({filterLevel === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'})
+                  </h3>
+                  <button onClick={() => setShowNumberSettings(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-sm text-gray-500 mb-4">
+                    ตั้งค่าเลขรันปัจจุบัน — เกียรติบัตรฉบับถัดไปจะใช้เลขที่ต่อจากค่านี้
+                    <br /><span className="text-orange-600 font-medium">เช่น ตั้งเป็น 0 = เกียรติบัตรฉบับถัดไปจะเริ่มที่ 1</span>
+                  </p>
+                  {numberSettingsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader className="w-6 h-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : numberSettings.length === 0 ? (
+                    <p className="text-center text-gray-400 py-8">ยังไม่มีข้อมูล (จะสร้างอัตโนมัติเมื่อออกเกียรติบัตรครั้งแรก)</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {numberSettings.map(setting => (
+                        <div key={setting.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3 border">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-700">
+                              {typeLabels[setting.type] || setting.type}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {setting.prefix} | ปี {setting.year}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">เลขปัจจุบัน:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingNumbers[setting.id] ?? setting.last_number}
+                              onChange={(e) => setEditingNumbers(prev => ({ ...prev, [setting.id]: e.target.value }))}
+                              className="w-24 border rounded-lg px-3 py-1.5 text-sm text-center focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={() => handleSaveNumber(setting)}
+                              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 flex items-center gap-1"
+                            >
+                              <Save className="w-3.5 h-3.5" />
+                              บันทึก
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="px-5 py-3 border-t bg-gray-50 rounded-b-xl flex justify-end">
+                  <button
+                    onClick={() => setShowNumberSettings(false)}
+                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    ปิด
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Table */}
           <div className="bg-white rounded-lg border overflow-hidden">
@@ -794,7 +939,10 @@ export default function CertificateList() {
                         </td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 truncate max-w-[200px]">{item.competition_name}</div>
-                          <div className="text-xs text-gray-500">{item.category_name} | {item.competition_level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}</div>
+                          <div className="text-xs text-gray-500">
+                            {item.category_name} | {item.competition_level === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม'}
+                            {item.group_name && <span className="text-blue-600 font-medium"> | {item.group_name}</span>}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-gray-700 truncate max-w-[150px]">{item.school_name}</td>
                         <td className="px-3 py-2">
@@ -859,7 +1007,15 @@ export default function CertificateList() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={selectNotGeneratedMembers}
+                disabled={generatingCommittee}
+                className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
+              >
+                <CheckSquare className="w-4 h-4" />
+                เลือกที่ยังไม่สร้าง ({filteredCommittee.filter(e => !e.has_certificate).length})
+              </button>
               <button
                 onClick={handleGenerateCommittee}
                 disabled={generatingCommittee || selectedMemberIds.length === 0}
@@ -964,7 +1120,15 @@ export default function CertificateList() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={selectNotGeneratedStaff}
+                disabled={generatingStaff}
+                className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
+              >
+                <CheckSquare className="w-4 h-4" />
+                เลือกที่ยังไม่สร้าง ({filteredStaff.filter(e => !e.has_certificate).length})
+              </button>
               <button
                 onClick={handleGenerateStaff}
                 disabled={generatingStaff || selectedStaffIds.length === 0}
@@ -1125,8 +1289,11 @@ export default function CertificateList() {
                         </td>
                         <td className="px-3 py-2">
                           <div className="font-medium text-gray-900 truncate max-w-[200px]">{cert.competition_name}</div>
-                          {cert.category_name && (
-                            <div className="text-xs text-gray-500">{cert.category_name}</div>
+                          {(cert.category_name || cert.group_name) && (
+                            <div className="text-xs text-gray-500">
+                              {cert.category_name}
+                              {cert.group_name && <span className="text-blue-600 font-medium"> | {cert.group_name}</span>}
+                            </div>
                           )}
                         </td>
                         <td className="px-3 py-2 text-gray-700 text-xs max-w-[200px]">
@@ -1187,10 +1354,54 @@ export default function CertificateList() {
             )}
           </div>
 
-          {/* Pagination info */}
+          {/* Pagination */}
           {certMeta.total > 0 && (
-            <div className="text-xs text-gray-500 mt-2 text-right">
-              แสดง {certificates.length} จาก {certMeta.total} รายการ
+            <div className="flex items-center justify-between mt-3">
+              <div className="text-xs text-gray-500">
+                หน้า {certMeta.current_page || 1} / {certMeta.last_page || 1} — แสดง {certificates.length} จาก {certMeta.total} รายการ
+              </div>
+              {(certMeta.last_page || 1) > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage <= 1}
+                    className="px-2 py-1 text-xs rounded border disabled:opacity-40 hover:bg-gray-100"
+                  >«</button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="px-2 py-1 text-xs rounded border disabled:opacity-40 hover:bg-gray-100"
+                  >‹ ก่อนหน้า</button>
+                  {(() => {
+                    const last = certMeta.last_page || 1;
+                    const pages = [];
+                    let start = Math.max(1, currentPage - 2);
+                    let end = Math.min(last, currentPage + 2);
+                    if (end - start < 4) {
+                      start = Math.max(1, end - 4);
+                      end = Math.min(last, start + 4);
+                    }
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    return pages.map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        className={`px-2 py-1 text-xs rounded border ${p === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-100'}`}
+                      >{p}</button>
+                    ));
+                  })()}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(certMeta.last_page || 1, p + 1))}
+                    disabled={currentPage >= (certMeta.last_page || 1)}
+                    className="px-2 py-1 text-xs rounded border disabled:opacity-40 hover:bg-gray-100"
+                  >ถัดไป ›</button>
+                  <button
+                    onClick={() => setCurrentPage(certMeta.last_page || 1)}
+                    disabled={currentPage >= (certMeta.last_page || 1)}
+                    className="px-2 py-1 text-xs rounded border disabled:opacity-40 hover:bg-gray-100"
+                  >»</button>
+                </div>
+              )}
             </div>
           )}
         </div>

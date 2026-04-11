@@ -10,7 +10,9 @@ import {
   XCircle,
   AlertCircle,
   School,
-  BarChart3
+  BarChart3,
+  GraduationCap,
+  BookOpen
 } from 'lucide-react';
 import api from '@/lib/api';
 import useAuthStore from '@/stores/authStore';
@@ -154,7 +156,71 @@ const DashboardHome = () => {
             </div>
           </div>
 
-          {/* Stats Grid - Row 3: System */}
+          {/* Stats Grid - Row 3: Participants */}
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-gray-700 mb-3">ผู้เข้าแข่งขัน (ที่อนุมัติแล้ว)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-white rounded-xl shadow-sm border p-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">รวมทั้งหมด</h3>
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <p className="text-xs text-gray-400">นักเรียน</p>
+                      <p className="text-xl font-bold text-gray-800">{stats?.participants?.total_students?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="text-xs text-gray-400">ครู</p>
+                      <p className="text-xl font-bold text-gray-800">{stats?.participants?.total_teachers?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border p-4">
+                <h3 className="text-sm font-medium text-indigo-600 mb-3">ระดับเขต</h3>
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <p className="text-xs text-gray-400">นักเรียน</p>
+                      <p className="text-xl font-bold text-gray-800">{stats?.participants?.district_students?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="text-xs text-gray-400">ครู</p>
+                      <p className="text-xl font-bold text-gray-800">{stats?.participants?.district_teachers?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm border p-4">
+                <h3 className="text-sm font-medium text-purple-600 mb-3">ระดับกลุ่ม</h3>
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <p className="text-xs text-gray-400">นักเรียน</p>
+                      <p className="text-xl font-bold text-gray-800">{stats?.participants?.group_students?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="text-xs text-gray-400">ครู</p>
+                      <p className="text-xl font-bold text-gray-800">{stats?.participants?.group_teachers?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Grid - Row 4: System */}
           <div className="mb-8">
             <h2 className="text-lg font-semibold text-gray-700 mb-3">ระบบ</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

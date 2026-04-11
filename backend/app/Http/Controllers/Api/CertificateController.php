@@ -615,11 +615,14 @@ class CertificateController extends Controller
         try {
             $query = CommitteeMember::with(['competition.category'])
                 ->active()
-                ->byType('committee')
-                ->whereNotNull('competition_id');
+                ->byType('committee');
 
             if ($request->filled('level')) {
                 $query->byLevel($request->level);
+            }
+
+            if ($request->filled('school_group_id')) {
+                $query->byGroup($request->school_group_id);
             }
 
             if ($request->filled('category_id')) {
@@ -644,7 +647,7 @@ class CertificateController extends Controller
                 $comp = $member->competition;
                 // ตัดเลขลำดับนำหน้าออก เช่น "1. นางทับทิม" → "นางทับทิม"
                 $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
-                $certKey = $comp->id . '-' . $cleanName;
+                $certKey = ($comp ? $comp->id : 'none') . '-' . $cleanName;
                 $hasCert = in_array($certKey, $existingCerts);
 
                 return [
@@ -654,11 +657,12 @@ class CertificateController extends Controller
                     'organization' => $member->organization,
                     'member_type' => $member->member_type,
                     'level' => $member->level,
-                    'competition_id' => $comp->id,
-                    'competition_name' => $comp->name ?? '-',
-                    'competition_level' => $comp->competition_level ?? 'district',
-                    'category_name' => $comp->category?->name ?? '-',
-                    'category_id' => $comp->category_id,
+                    'school_group_id' => $member->school_group_id,
+                    'competition_id' => $comp?->id,
+                    'competition_name' => $comp?->name ?? '-',
+                    'competition_level' => $comp?->competition_level ?? $member->level,
+                    'category_name' => $comp?->category?->name ?? '-',
+                    'category_id' => $comp?->category_id,
                     'has_certificate' => $hasCert,
                 ];
             });
@@ -708,31 +712,27 @@ class CertificateController extends Controller
                     $member = CommitteeMember::with(['competition.category'])->findOrFail($memberId);
                     $comp = $member->competition;
 
-                    if (!$comp) {
-                        $errors[] = "Member #{$memberId}: ไม่มีกิจกรรมที่ผูกไว้";
-                        continue;
-                    }
-
                     // ตัดเลขลำดับนำหน้าออก เช่น "1. นางทับทิม" → "นางทับทิม"
                     $cleanName = preg_replace('/^\d+\.\s*/', '', trim($member->name));
 
-                    // ถ้ามีเกียรติบัตรเก่า → ลบแล้วสร้างใหม่
-                    $oldCount = Certificate::where('competition_id', $comp->id)
-                        ->where('recipient_name', $cleanName)
-                        ->where('recipient_type', 'committee')
-                        ->count();
+                    // ถ้ามีเกียรติบัตรเก่า → ลบแล้วสร้างใหม่ (scope ด้วย competition_id + responsibility)
+                    $dupeQuery = Certificate::where('recipient_name', $cleanName)
+                        ->where('recipient_type', 'committee');
+                    if ($comp) {
+                        $dupeQuery->where('competition_id', $comp->id);
+                    } else {
+                        $dupeQuery->whereNull('competition_id')
+                            ->where('level', $member->level);
+                    }
 
-                    if ($oldCount > 0) {
-                        Certificate::where('competition_id', $comp->id)
-                            ->where('recipient_name', $cleanName)
-                            ->where('recipient_type', 'committee')
-                            ->delete();
+                    if ($dupeQuery->count() > 0) {
+                        (clone $dupeQuery)->delete();
                         $regenerated++;
                     }
 
-                    $level = $comp->competition_level ?? 'district';
-                    $certCode = $this->generateCode($comp);
-                    $schoolGroupId = ($level === 'group') ? ($member->school_group_id ?? $comp->school_group_id ?? null) : null;
+                    $level = $comp?->competition_level ?? $member->level ?? 'district';
+                    $certCode = $comp ? $this->generateCode($comp) : ('COMM-' . strtoupper(substr(md5($member->id . now()), 0, 8)));
+                    $schoolGroupId = ($level === 'group') ? ($member->school_group_id ?? $comp?->school_group_id ?? null) : null;
                     $docNumber = CertificateNumberSetting::getNextNumber($level, 'committee', $schoolGroupId);
 
                     Certificate::create([
@@ -741,11 +741,11 @@ class CertificateController extends Controller
                         'recipient_type' => 'committee',
                         'recipient_name' => $cleanName,
                         'score_id' => null,
-                        'competition_id' => $comp->id,
+                        'competition_id' => $comp?->id,
                         'student_name' => $cleanName,
                         'school_name' => $member->organization ?? '-',
-                        'competition_name' => $comp->name,
-                        'category_name' => $comp->category?->name,
+                        'competition_name' => $comp?->name ?? ($member->responsibility ?? 'คณะกรรมการ'),
+                        'category_name' => $comp?->category?->name ?? '-',
                         'teacher_names' => null,
                         'level' => $level,
                         'rank' => null,
