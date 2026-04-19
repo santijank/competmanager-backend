@@ -158,7 +158,8 @@ export default function CertificateList() {
       if (filterCategory) params.category_id = filterCategory;
       const res = await certificateService.getEligibleCommittee(params);
       const allData = res.data?.data || [];
-      const filtered = filterLevel ? allData.filter(e => e.competition_level === filterLevel) : allData;
+      // ใช้ member.level แทน competition_level เพราะ committee อาจผูก competition ต่างระดับ
+      const filtered = filterLevel ? allData.filter(e => e.level === filterLevel) : allData;
       setCommitteeMembers(filtered);
       setCommitteeSummary({
         total: filtered.length,
