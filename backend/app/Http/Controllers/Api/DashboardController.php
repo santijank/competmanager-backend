@@ -162,6 +162,30 @@ class DashboardController extends Controller
             ->where('competitions.competition_level', 'group')
             ->sum('registrations.teacher_count') ?? 0;
 
+        // เหรียญระดับเขตแยกตามกลุ่มโรงเรียน
+        $medalsByGroup = DB::table('scores')
+            ->join('registrations', 'scores.registration_id', '=', 'registrations.id')
+            ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+            ->join('schools', 'registrations.school_id', '=', 'schools.id')
+            ->join('school_groups', 'schools.school_group_id', '=', 'school_groups.id')
+            ->where('competitions.competition_level', 'district')
+            ->where('scores.is_finalized', true)
+            ->whereNotIn('scores.medal', ['absent'])
+            ->whereNotNull('schools.school_group_id')
+            ->select(
+                'school_groups.id',
+                'school_groups.name',
+                DB::raw("SUM(CASE WHEN scores.medal = 'gold' THEN 1 ELSE 0 END) as gold"),
+                DB::raw("SUM(CASE WHEN scores.medal = 'silver' THEN 1 ELSE 0 END) as silver"),
+                DB::raw("SUM(CASE WHEN scores.medal = 'bronze' THEN 1 ELSE 0 END) as bronze"),
+                DB::raw("SUM(CASE WHEN scores.medal = 'participant' THEN 1 ELSE 0 END) as participant")
+            )
+            ->groupBy('school_groups.id', 'school_groups.name')
+            ->orderByDesc('gold')
+            ->orderByDesc('silver')
+            ->orderByDesc('bronze')
+            ->get();
+
         return response()->json([
             'competitions' => [
                 'total' => $totalCompetitions,
@@ -191,6 +215,7 @@ class DashboardController extends Controller
                 'group_students' => $groupStudents,
                 'group_teachers' => $groupTeachers,
             ],
+            'medals_by_group' => $medalsByGroup,
         ]);
     }
 

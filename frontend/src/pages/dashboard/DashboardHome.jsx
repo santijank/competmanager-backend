@@ -220,6 +220,68 @@ const DashboardHome = () => {
             </div>
           </div>
 
+          {/* Medal Standings by Group */}
+          {stats?.medals_by_group?.length > 0 && (
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-700 mb-3">🏅 ตารางเหรียญระดับเขต แยกตามกลุ่มโรงเรียน</h2>
+              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600 w-8">#</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600">กลุ่มโรงเรียน</th>
+                      <th className="text-center px-4 py-3 font-semibold text-yellow-600">
+                        <span className="inline-flex items-center gap-1">🥇 ทอง</span>
+                      </th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-500">
+                        <span className="inline-flex items-center gap-1">🥈 เงิน</span>
+                      </th>
+                      <th className="text-center px-4 py-3 font-semibold text-orange-600">
+                        <span className="inline-flex items-center gap-1">🥉 ทองแดง</span>
+                      </th>
+                      <th className="text-center px-4 py-3 font-semibold text-blue-500">
+                        <span className="inline-flex items-center gap-1">🎖️ เข้าร่วม</span>
+                      </th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-600">รวม</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.medals_by_group.map((group, idx) => {
+                      const total = (group.gold || 0) + (group.silver || 0) + (group.bronze || 0) + (group.participant || 0);
+                      return (
+                        <tr key={group.id} className={`border-b last:border-0 hover:bg-gray-50 ${idx === 0 ? 'bg-yellow-50' : ''}`}>
+                          <td className="px-4 py-3 text-gray-400 font-medium">{idx + 1}</td>
+                          <td className="px-4 py-3 font-medium text-gray-800">{group.name}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-bold">
+                              {group.gold || 0}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 font-bold">
+                              {group.silver || 0}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold">
+                              {group.bronze || 0}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="inline-block min-w-[2rem] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-bold">
+                              {group.participant || 0}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center font-semibold text-gray-700">{total}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Stats Grid - Row 4: System */}
           <div className="mb-8">
             <h2 className="text-lg font-semibold text-gray-700 mb-3">ระบบ</h2>
