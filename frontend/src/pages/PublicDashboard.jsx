@@ -524,7 +524,7 @@ const medalBadgeColors = {
   participant: 'bg-blue-100 text-blue-800 border-blue-300',
 };
 
-const CertificateSection = ({ level = 'district', groupId = null }) => {
+const CertificateSection = ({ level = 'district', groupId = null, groups = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -539,21 +539,27 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [totalCount, setTotalCount] = useState(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  // Level/group switching (only for district-level section with groups)
+  const [selectedLevel, setSelectedLevel] = useState(level);
+  const [selectedGroupId, setSelectedGroupId] = useState(groupId);
 
   const baseUrl = api.defaults?.baseURL || import.meta.env.VITE_API_URL || '';
+
+  const effectiveLevel = groups.length > 0 ? selectedLevel : level;
+  const effectiveGroupId = groups.length > 0 ? (selectedLevel === 'group' ? selectedGroupId : null) : groupId;
 
   // Fetch initial count (for header badge) on mount
   useEffect(() => {
     const fetchCount = async () => {
       try {
-        const params = { level, per_page: 1 };
-        if (groupId) params.school_group_id = groupId;
+        const params = { level: effectiveLevel, per_page: 1 };
+        if (effectiveGroupId) params.school_group_id = effectiveGroupId;
         const res = await api.get('/certificates/public', { params });
         setTotalCount(res.data?.summary?.total || 0);
       } catch { setTotalCount(0); }
     };
     fetchCount();
-  }, [level, groupId]);
+  }, [effectiveLevel, effectiveGroupId]);
 
   // Fetch certificates when expanded or filters change
   useEffect(() => {
@@ -561,8 +567,8 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
     const fetchCerts = async () => {
       setLoading(true);
       try {
-        const params = { level, page };
-        if (groupId) params.school_group_id = groupId;
+        const params = { level: effectiveLevel, page };
+        if (effectiveGroupId) params.school_group_id = effectiveGroupId;
         if (filterSchool) params.school_name = filterSchool;
         if (filterType) params.recipient_type = filterType;
         if (filterMedal) params.medal = filterMedal;
@@ -578,13 +584,13 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
       finally { setLoading(false); }
     };
     fetchCerts();
-  }, [isExpanded, level, groupId, filterSchool, filterType, filterMedal, search, page]);
+  }, [isExpanded, effectiveLevel, effectiveGroupId, filterSchool, filterType, filterMedal, search, page]);
 
   // Reset page + selection on filter change
   useEffect(() => {
     setPage(1);
     setSelectedIds([]);
-  }, [filterSchool, filterType, filterMedal, search]);
+  }, [filterSchool, filterType, filterMedal, search, effectiveLevel, effectiveGroupId]);
 
   if (totalCount === 0) return null;
 
@@ -609,8 +615,8 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
     if (total === 0) return;
     setDownloadingAll(true);
     try {
-      const params = { level, per_page: 200 };
-      if (groupId) params.school_group_id = groupId;
+      const params = { level: effectiveLevel, per_page: 200 };
+      if (effectiveGroupId) params.school_group_id = effectiveGroupId;
       if (filterSchool) params.school_name = filterSchool;
       if (filterType) params.recipient_type = filterType;
       if (filterMedal) params.medal = filterMedal;
@@ -646,6 +652,33 @@ const CertificateSection = ({ level = 'district', groupId = null }) => {
           {/* Filters */}
           <div className="bg-gray-50 rounded-xl p-4">
             <div className="flex flex-wrap gap-3 items-center">
+              {/* Level/Group selector - only show when groups available */}
+              {groups.length > 0 && (
+                <>
+                  <select
+                    value={selectedLevel}
+                    onChange={(e) => {
+                      setSelectedLevel(e.target.value);
+                      if (e.target.value === 'district') setSelectedGroupId(null);
+                      else if (groups.length > 0) setSelectedGroupId(groups[0].id);
+                      setFilterSchool('');
+                    }}
+                    className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-medium bg-white"
+                  >
+                    <option value="district">ระดับเขต</option>
+                    <option value="group">ระดับกลุ่ม</option>
+                  </select>
+                  {selectedLevel === 'group' && (
+                    <select
+                      value={selectedGroupId || ''}
+                      onChange={(e) => { setSelectedGroupId(Number(e.target.value)); setFilterSchool(''); }}
+                      className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 font-medium bg-white"
+                    >
+                      {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                  )}
+                </>
+              )}
               <select
                 value={filterSchool}
                 onChange={(e) => setFilterSchool(e.target.value)}
@@ -2010,8 +2043,8 @@ const DistrictSection = ({ overview, announcements = [], schedules = [], results
         {/* District Results - ผลการแข่งขันระดับเขต */}
         <ResultsSection results={results} level="district" />
 
-        {/* District Certificates - เกียรติบัตรระดับเขต */}
-        <CertificateSection level="district" />
+        {/* District Certificates - เกียรติบัตรระดับเขต + กลุ่ม */}
+        <CertificateSection level="district" groups={groups} />
 
         {/* School Ranking - อันดับโรงเรียนระดับเขต */}
         <SchoolRankingSection

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pin, Edit, Trash2, AlertCircle, Link as LinkIcon, ExternalLink, X, ImageIcon, XCircle } from 'lucide-react';
+import { Plus, Pin, Edit, Trash2, AlertCircle, Link as LinkIcon, ExternalLink, X, ImageIcon, XCircle, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
 
@@ -9,6 +9,7 @@ const AnnouncementManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
 
   useEffect(() => {
     fetchAnnouncements();
@@ -103,35 +104,103 @@ const AnnouncementManagement = () => {
         />
       )}
 
-      {/* Announcements List */}
-      <div className="space-y-4">
-        {announcements.map((announcement) => (
-          <AnnouncementCard
-            key={announcement.id}
-            announcement={announcement}
-            userRole={userRole}
-            onEdit={(id) => {
-              setEditingId(id);
-              setShowForm(true);
-            }}
-            onDelete={handleDelete}
-            onTogglePin={handleTogglePin}
-          />
-        ))}
+      {/* Announcements List - Grouped by Category */}
+      {announcements.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-600">ยังไม่มีประกาศในระบบ</p>
+          <button
+            onClick={() => setShowForm(true)}
+            className="mt-4 text-blue-600 hover:underline"
+          >
+            สร้างประกาศแรก
+          </button>
+        </div>
+      ) : (() => {
+        // Group announcements by category
+        const grouped = {};
+        announcements.forEach((a) => {
+          const key = a.category_name || 'ทั่วไป (ไม่มีหมวดหมู่)';
+          if (!grouped[key]) grouped[key] = { items: [], categoryId: a.category_id || null };
+          grouped[key].items.push(a);
+        });
+        const categoryNames = Object.keys(grouped);
 
-        {announcements.length === 0 && (
-          <div className="text-center py-12 bg-gray-50 rounded-lg">
-            <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600">ยังไม่มีประกาศในระบบ</p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="mt-4 text-blue-600 hover:underline"
-            >
-              สร้างประกาศแรก
-            </button>
+        const toggleCategory = (name) => {
+          setExpandedCategories(prev => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name);
+            else next.add(name);
+            return next;
+          });
+        };
+
+        return (
+          <div className="space-y-4">
+            {/* Expand/Collapse All */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setExpandedCategories(new Set(categoryNames))}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <ChevronDown className="w-4 h-4" />
+                ขยายทั้งหมด
+              </button>
+              <button
+                onClick={() => setExpandedCategories(new Set())}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+                ย่อทั้งหมด
+              </button>
+            </div>
+
+            {categoryNames.map((catName) => {
+              const { items, categoryId } = grouped[catName];
+              const isExpanded = expandedCategories.has(catName);
+              const catColor = getCategoryColor(categoryId);
+
+              return (
+                <div key={catName} className="rounded-xl shadow overflow-hidden bg-white">
+                  {/* Category Header */}
+                  <button
+                    onClick={() => toggleCategory(catName)}
+                    className={`w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-all border-l-4 ${catColor ? catColor.border : 'border-gray-300'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Layers className={`w-5 h-5 ${catColor ? catColor.text : 'text-gray-600'}`} />
+                      <span className={`text-lg font-bold ${catColor ? catColor.text : 'text-gray-900'}`}>{catName}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${catColor ? catColor.bg + ' ' + catColor.text : 'bg-gray-200 text-gray-600'}`}>
+                        {items.length} รายการ
+                      </span>
+                    </div>
+                    {isExpanded ? <ChevronDown className={`w-5 h-5 ${catColor ? catColor.text : 'text-gray-500'}`} /> : <ChevronRight className={`w-5 h-5 ${catColor ? catColor.text : 'text-gray-500'}`} />}
+                  </button>
+
+                  {/* Category Items */}
+                  {isExpanded && (
+                    <div className="p-4 space-y-4 bg-gray-50">
+                      {items.map((announcement) => (
+                        <AnnouncementCard
+                          key={announcement.id}
+                          announcement={announcement}
+                          userRole={userRole}
+                          onEdit={(id) => {
+                            setEditingId(id);
+                            setShowForm(true);
+                          }}
+                          onDelete={handleDelete}
+                          onTogglePin={handleTogglePin}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )}
-      </div>
+        );
+      })()}
     </div>
   );
 };

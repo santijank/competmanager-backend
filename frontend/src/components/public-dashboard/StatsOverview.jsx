@@ -156,17 +156,33 @@ export default function StatsOverview({ data }) {
                     </motion.div>
                   </div>
 
-                  {/* Number — BIG with glow */}
+                  {/* Number — BIG with gold gradient */}
                   <div className="relative mb-2">
-                    <span className="text-5xl md:text-6xl font-extrabold text-white tracking-tight">
+                    <span
+                      className="text-5xl md:text-6xl font-extrabold tracking-wider"
+                      style={{
+                        background: 'linear-gradient(180deg, #fff8dc 0%, #ffd700 25%, #ffb700 50%, #ff8c00 75%, #b8860b 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        filter: 'drop-shadow(0 2px 4px rgba(184,134,11,0.5)) drop-shadow(0 4px 10px rgba(0,0,0,0.4))',
+                        letterSpacing: '2px',
+                      }}
+                    >
                       <AnimatedCounter value={val} />
                     </span>
                     {item.suffix && (
-                      <span className="text-3xl font-bold ml-1" style={{ color: item.accent }}>{item.suffix}</span>
+                      <span
+                        className="text-3xl font-bold ml-1"
+                        style={{
+                          background: 'linear-gradient(180deg, #ffd700 0%, #b8860b 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}
+                      >{item.suffix}</span>
                     )}
-                    {/* Number glow */}
-                    <div className="absolute -inset-4 rounded-xl opacity-0 group-hover:opacity-30 transition-opacity blur-2xl"
-                      style={{ background: item.accent }} />
+                    {/* Gold glow */}
+                    <div className="absolute -inset-4 rounded-xl opacity-20 group-hover:opacity-40 transition-opacity blur-2xl"
+                      style={{ background: 'rgba(255,215,0,0.6)' }} />
                   </div>
 
                   {/* Label */}

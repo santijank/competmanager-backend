@@ -1444,6 +1444,108 @@ class ScoreController extends Controller
     }
 
     /**
+     * สรุปเหรียญระดับเขต แยกกลุ่มสาระ × กลุ่มโรงเรียน
+     * Route: GET /scores/district-summary
+     */
+    public function districtSummary(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || !in_array($user->role, ['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // ดึงข้อมูลคะแนนที่ finalized ระดับเขต
+            $query = DB::table('scores')
+                ->join('registrations', 'scores.registration_id', '=', 'registrations.id')
+                ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+                ->join('categories', 'competitions.category_id', '=', 'categories.id')
+                ->join('schools', 'registrations.school_id', '=', 'schools.id')
+                ->join('school_groups', 'schools.school_group_id', '=', 'school_groups.id')
+                ->where('competitions.competition_level', 'district')
+                ->where('competitions.is_active', true)
+                ->where('scores.is_finalized', true)
+                ->whereNotIn('scores.medal', ['absent'])
+                ->whereNotNull('schools.school_group_id');
+
+            if ($request->filled('category_id')) {
+                $query->where('competitions.category_id', $request->category_id);
+            }
+
+            $rows = $query->select(
+                'school_groups.id as group_id',
+                'school_groups.name as group_name',
+                'categories.id as category_id',
+                'categories.name as category_name',
+                DB::raw("SUM(CASE WHEN scores.medal = 'gold' THEN 1 ELSE 0 END) as gold"),
+                DB::raw("SUM(CASE WHEN scores.medal = 'silver' THEN 1 ELSE 0 END) as silver"),
+                DB::raw("SUM(CASE WHEN scores.medal = 'bronze' THEN 1 ELSE 0 END) as bronze"),
+                DB::raw("SUM(CASE WHEN scores.medal = 'participant' THEN 1 ELSE 0 END) as participant")
+            )
+            ->groupBy('school_groups.id', 'school_groups.name', 'categories.id', 'categories.name')
+            ->orderBy('school_groups.name')
+            ->orderBy('categories.name')
+            ->get();
+
+            // จัดกลุ่มตาม school_group
+            $grouped = [];
+            foreach ($rows as $row) {
+                $gid = $row->group_id;
+                if (!isset($grouped[$gid])) {
+                    $grouped[$gid] = [
+                        'group_id' => $gid,
+                        'group_name' => $row->group_name,
+                        'total_gold' => 0,
+                        'total_silver' => 0,
+                        'total_bronze' => 0,
+                        'total_participant' => 0,
+                        'categories' => [],
+                    ];
+                }
+                $grouped[$gid]['total_gold'] += $row->gold;
+                $grouped[$gid]['total_silver'] += $row->silver;
+                $grouped[$gid]['total_bronze'] += $row->bronze;
+                $grouped[$gid]['total_participant'] += $row->participant;
+                $grouped[$gid]['categories'][] = [
+                    'category_id' => $row->category_id,
+                    'category_name' => $row->category_name,
+                    'gold' => (int)$row->gold,
+                    'silver' => (int)$row->silver,
+                    'bronze' => (int)$row->bronze,
+                    'participant' => (int)$row->participant,
+                ];
+            }
+
+            // เรียงตามเหรียญทองมากสุด
+            $result = array_values($grouped);
+            usort($result, function ($a, $b) {
+                if ($b['total_gold'] !== $a['total_gold']) return $b['total_gold'] - $a['total_gold'];
+                if ($b['total_silver'] !== $a['total_silver']) return $b['total_silver'] - $a['total_silver'];
+                return $b['total_bronze'] - $a['total_bronze'];
+            });
+
+            // ดึงรายชื่อ categories ทั้งหมดสำหรับ filter
+            $allCategories = DB::table('categories')
+                ->whereIn('id', DB::table('competitions')
+                    ->where('competition_level', 'district')
+                    ->where('is_active', true)
+                    ->pluck('category_id'))
+                ->orderBy('name')
+                ->get(['id', 'name']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+                'categories' => $allCategories,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('District summary error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Export เกียรติบัตรระดับเขต PDF
      * Route: GET /scores/district-certificates-pdf/{competitionId}
      */

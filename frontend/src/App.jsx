@@ -60,6 +60,7 @@ import ScoreManagement from '@/pages/scores/ScoreManagement';
 import ScoreEntry from '@/pages/scores/ScoreEntry';
 import GroupResults from '@/pages/scores/GroupResults';
 import DistrictResults from '@/pages/scores/DistrictResults';
+import DistrictSummary from '@/pages/scores/DistrictSummary';
 import PendingPublish from '@/pages/scores/PendingPublish';
 
 // Result Pages
@@ -223,6 +224,7 @@ function App() {
             <Route path="/scores/entry/:id" element={<ScoreEntry />} />
             <Route path="/group-results" element={<GroupResults />} />
             <Route path="/district-results" element={<DistrictResults />} />
+            <Route path="/district-summary" element={<DistrictSummary />} />
             <Route path="/pending-publish" element={<PendingPublish />} />
 
             {/* Results */}

@@ -302,6 +302,16 @@ export default function Sidebar({ isOpen, onClose }) {
       });
     }
 
+    // ===== สรุปเหรียญระดับเขต =====
+    if (hasRole(['admin', 'district_admin'])) {
+      items.push({
+        label: 'สรุปเหรียญระดับเขต',
+        icon: Trophy,
+        path: '/district-summary',
+        roles: ['admin', 'district_admin'],
+      });
+    }
+
     // ===== ตรวจสอบสถานะคะแนน =====
     if (hasRole(['admin', 'district_admin', 'group_admin', 'category_admin', 'data_entry'])) {
       items.push({

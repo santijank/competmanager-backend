@@ -87,7 +87,7 @@ const OverviewDashboard = ({ overview, announcements = [] }) => (
             <h4 className="text-xl font-bold">ประกาศระดับเขต</h4>
           </div>
           <div className="space-y-3">
-            {announcements.slice(0, 3).map((announcement) => (
+            {announcements.map((announcement) => (
               <AnnouncementCard
                 key={announcement.id}
                 announcement={announcement}
@@ -158,7 +158,7 @@ const GroupDashboard = ({ group, allAnnouncements = [] }) => {
             <h4 className="text-xl font-bold">ประกาศล่าสุด</h4>
           </div>
           <div className="space-y-3">
-            {groupAnnouncements.slice(0, 3).map((announcement) => (
+            {groupAnnouncements.map((announcement) => (
               <AnnouncementCard
                 key={announcement.id}
                 announcement={announcement}

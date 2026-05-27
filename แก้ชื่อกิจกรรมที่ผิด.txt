@@ -1,0 +1,8 @@
+-- 1. ดูข้อมูลก่อนแก้
+SELECT id, code, name, competition_level, category_id 
+FROM competitions 
+WHERE name LIKE '%พระราชนิพนธ์%'
+ORDER BY id;
+
+-- 2. พอเห็นข้อมูลแล้ว ก็แก้ชื่อตามที่ต้องการ เช่น
+UPDATE competitions SET name = 'ชื่อที่ถูกต้อง' WHERE id = ???;

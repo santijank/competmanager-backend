@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>ตัวอย่าง - แบบลงทะเบียนนักเรียน</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap');
+
+        * {
+            font-family: 'Sarabun', 'THSarabunNew', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Sarabun', 'THSarabunNew', sans-serif;
+            font-size: 14pt;
+            line-height: 1.2;
+            max-width: 210mm;
+            margin: 20px auto;
+            padding: 12mm 10mm 15mm 10mm;
+            background: #f5f5f5;
+        }
+
+        .paper {
+            background: white;
+            padding: 15mm;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* ===== HEADER SECTION ===== */
+        .header-container {
+            width: 100%;
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .header-table {
+            width: 100%;
+            border: none;
+            border-collapse: collapse;
+        }
+
+        .header-table td {
+            border: none;
+            vertical-align: top;
+            padding: 0;
+        }
+
+        .logo-cell {
+            width: 80px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .logo-img {
+            width: 70px;
+            height: auto;
+        }
+
+        .logo-placeholder {
+            width: 70px;
+            height: 70px;
+            border: 2px dashed #228B22;
+            text-align: center;
+            line-height: 70px;
+            font-size: 10pt;
+            color: #228B22;
+            border-radius: 5px;
+        }
+
+        .info-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .page-cell {
+            width: 80px;
+            text-align: right;
+            vertical-align: top;
+        }
+
+        .group-name {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #006400;
+            margin-bottom: 3px;
+        }
+
+        .header-banner {
+            background-color: #228B22;
+            color: white;
+            padding: 8px 20px;
+            font-size: 13pt;
+            margin: 5px 0;
+        }
+
+        .date-info {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #006400;
+            background-color: #FFFACD;
+            padding: 5px 15px;
+            display: inline-block;
+            margin: 5px 0;
+            border: 1px solid #FFD700;
+        }
+
+        .page-number {
+            font-size: 12pt;
+            color: #333;
+        }
+
+        /* ===== DOCUMENT BADGE ===== */
+        .doc-badge-container {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+
+        .doc-badge {
+            display: inline-block;
+            border: 2px solid #006400;
+            padding: 6px 18px;
+            font-size: 12pt;
+            color: #006400;
+            background-color: #F0FFF0;
+        }
+
+        /* ===== ACTIVITY LINE ===== */
+        .activity-container {
+            margin-bottom: 12px;
+        }
+
+        .activity-table {
+            width: 100%;
+            border: none;
+            border-collapse: collapse;
+        }
+
+        .activity-table td {
+            border: none;
+            padding: 0;
+            vertical-align: bottom;
+        }
+
+        .activity-name {
+            font-size: 14pt;
+            font-weight: bold;
+        }
+
+        .activity-code {
+            font-size: 14pt;
+            text-align: right;
+            font-weight: bold;
+            color: #006400;
+        }
+
+        /* ===== TABLE STYLES ===== */
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+        }
+
+        table.data-table th,
+        table.data-table td {
+            border: 1px solid #000;
+            padding: 8px 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        table.data-table th {
+            font-size: 14pt;
+            font-weight: bold;
+            background-color: #228B22;
+            color: white;
+        }
+
+        table.data-table td {
+            font-size: 14pt;
+        }
+
+        .col-no {
+            width: 6%;
+        }
+
+        .col-school {
+            width: 24%;
+            text-align: left;
+            padding-left: 8px !important;
+        }
+
+        .col-student {
+            width: 45%;
+            text-align: left;
+            padding-left: 8px !important;
+        }
+
+        .col-signature {
+            width: 25%;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            margin-top: 20px;
+            font-size: 14pt;
+        }
+
+        .footer-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .signature-line {
+            margin: 8px 0;
+        }
+
+        .note {
+            margin-top: 10px;
+            font-size: 12pt;
+            color: #666;
+        }
+
+        /* ===== PAGE FOOTER ===== */
+        .page-footer {
+            margin-top: 30px;
+            font-size: 9pt;
+            color: #999;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Preview badge */
+        .preview-badge {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #ff6600;
+            color: white;
+            padding: 10px 20px;
+            font-size: 12pt;
+            font-weight: bold;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-badge">PREVIEW - ตัวอย่าง</div>
+
+    <div class="paper">
+        <!-- HEADER SECTION -->
+        <div class="header-container">
+            <table class="header-table">
+                <tr>
+                    <td class="logo-cell">
+                        <div class="logo-placeholder">LOGO</div>
+                    </td>
+                    <td class="info-cell">
+                        <div class="group-name">กลุ่มกำแพงแสน 3</div>
+                        <div class="header-banner">
+                            ณ โรงเรียนวัดนิยมธรรมวราราม อาคารเรียนประถม ชั้น 1 (ห้องการงาน)
+                        </div>
+                        <div class="date-info">ระหว่าง วันที่ 26 เดือนพฤศจิกายน พ.ศ.2567 ถึง 26 เดือนพฤศจิกายน พ.ศ.2567</div>
+                    </td>
+                    <td class="page-cell">
+                        <div class="page-number">หน้าที่ 1/1</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- DOCUMENT BADGE -->
+        <div class="doc-badge-container">
+            <span class="doc-badge">เอกสารลงทะเบียนผู้เข้าแข่งขัน (DC.01)</span>
+        </div>
+
+        <!-- ACTIVITY LINE -->
+        <div class="activity-container">
+            <table class="activity-table">
+                <tr>
+                    <td class="activity-name">
+                        กิจกรรม :การแข่งขันทำน้ำพริก ผักสด เครื่องเคียง ป.4-ป.6
+                    </td>
+                    <td class="activity-code">
+                        รหัสกิจกรรม : 0734
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- DATA TABLE -->
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="col-no">ลำดับ</th>
+                    <th class="col-school">สถานศึกษา</th>
+                    <th class="col-student">ผู้เข้าแข่งขัน</th>
+                    <th class="col-signature">ลงชื่อตัวบรรจง</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- School 1: บ้านหนองกร่าง -->
+                <tr>
+                    <td class="col-no" rowspan="3">1</td>
+                    <td class="col-school" rowspan="3">บ้านหนองกร่าง</td>
+                    <td class="col-student">1. เด็กหญิงปันดา -</td>
+                    <td class="col-signature">1.</td>
+                </tr>
+                <tr>
+                    <td class="col-student">2. เด็กหญิงอภิสรา เหลี่ยมครุฑ</td>
+                    <td class="col-signature">2.</td>
+                </tr>
+                <tr>
+                    <td class="col-student">3. เด็กหญิงกัลยกร เทพรักษ์</td>
+                    <td class="col-signature">3.</td>
+                </tr>
+
+                <!-- School 2: บ้านหนองเขมร -->
+                <tr>
+                    <td class="col-no" rowspan="3">2</td>
+                    <td class="col-school" rowspan="3">บ้านหนองเขมร</td>
+                    <td class="col-student">1. เด็กหญิงธัญญาพร ติยาว์</td>
+                    <td class="col-signature">1.</td>
+                </tr>
+                <tr>
+                    <td class="col-student">2. เด็กหญิงเสาวร หรั่งฤทธิ์</td>
+                    <td class="col-signature">2.</td>
+                </tr>
+                <tr>
+                    <td class="col-student">3. เด็กหญิงอรุณศรี แสนสุข</td>
+                    <td class="col-signature">3.</td>
+                </tr>
+
+                <!-- School 3: วัดศาลาศิทธิชัยวิศาล -->
+                <tr>
+                    <td class="col-no" rowspan="3">3</td>
+                    <td class="col-school" rowspan="3">วัดศาลาศิทธิชัยวิศาล</td>
+                    <td class="col-student">1. เด็กหญิงณิชารีย์ ชาวนาฝ้าย</td>
+                    <td class="col-signature">1.</td>
+                </tr>
+                <tr>
+                    <td class="col-student">2. เด็กหญิงปานวาด บุตรงาม</td>
+                    <td class="col-signature">2.</td>
+                </tr>
+                <tr>
+                    <td class="col-student">3. เด็กหญิงศรุตา อุ่นเรือน</td>
+                    <td class="col-signature">3.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- FOOTER SIGNATURE SECTION -->
+        <div class="footer">
+            <div class="footer-title">รับรองข้อมูล</div>
+            <div class="signature-line">ลงชื่อ ………………………………………………</div>
+            <div class="signature-line">(                                )</div>
+            <div class="signature-line">เบอร์โทร ………………………………………</div>
+            <div class="note">หมายเหตุ ปรับใช้ได้ตามความเหมาะสม</div>
+        </div>
+
+        <!-- PAGE FOOTER -->
+        <div class="page-footer">
+            <span>DC.01 - การแข่งขันทำน้ำพริก ผักสด เครื่องเคียง ป.4-ป.6</span>
+            <span>0734</span>
+        </div>
+    </div>
+</body>
+</html>

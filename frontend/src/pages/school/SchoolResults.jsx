@@ -4,6 +4,7 @@ import {
   Search,
   RefreshCw,
   FileDown,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '@/lib/api';
@@ -16,6 +17,7 @@ const SchoolResults = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({ totalComps: 0, gold: 0, silver: 0, bronze: 0 });
   const [exportingAll, setExportingAll] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [activeTab, setActiveTab] = useState('group'); // 'group' | 'district'
 
   useEffect(() => {
@@ -113,6 +115,52 @@ const SchoolResults = () => {
     }
   };
 
+  /**
+   * ดาวน์โหลด Excel รวมทุกกิจกรรมของโรงเรียน (ตาม tab ที่เลือก)
+   */
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true);
+      const response = await api.get('/scores/export/my-school-excel', {
+        params: { level: activeTab },
+        responseType: 'blob',
+        timeout: 300000,
+      });
+
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        throw new Error(json.message || 'เกิดข้อผิดพลาด');
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const tabLabel = activeTab === 'district' ? 'ระดับเขต' : 'ระดับกลุ่ม';
+      link.setAttribute('download', `ผลคะแนนรวม_${tabLabel}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('ดาวน์โหลด Excel สำเร็จ');
+    } catch (error) {
+      console.error('Export Excel error:', error);
+      let message = 'ไม่สามารถดาวน์โหลดได้';
+      if (error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const json = JSON.parse(text);
+          message = json.message || message;
+        } catch (e) { /* ignore */ }
+      } else if (error.message) {
+        message = error.message;
+      }
+      toast.error(message);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   // สร้างรายการแบน (flat list) — แต่ละ item = 1 กิจกรรม + ผลของโรงเรียน
   const schoolId = user?.school_id;
   const flatList = [];
@@ -206,7 +254,15 @@ const SchoolResults = () => {
                 className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileDown className={`w-4 h-4 ${exportingAll ? 'animate-bounce' : ''}`} />
-                <span>{exportingAll ? 'กำลังสร้าง PDF...' : 'ดาวน์โหลด PDF'}</span>
+                <span>{exportingAll ? 'กำลังสร้าง...' : 'PDF'}</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                disabled={exportingExcel || flatList.length === 0}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileSpreadsheet className={`w-4 h-4 ${exportingExcel ? 'animate-bounce' : ''}`} />
+                <span>{exportingExcel ? 'กำลังสร้าง...' : 'Excel'}</span>
               </button>
               <button
                 onClick={fetchResults}

@@ -1,0 +1,3 @@
+{
+    "message": "The POST method is not supported for route api/competitions/auto-link-parent. Supported methods: GET, HEAD, PUT, PATCH, DELETE."
+}
