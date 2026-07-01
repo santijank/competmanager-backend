@@ -1444,6 +1444,117 @@ class ScoreController extends Controller
     }
 
     /**
+     * Export ผลการแข่งขันทั้งหมดเป็น JSON สำหรับ archive
+     * Route: GET /scores/archive-export
+     */
+    public function archiveExport(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            if (!$user || !in_array($user->role, ['admin', 'district_admin'])) {
+                return response()->json(['success' => false, 'message' => 'ไม่มีสิทธิ์เข้าถึง'], 403);
+            }
+
+            // ดึง scores ที่ finalized ทั้งหมด
+            $scores = Score::where('is_finalized', true)
+                ->with(['registration.school.schoolGroup', 'competition.category', 'competition.schoolGroup'])
+                ->get();
+
+            // จัดกลุ่มตาม competition
+            $byComp = $scores->groupBy('competition_id');
+
+            $competitions = Competition::whereIn('id', $byComp->keys())
+                ->with(['category', 'schoolGroup'])
+                ->where('is_active', true)
+                ->get()
+                ->keyBy('id');
+
+            $districtResults = [];
+            $groupResults = [];
+
+            foreach ($byComp as $compId => $compScores) {
+                $comp = $competitions->get($compId);
+                if (!$comp) continue;
+
+                $teams = $compScores->sortBy('rank')->values()->map(function ($score) {
+                    $reg = $score->registration;
+                    return [
+                        'rank'          => $score->rank,
+                        'medal'         => $score->medal,
+                        'score'         => number_format($score->score, 2),
+                        'school_name'   => $reg->school->name ?? '-',
+                        'school_group'  => $reg->school->schoolGroup->name ?? '-',
+                        'student_names' => $reg->student_names ?? [],
+                        'teacher_names' => $reg->teacher_names ?? [],
+                        'student_count' => $reg->student_count,
+                        'team_name'     => $reg->team_name,
+                    ];
+                })->values()->toArray();
+
+                $entry = [
+                    'id'           => $comp->id,
+                    'code'         => $comp->code,
+                    'name'         => $comp->name,
+                    'category'     => $comp->category->name ?? '-',
+                    'school_group' => $comp->schoolGroup->name ?? '-',
+                    'level'        => $comp->competition_level,
+                    'teams'        => $teams,
+                    'gold'         => $compScores->where('medal', 'gold')->count(),
+                    'silver'       => $compScores->where('medal', 'silver')->count(),
+                    'bronze'       => $compScores->where('medal', 'bronze')->count(),
+                    'participant'  => $compScores->where('medal', 'participant')->count(),
+                ];
+
+                if ($comp->competition_level === 'district') {
+                    $districtResults[] = $entry;
+                } else {
+                    $groupResults[] = $entry;
+                }
+            }
+
+            // สรุปเหรียญต่อกลุ่มโรงเรียน
+            $medalsByGroup = DB::table('scores')
+                ->join('registrations', 'scores.registration_id', '=', 'registrations.id')
+                ->join('competitions', 'registrations.competition_id', '=', 'competitions.id')
+                ->join('schools', 'registrations.school_id', '=', 'schools.id')
+                ->join('school_groups', 'schools.school_group_id', '=', 'school_groups.id')
+                ->where('scores.is_finalized', true)
+                ->where('competitions.competition_level', 'district')
+                ->whereNotIn('scores.medal', ['absent'])
+                ->whereNotNull('schools.school_group_id')
+                ->select(
+                    'school_groups.name as group_name',
+                    DB::raw("SUM(CASE WHEN scores.medal='gold' THEN 1 ELSE 0 END) as gold"),
+                    DB::raw("SUM(CASE WHEN scores.medal='silver' THEN 1 ELSE 0 END) as silver"),
+                    DB::raw("SUM(CASE WHEN scores.medal='bronze' THEN 1 ELSE 0 END) as bronze"),
+                    DB::raw("SUM(CASE WHEN scores.medal='participant' THEN 1 ELSE 0 END) as participant")
+                )
+                ->groupBy('school_groups.name')
+                ->orderByDesc('gold')->orderByDesc('silver')->orderByDesc('bronze')
+                ->get();
+
+            $payload = [
+                'exported_at'     => now()->toIso8601String(),
+                'academic_year'   => 2568,
+                'district_results' => $districtResults,
+                'group_results'   => $groupResults,
+                'medals_by_group' => $medalsByGroup,
+                'stats' => [
+                    'total_district_competitions' => count($districtResults),
+                    'total_group_competitions'    => count($groupResults),
+                    'total_scores'                => $scores->count(),
+                ],
+            ];
+
+            return response()->json($payload);
+
+        } catch (\Exception $e) {
+            Log::error('Archive export error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * สรุปเหรียญระดับเขต แยกกลุ่มสาระ × กลุ่มโรงเรียน
      * Route: GET /scores/district-summary
      */

@@ -62,6 +62,7 @@ import GroupResults from '@/pages/scores/GroupResults';
 import DistrictResults from '@/pages/scores/DistrictResults';
 import DistrictSummary from '@/pages/scores/DistrictSummary';
 import PendingPublish from '@/pages/scores/PendingPublish';
+import ArchiveResults from '@/pages/archive/ArchiveResults';
 
 // Result Pages
 import ResultList from '@/pages/results/ResultList';
@@ -226,6 +227,7 @@ function App() {
             <Route path="/district-results" element={<DistrictResults />} />
             <Route path="/district-summary" element={<DistrictSummary />} />
             <Route path="/pending-publish" element={<PendingPublish />} />
+            <Route path="/archive-2568" element={<ArchiveResults />} />
 
             {/* Results */}
             <Route path="/results" element={<ResultList />} />

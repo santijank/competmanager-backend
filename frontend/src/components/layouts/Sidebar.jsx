@@ -27,6 +27,7 @@ import {
   FileWarning,
   AlertCircle,
   Shield,
+  Archive,
 } from 'lucide-react';
 import useAuthStore from '@/stores/authStore';
 import { useEffect } from 'react';
@@ -308,6 +309,16 @@ export default function Sidebar({ isOpen, onClose }) {
         label: 'สรุปเหรียญระดับเขต',
         icon: Trophy,
         path: '/district-summary',
+        roles: ['admin', 'district_admin'],
+      });
+    }
+
+    // ===== ผลการแข่งขัน Archive ปี 2568 =====
+    if (hasRole(['admin', 'district_admin'])) {
+      items.push({
+        label: 'ผลการแข่งขัน ปี 2568',
+        icon: Archive,
+        path: '/archive-2568',
         roles: ['admin', 'district_admin'],
       });
     }

@@ -317,6 +317,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/group-certificates-pdf/{competitionId}', [\App\Http\Controllers\Api\ScoreController::class, 'exportGroupCertificatesPdf']);
         Route::get('/district-results', [\App\Http\Controllers\Api\ScoreController::class, 'getDistrictLevelResults']);
         Route::get('/district-summary', [\App\Http\Controllers\Api\ScoreController::class, 'districtSummary']);
+        Route::get('/archive-export', [\App\Http\Controllers\Api\ScoreController::class, 'archiveExport']);
         Route::get('/district-certificates-pdf/{competitionId}', [\App\Http\Controllers\Api\ScoreController::class, 'exportDistrictCertificatesPdf']);
         Route::get('/pending-publish', [\App\Http\Controllers\Api\ScoreController::class, 'getPendingPublishCompetitions']);
     });
