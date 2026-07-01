@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Trophy, Search, ChevronDown, ChevronRight, Users, Medal } from 'lucide-react';
+import { Trophy, Search, ChevronDown, ChevronRight, Download, Loader } from 'lucide-react';
+import { toast } from 'react-toastify';
+import api from '@/lib/api';
+import useAuthStore from '@/stores/authStore';
 
 const medalLabel = { gold: 'เหรียญทอง', silver: 'เหรียญเงิน', bronze: 'เหรียญทองแดง', participant: 'เข้าร่วม' };
 const medalColor = {
@@ -10,14 +13,37 @@ const medalColor = {
 };
 
 export default function ArchiveResults() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin' || user?.role === 'district_admin';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState('medals');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
   const [expandedComps, setExpandedComps] = useState(new Set());
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await api.get('/scores/archive-export');
+      const json = JSON.stringify(res.data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'results-2568.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('ดาวน์โหลด results-2568.json เรียบร้อยแล้ว');
+    } catch {
+      toast.error('ไม่สามารถ export ได้');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/archive/results-2568.json')
@@ -67,9 +93,21 @@ export default function ArchiveResults() {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white py-8 px-6">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <Trophy className="w-8 h-8 text-yellow-300" />
-            <h1 className="text-2xl font-bold">ผลการแข่งขันศิลปหัตถกรรมนักเรียน</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-8 h-8 text-yellow-300" />
+              <h1 className="text-2xl font-bold">ผลการแข่งขันศิลปหัตถกรรมนักเรียน</h1>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+              >
+                {exporting ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                Export JSON
+              </button>
+            )}
           </div>
           <p className="text-blue-200 text-lg">ปีการศึกษา 2568 — ระดับเขตพื้นที่การศึกษาประถมศึกษานครปฐม เขต 1</p>
           <div className="flex gap-6 mt-4 text-sm text-blue-100">
