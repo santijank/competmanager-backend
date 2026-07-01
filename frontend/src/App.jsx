@@ -127,8 +127,9 @@ function App() {
         {/* ============================================ */}
 
         {/* Public Dashboard เป็นหน้าแรก - ใช้ PublicDashboardLayout */}
+        <Route path="/" element={<Navigate to="/archive-2568" replace />} />
+
         <Route element={<PublicDashboardLayout />}>
-          <Route path="/" element={<PublicDashboard />} />
           <Route path="/public-dashboard" element={<PublicDashboard />} />
           <Route path="/public-district" element={<PublicDistrictRegistrations />} />
           <Route path="/public-committee" element={<PublicDistrictCommittee />} />
@@ -146,6 +147,7 @@ function App() {
         {/* 📢 Public Results (ไม่ต้อง Login) */}
         <Route path="/public-results" element={<PublicResults />} />
         <Route path="/public-results/:id" element={<PublicResults />} />
+        <Route path="/archive-2568" element={<ArchiveResults />} />
 
         {/* 🔍 Certificate Verification (ไม่ต้อง Login) */}
         <Route path="/verify" element={<VerifyCertificate />} />
@@ -227,7 +229,6 @@ function App() {
             <Route path="/district-results" element={<DistrictResults />} />
             <Route path="/district-summary" element={<DistrictSummary />} />
             <Route path="/pending-publish" element={<PendingPublish />} />
-            <Route path="/archive-2568" element={<ArchiveResults />} />
 
             {/* Results */}
             <Route path="/results" element={<ResultList />} />

@@ -23,6 +23,8 @@ export default function ArchiveResults() {
   const [filterCategory, setFilterCategory] = useState('');
   const [filterGroup, setFilterGroup] = useState('');
   const [filterMedal, setFilterMedal] = useState('');
+  const [filterGroupTab, setFilterGroupTab] = useState('');
+  const [searchGroup, setSearchGroup] = useState('');
   const [expandedComps, setExpandedComps] = useState(new Set());
 
   const handleExport = async () => {
@@ -62,6 +64,23 @@ export default function ArchiveResults() {
     if (!data) return [];
     return [...new Set((data.district_results || []).map(c => c.school_group))].filter(Boolean).sort();
   }, [data]);
+
+  const groupSchoolGroups = useMemo(() => {
+    if (!data) return [];
+    return [...new Set((data.group_results || []).map(c => c.school_group))].filter(Boolean).sort();
+  }, [data]);
+
+  const filteredGroup = useMemo(() => {
+    if (!data) return [];
+    return (data.group_results || []).filter(comp => {
+      if (filterGroupTab && comp.school_group !== filterGroupTab) return false;
+      if (searchGroup) {
+        const q = searchGroup.toLowerCase();
+        if (!comp.name.toLowerCase().includes(q) && !(comp.category || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [data, filterGroupTab, searchGroup]);
 
   const filteredDistrict = useMemo(() => {
     if (!data) return [];
@@ -124,6 +143,7 @@ export default function ArchiveResults() {
           {[
             { key: 'medals', label: '🏅 ตารางเหรียญ' },
             { key: 'district', label: '🏆 ผลระดับเขต' },
+            { key: 'group', label: '🏫 ผลระดับกลุ่ม' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -243,6 +263,89 @@ export default function ArchiveResults() {
                           </thead>
                           <tbody>
                             {teams.map((team, i) => (
+                              <tr key={i} className="border-t hover:bg-gray-50">
+                                <td className="px-5 py-2.5 text-gray-500 font-medium">{team.rank || '-'}</td>
+                                <td className="px-5 py-2.5">
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${medalColor[team.medal] || ''}`}>
+                                    {medalLabel[team.medal] || team.medal}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-2.5 text-gray-700">{team.school_name}</td>
+                                <td className="px-5 py-2.5 text-gray-700">
+                                  {Array.isArray(team.student_names) ? team.student_names.join(', ') : team.student_names || '-'}
+                                </td>
+                                <td className="px-5 py-2.5 text-gray-500 text-xs">
+                                  {Array.isArray(team.teacher_names) ? team.teacher_names.join(', ') : team.teacher_names || '-'}
+                                </td>
+                                <td className="px-5 py-2.5 text-center font-semibold text-gray-700">{team.score}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {/* ผลระดับกลุ่ม */}
+        {activeTab === 'group' && (
+          <>
+            <div className="flex flex-wrap gap-3 mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text" placeholder="ค้นหากิจกรรม..."
+                  value={searchGroup} onChange={e => setSearchGroup(e.target.value)}
+                  className="pl-9 pr-4 py-2 text-sm border rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+              <select value={filterGroupTab} onChange={e => setFilterGroupTab(e.target.value)}
+                className="px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300">
+                <option value="">ทุกกลุ่มโรงเรียน</option>
+                {groupSchoolGroups.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <span className="self-center text-sm text-gray-500">{filteredGroup.length} กิจกรรม</span>
+            </div>
+
+            <div className="space-y-2">
+              {filteredGroup.map(comp => {
+                const isOpen = expandedComps.has('g-' + comp.id);
+                return (
+                  <div key={comp.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                    <button
+                      onClick={() => toggleComp('g-' + comp.id)}
+                      className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 text-left"
+                    >
+                      {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 truncate">{comp.name}</p>
+                        <p className="text-xs text-gray-400">{comp.school_group} · {comp.category}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        {comp.gold > 0 && <span className={`text-xs px-2 py-0.5 rounded-full ${medalColor.gold}`}>ทอง {comp.gold}</span>}
+                        {comp.silver > 0 && <span className={`text-xs px-2 py-0.5 rounded-full ${medalColor.silver}`}>เงิน {comp.silver}</span>}
+                        {comp.bronze > 0 && <span className={`text-xs px-2 py-0.5 rounded-full ${medalColor.bronze}`}>ทองแดง {comp.bronze}</span>}
+                        {comp.participant > 0 && <span className={`text-xs px-2 py-0.5 rounded-full ${medalColor.participant}`}>เข้าร่วม {comp.participant}</span>}
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="border-t">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-xs text-gray-500">
+                              <th className="text-left px-5 py-2">อันดับ</th>
+                              <th className="text-left px-5 py-2">เหรียญ</th>
+                              <th className="text-left px-5 py-2">โรงเรียน</th>
+                              <th className="text-left px-5 py-2">ชื่อ-สกุล</th>
+                              <th className="text-left px-5 py-2">ครูผู้ฝึกสอน</th>
+                              <th className="text-center px-5 py-2">คะแนน</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(comp.teams || []).map((team, i) => (
                               <tr key={i} className="border-t hover:bg-gray-50">
                                 <td className="px-5 py-2.5 text-gray-500 font-medium">{team.rank || '-'}</td>
                                 <td className="px-5 py-2.5">
